@@ -31,6 +31,7 @@ import ModificationDetails from '@/pages/ModificationDetails';
 import NewsletterPopup from '@/components/layout/NewsletterPopup';
 import TermsManagement from '@/components/admin/TermsManagement';
 import UsersManagement from '@/components/admin/UsersManagement';
+import ApiTest from '@/pages/ApiTest';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -59,6 +60,7 @@ const AppContent = () => {
           <Route path="/fiche/:slug" element={<Fiche />} />
           <Route path="/authors" element={<Authors />} />
           <Route path="/author/:authorId" element={<AuthorProfile />} />
+          <Route path="/api-test" element={<ApiTest />} />
           
           <Route 
             path="/dashboard" 

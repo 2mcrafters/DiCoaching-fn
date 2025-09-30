@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import authService from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -13,74 +14,88 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('coaching_dict_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    const initializeAuth = async () => {
+      setLoading(true);
+      setError(null);
+      
+      if (authService.isAuthenticated()) {
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          
+          // Vérifier que le token est toujours valide
+          const profileResult = await authService.getProfile();
+          if (profileResult.success) {
+            setUser(profileResult.data);
+          } else {
+            // Token invalide, déconnexion
+            authService.logout();
+            setUser(null);
+          }
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email, password, rememberMe = false) => {
-    const users = JSON.parse(localStorage.getItem('coaching_dict_users') || '[]');
-    const foundUser = users.find(u => u.email === email && u.password === password);
+    setLoading(true);
+    setError(null);
     
-    if (foundUser) {
-      const userSession = {
-        id: foundUser.id,
-        name: foundUser.name,
-        email: foundUser.email,
-        role: foundUser.role,
-        status: foundUser.status,
-      };
+    try {
+      const result = await authService.login(email, password);
       
-      setUser(userSession);
-      if (rememberMe) {
-        localStorage.setItem('coaching_dict_user', JSON.stringify(userSession));
+      if (result.success) {
+        setUser(result.data.user);
+        return { success: true };
+      } else {
+        setError(result.error);
+        return { success: false, error: result.error };
       }
-      return { success: true };
+    } catch (error) {
+      setError('Erreur de connexion');
+      return { success: false, error: 'Erreur de connexion' };
+    } finally {
+      setLoading(false);
     }
-    
-    return { success: false, error: 'Email ou mot de passe incorrect' };
   };
 
   const register = async (userData) => {
-    const users = JSON.parse(localStorage.getItem('coaching_dict_users') || '[]');
+    setLoading(true);
+    setError(null);
     
-    if (users.find(u => u.email === userData.email)) {
-      return { success: false, error: 'Cet email est déjà utilisé' };
+    try {
+      const result = await authService.register(userData);
+      
+      if (result.success) {
+        setUser(result.data.user);
+        return { success: true };
+      } else {
+        setError(result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      setError('Erreur d\'inscription');
+      return { success: false, error: 'Erreur d\'inscription' };
+    } finally {
+      setLoading(false);
     }
-
-    const newUser = {
-      id: Date.now().toString(),
-      ...userData,
-      role: userData.role || 'chercheur',
-      status: userData.role === 'auteur' ? 'pending' : 'active',
-      createdAt: new Date().toISOString()
-    };
-
-    users.push(newUser);
-    localStorage.setItem('coaching_dict_users', JSON.stringify(users));
-
-    if (newUser.status === 'active') {
-      const userSession = {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        status: newUser.status,
-      };
-      setUser(userSession);
-      localStorage.setItem('coaching_dict_user', JSON.stringify(userSession));
-    }
-    
-    return { success: true, user: newUser };
   };
 
   const logout = () => {
+    authService.logout();
     setUser(null);
-    localStorage.removeItem('coaching_dict_user');
+    setError(null);
+  };
+
+  const isAuthenticated = () => {
+    return !!user;
   };
 
   const value = {
@@ -88,7 +103,10 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    loading
+    isAuthenticated,
+    loading,
+    error,
+    setError
   };
 
   return (

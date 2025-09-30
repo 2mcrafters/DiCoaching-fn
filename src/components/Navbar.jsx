@@ -71,6 +71,14 @@ const Navbar = () => {
                 Nos Auteurs
               </Button>
             </Link>
+            <Link to="/api-test">
+              <Button 
+                variant={isActive('/api-test') ? 'secondary' : 'ghost'}
+                size="sm"
+              >
+                🔧 API Test
+              </Button>
+            </Link>
             {user && (user.role === 'auteur' || user.role === 'admin') && (
               <Link to="/submit">
                 <Button 
@@ -261,6 +269,15 @@ const Navbar = () => {
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Nos Auteurs
+                </Button>
+              </Link>
+              <Link to="/api-test" className="block">
+                <Button 
+                  variant={isActive('/api-test') ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  🔧 API Test
                 </Button>
               </Link>
 

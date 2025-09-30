@@ -6,6 +6,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Backend specific
+backend/node_modules/
+backend/.env
+backend/uploads/
+backend/logs/
+
 # Production builds
 dist/
 build/
