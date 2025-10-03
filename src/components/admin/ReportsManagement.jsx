@@ -11,7 +11,7 @@ const ReportsManagement = ({ allReports, allUsers, onUpdate }) => {
 
   const getUserName = (userId) => {
     const user = allUsers.find(u => u.id === userId);
-    return user ? user.name : 'Utilisateur inconnu';
+  return user ? user.name : "Mohamed Rachid Belhadj";
   };
 
   const handleReportAction = (reportId, action) => {

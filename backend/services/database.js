@@ -8,30 +8,65 @@ class DatabaseService {
 
   async connect() {
     try {
-      const dbConfig = {
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'dict',
-        port: parseInt(process.env.DB_PORT) || 3306,
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0,
-        charset: 'utf8mb4',
-        timezone: '+00:00'
-      };
+      const host = process.env.DB_HOST || 'localhost';
+      const user = process.env.DB_USER || 'root';
+      const password = process.env.DB_PASSWORD || '';
+      const database = process.env.DB_NAME || 'dict';
 
-      this.pool = mysql.createPool(dbConfig);
-      
-      // Test de connexion
-      const connection = await this.pool.getConnection();
-      console.log('✅ Connexion à la base de données MySQL réussie');
-      connection.release();
-      
-      this.isConnected = true;
-      return true;
+      // Try the configured port first, then common defaults 3306 and 3307
+      const configuredPort = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : null;
+      const portsToTry = [];
+      if (configuredPort) portsToTry.push(configuredPort);
+      [3306, 3307].forEach(p => { if (!portsToTry.includes(p)) portsToTry.push(p); });
+
+      let lastError = null;
+      for (const port of portsToTry) {
+        try {
+          const dbConfig = {
+            host,
+            user,
+            password,
+            database,
+            port,
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0,
+            charset: "utf8mb4",
+            timezone: "+00:00",
+          };
+
+          this.pool = mysql.createPool(dbConfig);
+          // Test de connexion
+          const connection = await this.pool.getConnection();
+          console.log(
+            `✅ Connexion à la base de données MySQL réussie (port ${port})`
+          );
+          connection.release();
+          this.isConnected = true;
+          // Update env so other modules/logs reflect successful port
+          process.env.DB_PORT = String(port);
+          return true;
+        } catch (err) {
+          lastError = err;
+          console.error(
+            `⚠️ Tentative de connexion sur le port ${port} a échoué:`,
+            err.message
+          );
+          try {
+            if (this.pool) await this.pool.end();
+          } catch (e) {}
+          this.pool = null;
+        }
+      }
+
+      console.error(
+        "❌ Erreur de connexion à la base de données après avoir essayé plusieurs ports:",
+        lastError && lastError.message
+      );
+      this.isConnected = false;
+      return false;
     } catch (error) {
-      console.error('❌ Erreur de connexion à la base de données:', error.message);
+      console.error('❌ Erreur inattendue lors de la tentative de connexion à la base de données:', error.message);
       this.isConnected = false;
       return false;
     }
@@ -46,8 +81,12 @@ class DatabaseService {
   }
 
   async query(sql, params = []) {
+    // Auto-connect if needed (helps when server starts before DB or port was corrected at runtime)
     if (!this.isConnected) {
-      throw new Error('Base de données non connectée');
+      const ok = await this.connect();
+      if (!ok) {
+        throw new Error('Base de données non connectée');
+      }
     }
 
     try {

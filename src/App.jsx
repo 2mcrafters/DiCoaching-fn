@@ -32,6 +32,7 @@ import NewsletterPopup from '@/components/layout/NewsletterPopup';
 import TermsManagement from '@/components/admin/TermsManagement';
 import UsersManagement from '@/components/admin/UsersManagement';
 import ApiTest from '@/pages/ApiTest';
+import Introduction from "@/pages/Introduction";
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -39,10 +40,10 @@ const AppContent = () => {
 
   useEffect(() => {
     if (!loading && !user) {
-      const newsletterShown = sessionStorage.getItem('newsletterShown');
+      const newsletterShown = sessionStorage.getItem("newsletterShown");
       if (!newsletterShown) {
         setIsNewsletterOpen(true);
-        sessionStorage.setItem('newsletterShown', 'true');
+        sessionStorage.setItem("newsletterShown", "true");
       }
     }
   }, [user, loading]);
@@ -55,127 +56,134 @@ const AppContent = () => {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/registration-complete" element={<RegistrationComplete />} />
+          <Route
+            path="/registration-complete"
+            element={<RegistrationComplete />}
+          />
           <Route path="/search" element={<Search />} />
           <Route path="/fiche/:slug" element={<Fiche />} />
           <Route path="/authors" element={<Authors />} />
           <Route path="/author/:authorId" element={<AuthorProfile />} />
           <Route path="/api-test" element={<ApiTest />} />
-          
-          <Route 
-            path="/dashboard" 
+          <Route path="/introduction" element={<Introduction />} />
+
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               <ProtectedRoute>
                 <MyProfile />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/settings" 
+          <Route
+            path="/settings"
             element={
               <ProtectedRoute>
                 <Settings />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/submit" 
+          <Route
+            path="/submit"
             element={
-              <ProtectedRoute roles={['admin', 'auteur']}>
+              <ProtectedRoute roles={["admin", "auteur"]}>
                 <Submit />
               </ProtectedRoute>
-            } 
+            }
           />
-           <Route 
-            path="/edit/:slug" 
+          <Route
+            path="/edit/:slug"
             element={
               <ProtectedRoute>
                 <EditTerm />
               </ProtectedRoute>
-            } 
+            }
           />
-           <Route 
-            path="/propose-modification/:slug" 
+          <Route
+            path="/propose-modification/:slug"
             element={
               <ProtectedRoute>
                 <ProposeModification />
               </ProtectedRoute>
-            } 
+            }
           />
-           <Route 
-            path="/modifications" 
+          <Route
+            path="/modifications"
             element={
               <ProtectedRoute>
                 <Modifications />
               </ProtectedRoute>
-            } 
+            }
           />
-           <Route 
-            path="/modifications/:id" 
+          <Route
+            path="/modifications/:id"
             element={
               <ProtectedRoute>
                 <ModificationDetails />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/admin" 
+          <Route
+            path="/admin"
             element={
               <ProtectedRoute requireAdmin>
                 <Admin />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/admin/terms" 
+          <Route
+            path="/admin/terms"
             element={
               <ProtectedRoute requireAdmin>
                 <TermsManagement />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/admin/users" 
+          <Route
+            path="/admin/users"
             element={
               <ProtectedRoute requireAdmin>
                 <UsersManagement />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/admin/authors-ranking" 
+          <Route
+            path="/admin/authors-ranking"
             element={
               <ProtectedRoute requireAdmin>
                 <AuthorsRanking />
               </ProtectedRoute>
-            } 
+            }
           />
-           <Route 
-            path="/admin/reports" 
+          <Route
+            path="/admin/reports"
             element={
               <ProtectedRoute requireAdmin>
                 <Reports />
               </ProtectedRoute>
-            } 
+            }
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       <Footer />
       <Toaster />
-      <NewsletterPopup isOpen={isNewsletterOpen} onOpenChange={setIsNewsletterOpen} />
+      <NewsletterPopup
+        isOpen={isNewsletterOpen}
+        onOpenChange={setIsNewsletterOpen}
+      />
       <ScrollToTopButton />
     </div>
   );
-}
+};
 
 function App() {
   return (

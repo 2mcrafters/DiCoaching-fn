@@ -34,12 +34,62 @@ export const useTerms = (params = {}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const normalize = (item, i) => {
+    const rawTerm = item.terme || item.term || item.title || item.name || "";
+    const rawDefinition =
+      item.definition || item.desc || item.description || item.resume || "";
+    const category =
+      item.categorie_libelle ||
+      item.category ||
+      item.categorie ||
+      item.category ||
+      "Coaching";
+    const created_at =
+      item.created_at || item.createdAt || item.date || item.created || null;
+    const updated_at =
+      item.updated_at ||
+      item.updatedAt ||
+      item.modifiedAt ||
+      item.updated ||
+      null;
+
+    return {
+      id: item.id || item._id || `term-${i + 1}`,
+      term: rawTerm,
+      definition: rawDefinition,
+      category,
+      remarque: item.remarque || item.remark || item.note || null,
+      examples: item.exemples || item.examples || [],
+      sources: item.sources || item.source || [],
+      status: item.status || "published",
+      created_at,
+      updated_at,
+      // keep original fields for debugging
+      _raw: item,
+    };
+  };
+
   useEffect(() => {
     const fetchTerms = async () => {
       try {
         setIsLoading(true);
         const response = await apiService.getTerms(params);
-        setTerms(response.data || []);
+        const raw =
+          response && response.data
+            ? response.data
+            : Array.isArray(response)
+            ? response
+            : [];
+        const normalized = raw.map((it, idx) => normalize(it, idx));
+        // DEBUG: show fetch results in browser console
+        // eslint-disable-next-line no-console
+        console.debug(
+          "[useTerms] fetched",
+          normalized.length,
+          "terms",
+          normalized[0] || null
+        );
+        setTerms(normalized);
         setError(null);
       } catch (err) {
         setError(err.message);
@@ -95,7 +145,15 @@ export const useCategories = () => {
       try {
         setIsLoading(true);
         const response = await apiService.getCategories();
-        setCategories(response.data || []);
+        // Backend returns objects with libelle; map to label strings
+        const raw =
+          response && response.data
+            ? response.data
+            : Array.isArray(response)
+            ? response
+            : [];
+        const labels = raw.map((c) => c.libelle || c.label || c.name || c);
+        setCategories(labels);
         setError(null);
       } catch (err) {
         setError(err.message);

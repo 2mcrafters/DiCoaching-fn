@@ -29,10 +29,11 @@ const PhotoCarousel = () => {
             <Card className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="aspect-w-16 aspect-h-9">
-                  <img 
+                  <img
                     className="object-cover w-full h-full"
                     alt={photo.alt}
-                   src="https://images.unsplash.com/photo-1633362967859-fde6c856274d" />
+                    src=".\public\images\rachid.jpg"
+                  />
                 </div>
               </CardContent>
             </Card>

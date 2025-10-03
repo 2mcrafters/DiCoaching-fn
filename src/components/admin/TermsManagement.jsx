@@ -38,42 +38,29 @@ const TermsManagement = ({ allTerms, allUsers, onUpdate }) => {
   };
 
   const getAuthorName = (authorId) => {
-    const author = allUsers.find(u => u.id === authorId);
-    return author ? author.name : 'Utilisateur inconnu';
+    const author = allUsers.find((u) => u.id === authorId);
+    return author ? author.name : "Mohamed Rachid Belhadj";
   };
 
   const handleTermAction = (termId, action) => {
-    const terms = JSON.parse(localStorage.getItem('coaching_dict_terms') || '[]');
-    const updatedTerms = terms.map(term => {
-      if (term.id === termId) {
-        switch (action) {
-          case 'approve':
-            return { ...term, status: 'published', updatedAt: new Date().toISOString() };
-          case 'reject':
-            return { ...term, status: 'draft', updatedAt: new Date().toISOString() };
-          default:
-            return term;
-        }
-      }
-      return term;
-    });
-    localStorage.setItem('coaching_dict_terms', JSON.stringify(updatedTerms));
-    onUpdate();
+    // Update via callback prop `onUpdate` which should refresh data from backend
+    // If a local update is needed immediately, parent can pass an updater.
+    if (typeof onUpdate === "function") onUpdate(termId, action);
     toast({
-      title: action === 'approve' ? "Terme approuvé !" : "Terme rejeté",
-      description: action === 'approve' ? "Le terme a été publié." : "Le terme a été renvoyé en brouillon.",
+      title: action === "approve" ? "Terme approuvé !" : "Terme rejeté",
+      description:
+        action === "approve"
+          ? "Le terme a été publié."
+          : "Le terme a été renvoyé en brouillon.",
     });
   };
 
   const handleDeleteTerm = (termId) => {
-    const terms = JSON.parse(localStorage.getItem('coaching_dict_terms') || '[]');
-    const updatedTerms = terms.filter(term => term.id !== termId);
-    localStorage.setItem('coaching_dict_terms', JSON.stringify(updatedTerms));
-    onUpdate();
+    if (typeof onUpdate === "function") onUpdate(termId, "delete");
     toast({
       title: "Terme supprimé !",
       description: "Le terme a été supprimé définitivement.",
-      variant: "destructive"
+      variant: "destructive",
     });
   };
 

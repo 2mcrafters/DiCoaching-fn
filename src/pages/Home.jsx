@@ -1,35 +1,54 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet';
-import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { 
-  BookOpen, 
-  Users, 
-  Search, 
-  Edit, 
-  Share2, 
+import React from "react";
+import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  BookOpen,
+  Users,
+  Search,
+  Edit,
+  Share2,
   Globe,
   ArrowRight,
   Loader2,
-  AlertTriangle
-} from 'lucide-react';
-import { useData } from '@/contexts/DataContext';
-import { useAuth } from '@/contexts/AuthContext';
-import PhotoCarousel from '@/components/home/PhotoCarousel';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+  AlertTriangle,
+  CheckCircle2, // ✅ added
+} from "lucide-react";
+import { useData } from "@/contexts/DataContext";
+import useTerms from "@/hooks/useTerms";
+import { useAuth } from "@/contexts/AuthContext";
+import PhotoCarousel from "@/components/home/PhotoCarousel";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const LatestTermsSection = () => {
-  const { terms, loading, error } = useData();
+  // use Redux-backed terms (fallback to DataContext if needed)
+  const {
+    items: reduxTerms,
+    loading: reduxLoading,
+    error: reduxError,
+  } = useTerms();
+  const { terms: ctxTerms, loading: ctxLoading, error: ctxError } = useData();
+
+  const terms = reduxTerms && reduxTerms.length ? reduxTerms : ctxTerms;
+  const loading = reduxLoading || ctxLoading;
+  const error = reduxError || ctxError;
 
   const getLatestTerms = () => {
     return [...terms]
-      .filter(term => term.status === 'published')
+      .filter((term) => term.status === "published")
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 3);
   };
-  
+
   const latestTerms = getLatestTerms();
 
   if (loading) {
@@ -51,10 +70,10 @@ const LatestTermsSection = () => {
       </Card>
     );
   }
-  
+
   if (latestTerms.length === 0) {
     return (
-       <Card>
+      <Card>
         <CardContent className="text-center py-12">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Aucun terme publié</h3>
@@ -62,13 +81,11 @@ const LatestTermsSection = () => {
             Soyez le premier à enrichir le dictionnaire !
           </p>
           <Link to="/submit">
-            <Button>
-              Proposer un terme
-            </Button>
+            <Button>Proposer un terme</Button>
           </Link>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -107,47 +124,70 @@ const LatestTermsSection = () => {
   );
 };
 
-
 const Home = () => {
   const { user } = useAuth();
+
+  // ✅ checklist content for the “À propos” section
+  const bioPoints = [
+    "Coach professionnel certifié et Membre de l’ICF, actuellement coach de dirigeants, formateur en coaching interculturel et consultant en RH, organisation et stratégie.",
+    "Diplômé en droit privé et en management, ancien Directeur général d’un grand groupe industriel, avec une longue expérience de responsabilités.",
+    "Praticien en PNL et AT, docteur en psychologie clinique et auteur du Dictionnaire du Coach Global.",
+    "Centres d’intérêts : anthropologie, culture d’entreprise, socio-psychologie et interculturel.",
+    "Fondateur de l’association Trait d’Union Pour le Handicap (Marrakech, 2006).",
+    "Fondateur du Centre d’Éveil (Marrakech, 2004) pour la prise en charge pluridisciplinaire des personnes à capacités réduites.",
+    "Psychologue impliqué dans la prévention psychologique des projets SOS Villages d’Enfants Maroc.",
+    "Psychologue et psychothérapeute pour enfants et adultes (cabinets à Marrakech et Casablanca).",
+    "Consultant et formateur de renommée.",
+    "Conférencier régulier.",
+  ];
+
   const features = [
     {
       icon: Search,
       title: "Recherche Avancée",
-      description: "Trouvez rapidement les concepts qui vous intéressent grâce à notre moteur de recherche intelligent."
+      description:
+        "Trouvez rapidement les concepts qui vous intéressent grâce à notre moteur de recherche intelligent.",
     },
     {
       icon: BookOpen,
       title: "Fiches Détaillées",
-      description: "Chaque terme dispose d'une fiche complète avec définitions, exemples et ressources."
+      description:
+        "Chaque terme dispose d'une fiche complète avec définitions, exemples et ressources.",
     },
     {
       icon: Edit,
       title: "Édition Collaborative",
-      description: "Contribuez et enrichissez le dictionnaire avec vos connaissances et expériences."
+      description:
+        "Contribuez et enrichissez le dictionnaire avec vos connaissances et expériences.",
     },
     {
       icon: Users,
       title: "Communauté Active",
-      description: "Échangez avec d'autres professionnels du coaching dans un environnement bienveillant."
+      description:
+        "Échangez avec d'autres professionnels du coaching dans un environnement bienveillant.",
     },
     {
       icon: Share2,
       title: "Partage Facile",
-      description: "Partagez vos découvertes et créations avec la communauté en quelques clics."
+      description:
+        "Partagez vos découvertes et créations avec la communauté en quelques clics.",
     },
     {
       icon: Globe,
       title: "Accès Libre",
-      description: "Toutes les ressources sont accessibles gratuitement à tous les passionnés de coaching."
-    }
+      description:
+        "Toutes les ressources sont accessibles gratuitement à tous les passionnés de coaching.",
+    },
   ];
 
   return (
     <>
       <Helmet>
         <title>Dictionnaire Digital Collaboratif du Coaching - Accueil</title>
-        <meta name="description" content="Découvrez le dictionnaire collaboratif du coaching. Consultez, créez et enrichissez des fiches sur les concepts du coaching avec notre communauté." />
+        <meta
+          name="description"
+          content="Découvrez le dictionnaire collaboratif du coaching. Consultez, créez et enrichissez des fiches sur les concepts du coaching avec notre communauté."
+        />
       </Helmet>
 
       <div className="min-h-screen">
@@ -167,18 +207,26 @@ const Home = () => {
                 </span>
               </h1>
               <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-purple-100">
-                Un outil vivant pour consulter, créer, commenter et enrichir des fiches sur les concepts du coaching
+                Un outil vivant pour consulter, créer, commenter et enrichir des
+                fiches sur les concepts du coaching
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/search">
-                  <Button size="lg" className="bg-white text-primary hover:bg-purple-50 font-semibold px-8 py-3">
+                  <Button
+                    size="lg"
+                    className="bg-white text-primary hover:bg-purple-50 font-semibold px-8 py-3"
+                  >
                     <Search className="mr-2 h-5 w-5" />
                     Découvrir le dictionnaire
                   </Button>
                 </Link>
-                {(user?.role === 'auteur' || user?.role === 'admin') && (
+                {(user?.role === "auteur" || user?.role === "admin") && (
                   <Link to="/submit">
-                    <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-primary font-semibold px-8 py-3">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-white text-white hover:bg-white hover:text-primary font-semibold px-8 py-3"
+                    >
                       <Edit className="mr-2 h-5 w-5" />
                       Contribuer
                     </Button>
@@ -202,38 +250,69 @@ const Home = () => {
                 Les derniers termes ajoutés
               </h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Découvrez les concepts les plus récents partagés par notre communauté
+                Découvrez les concepts les plus récents partagés par notre
+                communauté
               </p>
             </motion.div>
             <LatestTermsSection />
           </div>
         </section>
 
+        {/* === À propos (now with checks) === */}
+        {/* === À propos (checks + bigger title + right image below) === */}
+        {/* === À propos (images égales avec hover) === */}
+        {/* === À propos (sans avatar) === */}
         <section className="py-20 bg-muted/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center">
+            <div className="lg:grid lg:grid-cols-2 lg:gap-16 lg:items-start">
+              {/* LEFT: Title + checklist */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6 }}
                 viewport={{ once: true }}
               >
-                <Avatar className="h-24 w-24 mb-4">
-                  <AvatarImage src="https://i.pravatar.cc/150?u=api-user" alt="Mohamed Rachid Belhadj" />
-                  <AvatarFallback>MRB</AvatarFallback>
-                </Avatar>
-                <h2 className="text-3xl font-extrabold text-foreground tracking-tight sm:text-4xl">
-                  À propos de <span className="creative-gradient-text">Mohamed Rachid Belhadj</span>
+                <h2 className="text-5xl font-extrabold tracking-tight text-[#884dee] mb-4">
+                  <span
+                    style={{
+                      color: "black",
+                    }}
+                  >
+                    {" "}
+                    À propos de
+                  </span>{" "}
+                  Mohamed Rachid Belhadj
                 </h2>
-                <p className="mt-4 text-lg text-muted-foreground">
-                  Expert en coaching et développement personnel, Mohamed Rachid Belhadj est le fondateur de ce dictionnaire. Sa vision est de créer une ressource complète et accessible pour tous les passionnés et professionnels du coaching, favorisant le partage des connaissances et l'excellence dans la pratique.
+                <p className="text-lg text-muted-foreground mb-6">
+                  Parcours, engagements et contributions majeures
                 </p>
-                <p className="mt-4 text-lg text-muted-foreground">
-                  Avec des années d'expérience sur le terrain, il a identifié le besoin d'un outil centralisé pour standardiser et clarifier la terminologie du coaching. Ce projet est l'aboutissement de cette ambition.
-                </p>
+
+                <ul className="space-y-4">
+                  {bioPoints.map((point, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <CheckCircle2 className="h-6 w-6 text-[#884dee] shrink-0 mt-1" />
+                      <p className="text-lg text-muted-foreground">{point}</p>
+                    </li>
+                  ))}
+                </ul>
               </motion.div>
-              <div className="mt-10 lg:mt-0">
-                <PhotoCarousel />
+
+              {/* RIGHT: Carousel + fixed image below it */}
+              <div className="mt-10 lg:mt-0 space-y-6">
+                {/* 1. PhotoCarousel */}
+                <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-transparent shadow-lg transition duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-[#884dee]">
+                  <PhotoCarousel />
+                </div>
+
+                {/* 2. Fixed image */}
+                <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border border-transparent shadow-lg transition duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-[#884dee]">
+                  <img
+                    src="/images/02.jpeg"
+                    alt="Portrait de Mohamed Rachid Belhadj"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -252,7 +331,8 @@ const Home = () => {
                 Fonctionnalités
               </h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Découvrez tous les outils à votre disposition pour explorer et enrichir le dictionnaire
+                Découvrez tous les outils à votre disposition pour explorer et
+                enrichir le dictionnaire
               </p>
             </motion.div>
 
@@ -273,9 +353,7 @@ const Home = () => {
                       <CardTitle className="text-lg">{feature.title}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <CardDescription>
-                        {feature.description}
-                      </CardDescription>
+                      <CardDescription>{feature.description}</CardDescription>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -296,17 +374,25 @@ const Home = () => {
                 Prêt à rejoindre la communauté ?
               </h2>
               <p className="text-xl mb-8 text-purple-100">
-                Commencez dès maintenant à explorer et contribuer au dictionnaire collaboratif du coaching
+                Commencez dès maintenant à explorer et contribuer au
+                dictionnaire collaboratif du coaching
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link to="/register">
-                  <Button size="lg" className="bg-white text-primary hover:bg-purple-50 font-semibold px-8 py-3">
+                  <Button
+                    size="lg"
+                    className="bg-white text-primary hover:bg-purple-50 font-semibold px-8 py-3"
+                  >
                     Créer un compte
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
                 <Link to="/search">
-                  <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-primary font-semibold px-8 py-3">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-white text-white hover:bg-white hover:text-primary font-semibold px-8 py-3"
+                  >
                     Explorer maintenant
                   </Button>
                 </Link>

@@ -32,7 +32,7 @@ const Modifications = () => {
 
   const getUserName = (userId) => {
     const user = users.find(u => u.id === userId);
-    return user ? user.name : 'Utilisateur inconnu';
+  return user ? user.name : "Mohamed Rachid Belhadj";
   };
   
   const getStatusVariant = (status) => {

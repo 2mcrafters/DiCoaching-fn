@@ -145,9 +145,9 @@ const Search = () => {
 
 
   const getAuthorName = (authorId) => {
-    if (authorId === 'user-api') return 'Mohamed Rachid Belhadj';
-    const author = allUsers.find(u => u.id === authorId);
-    return author ? author.name : 'Inconnu';
+    if (!authorId || authorId === "user-api") return "Mohamed Rachid Belhadj";
+    const author = allUsers.find((u) => u.id === authorId);
+    return author ? author.name : "Mohamed Rachid Belhadj";
   };
   
   return (

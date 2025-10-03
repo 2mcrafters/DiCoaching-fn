@@ -5,23 +5,31 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
 import AuthorCard from '@/components/authors/AuthorCard';
+import { useData } from "@/contexts/DataContext";
 
 const Authors = () => {
   const [authors, setAuthors] = useState([]);
   const [filteredAuthors, setFilteredAuthors] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [professionFilter, setProfessionFilter] = useState('all');
-  const [sortOrder, setSortOrder] = useState('popularity');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [professionFilter, setProfessionFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("popularity");
   const [professions, setProfessions] = useState([]);
 
-  useEffect(() => {
-    const allUsers = JSON.parse(localStorage.getItem('coaching_dict_users') || '[]');
-    const allTerms = JSON.parse(localStorage.getItem('coaching_dict_terms') || '[]');
-    
-    const authorUsers = allUsers.filter(user => user.role === 'auteur' && user.status === 'active');
+  const { terms } = useData();
 
-    const authorsWithStats = authorUsers.map(author => {
-      const termsAdded = allTerms.filter(term => term.authorId === author.id).length;
+  useEffect(() => {
+    const allUsers = JSON.parse(
+      localStorage.getItem("coaching_dict_users") || "[]"
+    );
+    const allTerms = terms || [];
+    const authorUsers = allUsers.filter(
+      (user) => user.role === "auteur" && user.status === "active"
+    );
+
+    const authorsWithStats = authorUsers.map((author) => {
+      const termsAdded = allTerms.filter(
+        (term) => term.authorId === author.id
+      ).length;
       const score = termsAdded * 10;
       return { ...author, termsAdded, score };
     });
@@ -29,28 +37,34 @@ const Authors = () => {
     setAuthors(authorsWithStats);
     setFilteredAuthors(authorsWithStats);
 
-    const uniqueProfessions = [...new Set(authorsWithStats.map(a => a.professionalStatus).filter(Boolean))];
+    const uniqueProfessions = [
+      ...new Set(
+        authorsWithStats.map((a) => a.professionalStatus).filter(Boolean)
+      ),
+    ];
     setProfessions(uniqueProfessions);
-  }, []);
+  }, [terms]);
 
   useEffect(() => {
     let result = [...authors];
 
     if (searchQuery) {
-      result = result.filter(author =>
+      result = result.filter((author) =>
         author.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    if (professionFilter !== 'all') {
-      result = result.filter(author => author.professionalStatus === professionFilter);
+    if (professionFilter !== "all") {
+      result = result.filter(
+        (author) => author.professionalStatus === professionFilter
+      );
     }
 
-    if (sortOrder === 'popularity') {
+    if (sortOrder === "popularity") {
       result.sort((a, b) => b.score - a.score);
-    } else if (sortOrder === 'name_asc') {
+    } else if (sortOrder === "name_asc") {
       result.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortOrder === 'name_desc') {
+    } else if (sortOrder === "name_desc") {
       result.sort((a, b) => b.name.localeCompare(a.name));
     }
 
@@ -61,7 +75,10 @@ const Authors = () => {
     <>
       <Helmet>
         <title>Nos Auteurs - Dictionnaire Collaboratif du Coaching</title>
-        <meta name="description" content="Découvrez les auteurs et contributeurs qui enrichissent le dictionnaire collaboratif du coaching." />
+        <meta
+          name="description"
+          content="Découvrez les auteurs et contributeurs qui enrichissent le dictionnaire collaboratif du coaching."
+        />
       </Helmet>
       <div className="min-h-screen creative-bg py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -75,7 +92,8 @@ const Authors = () => {
               Nos <span className="creative-gradient-text">Auteurs</span>
             </h1>
             <p className="mt-3 max-w-md mx-auto text-base text-muted-foreground sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-              Rencontrez la communauté d'experts qui partagent leur savoir et enrichissent le dictionnaire.
+              Rencontrez la communauté d'experts qui partagent leur savoir et
+              enrichissent le dictionnaire.
             </p>
           </motion.div>
 
@@ -95,13 +113,20 @@ const Authors = () => {
               />
             </div>
             <div className="flex gap-4">
-              <Select value={professionFilter} onValueChange={setProfessionFilter}>
+              <Select
+                value={professionFilter}
+                onValueChange={setProfessionFilter}
+              >
                 <SelectTrigger className="w-full md:w-[200px] h-12">
                   <SelectValue placeholder="Filtrer par profession" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes les professions</SelectItem>
-                  {professions.map(prof => <SelectItem key={prof} value={prof}>{prof}</SelectItem>)}
+                  {professions.map((prof) => (
+                    <SelectItem key={prof} value={prof}>
+                      {prof}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={sortOrder} onValueChange={setSortOrder}>
@@ -131,7 +156,9 @@ const Authors = () => {
           </div>
           {filteredAuthors.length === 0 && (
             <div className="text-center col-span-full py-16">
-              <p className="text-muted-foreground">Aucun auteur ne correspond à votre recherche.</p>
+              <p className="text-muted-foreground">
+                Aucun auteur ne correspond à votre recherche.
+              </p>
             </div>
           )}
         </div>
