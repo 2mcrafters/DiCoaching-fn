@@ -49,12 +49,39 @@ class AuthService {
   // Inscription
   async register(userData) {
     try {
+      const formData = new FormData();
+
+      // Ajouter les données textuelles
+      Object.keys(userData).forEach((key) => {
+        if (key === "profilePictureFile" || key === "documents") {
+          return; // Skip files for now
+        }
+        if (userData[key] !== null && userData[key] !== undefined) {
+          if (typeof userData[key] === "object") {
+            formData.append(key, JSON.stringify(userData[key]));
+          } else {
+            formData.append(key, userData[key]);
+          }
+        }
+      });
+
+      // Ajouter la photo de profil
+      if (userData.profilePictureFile) {
+        formData.append("profilePicture", userData.profilePictureFile);
+      }
+
+      // Ajouter les documents
+      if (userData.documents && Array.isArray(userData.documents)) {
+        userData.documents.forEach((doc) => {
+          if (doc.file) {
+            formData.append("documents", doc.file);
+          }
+        });
+      }
+
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
+        method: "POST",
+        body: formData, // Pas de Content-Type header pour FormData
       });
 
       const data = await response.json();
@@ -112,6 +139,56 @@ class AuthService {
       }
     } catch (error) {
       console.error('Erreur lors de la récupération du profil:', error);
+      return { success: false, error: 'Erreur réseau' };
+    }
+  }
+
+  // Mettre à jour le profil utilisateur
+  async updateProfile(userId, profileData) {
+    try {
+      const formData = new FormData();
+
+      // Ajouter les données textuelles
+      Object.keys(profileData).forEach((key) => {
+        if (key === "profilePictureFile") {
+          return; // Skip file for now
+        }
+        if (profileData[key] !== null && profileData[key] !== undefined) {
+          if (typeof profileData[key] === "object") {
+            formData.append(key, JSON.stringify(profileData[key]));
+          } else {
+            formData.append(key, profileData[key]);
+          }
+        }
+      });
+
+      // Ajouter la photo de profil si elle existe
+      if (profileData.profilePictureFile) {
+        formData.append("profilePicture", profileData.profilePictureFile);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/users/${userId}/profile`, {
+        method: "PATCH",
+        headers: {
+          'Authorization': `Bearer ${this.token}`, // Pas de Content-Type pour FormData
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === 'success') {
+        // Mettre à jour les données utilisateur locales
+        localStorage.setItem('user', JSON.stringify(data.data));
+        return { success: true, data: data.data };
+      } else {
+        if (response.status === 401 || response.status === 403) {
+          this.logout();
+        }
+        return { success: false, error: data.message || 'Erreur lors de la mise à jour du profil' };
+      }
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du profil:', error);
       return { success: false, error: 'Erreur réseau' };
     }
   }

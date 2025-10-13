@@ -16,7 +16,8 @@ const SearchResults = ({
   totalPages,
   currentPage,
   handlePageChange,
-  getAuthorName
+  getAuthorName,
+  searchQuery,
 }) => {
   return (
     <motion.div
@@ -27,7 +28,8 @@ const SearchResults = ({
       <div className="mb-4 flex items-center justify-between">
         {!loading && !error && (
           <p className="text-muted-foreground">
-            {filteredTermsLength} résultat{filteredTermsLength !== 1 ? 's' : ''} trouvé{filteredTermsLength !== 1 ? 's' : ''}
+            {filteredTermsLength} résultat{filteredTermsLength !== 1 ? "s" : ""}{" "}
+            trouvé{filteredTermsLength !== 1 ? "s" : ""}
           </p>
         )}
       </div>
@@ -50,12 +52,11 @@ const SearchResults = ({
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Aucun résultat trouvé</h3>
             <p className="text-muted-foreground mb-4">
-              Essayez de modifier vos critères de recherche ou explorez les catégories.
+              Essayez de modifier vos critères de recherche ou explorez les
+              catégories.
             </p>
             <Link to="/submit">
-              <Button>
-                Contribuer au dictionnaire
-              </Button>
+              <Button>Contribuer au dictionnaire</Button>
             </Link>
           </CardContent>
         </Card>
@@ -74,7 +75,7 @@ const SearchResults = ({
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-xl mb-2 font-bold text-primary">
-                          <Link 
+                          <Link
                             to={`/fiche/${term.slug}`}
                             className="hover:underline"
                           >
@@ -91,24 +92,39 @@ const SearchResults = ({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex-grow space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <User className="h-4 w-4" />
-                        <span className="truncate">{getAuthorName(term.authorId)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span>{new Date(term.createdAt).toLocaleDateString('fr-FR')}</span>
-                      </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span className="truncate">
+                        {getAuthorName(term.authorId)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        {new Date(term.createdAt).toLocaleDateString("fr-FR")}
+                      </span>
+                    </div>
                   </CardContent>
                   <CardFooter className="flex justify-between items-center gap-2">
                     <Link to={`/fiche/${term.slug}`} className="flex-1">
-                      <Button variant="default" size="sm" className="w-full group-hover:bg-primary/90 transition-colors">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full group-hover:bg-primary/90 transition-colors"
+                      >
                         Lire la suite
                         <ArrowRight className="ml-2 h-4 w-4 transform transition-transform group-hover:translate-x-1" />
                       </Button>
                     </Link>
-                    <SharePopover url={`${window.location.origin}/fiche/${term.slug}`} title={term.term}>
-                      <Button variant="outline" size="icon" className="w-10 h-9">
+                    <SharePopover
+                      url={`${window.location.origin}/fiche/${term.slug}`}
+                      title={term.term}
+                    >
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="w-10 h-9"
+                      >
                         <Share2 className="h-4 w-4" />
                       </Button>
                     </SharePopover>

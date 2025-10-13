@@ -1,22 +1,66 @@
 import { createSlice, createAsyncThunk, createEntityAdapter } from '@reduxjs/toolkit';
 import apiService from '@/services/api';
+import { normalizeTerms } from "@/lib/normalizeTerm";
 
 const termsAdapter = createEntityAdapter({
   selectId: (term) => term.id || term._id || term.slug,
-  sortComparer: (a, b) => (a.term || '').localeCompare(b.term || ''),
+  sortComparer: (a, b) => (a.term || "").localeCompare(b.term || ""),
 });
 
-export const fetchTerms = createAsyncThunk('terms/fetchTerms', async (params = {}, thunkAPI) => {
-  try {
-    const data = await apiService.getTerms(params);
-    // backend returns { status, data }
-    if (data && data.data) return data.data;
-    if (Array.isArray(data)) return data;
-    return [];
-  } catch (error) {
-    return thunkAPI.rejectWithValue(error.message || String(error));
+export const fetchTerms = createAsyncThunk(
+  "terms/fetchTerms",
+  async (params = {}, thunkAPI) => {
+    try {
+      const data = await apiService.getTerms(params);
+      // backend returns { status, data }
+      if (data && data.data) return normalizeTerms(data.data);
+      if (Array.isArray(data)) return normalizeTerms(data);
+      return [];
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || String(error));
+    }
   }
-});
+);
+
+export const createTerm = createAsyncThunk(
+  "terms/createTerm",
+  async (payload, thunkAPI) => {
+    try {
+      const res = await apiService.createTerm(payload);
+      const created = res && res.data ? res.data : res;
+      const [normalized] = normalizeTerms([created]);
+      return normalized;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || String(error));
+    }
+  }
+);
+
+export const updateTerm = createAsyncThunk(
+  "terms/updateTerm",
+  async ({ id, changes }, thunkAPI) => {
+    try {
+      const res = await apiService.updateTerm(id, changes);
+      const updated = res && res.data ? res.data : res;
+      const [normalized] = normalizeTerms([updated]);
+      return normalized;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || String(error));
+    }
+  }
+);
+
+export const deleteTerm = createAsyncThunk(
+  "terms/deleteTerm",
+  async (id, thunkAPI) => {
+    try {
+      await apiService.deleteTerm(id);
+      return id;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.message || String(error));
+    }
+  }
+);
 
 const termsSlice = createSlice({
   name: 'terms',
@@ -41,6 +85,28 @@ const termsSlice = createSlice({
       })
       .addCase(fetchTerms.rejected, (state, action) => {
         state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+      .addCase(createTerm.fulfilled, (state, action) => {
+        if (action.payload) {
+          termsAdapter.addOne(state, action.payload);
+        }
+      })
+      .addCase(createTerm.rejected, (state, action) => {
+        state.error = action.payload || action.error.message;
+      })
+      .addCase(updateTerm.fulfilled, (state, action) => {
+        if (action.payload) {
+          termsAdapter.upsertOne(state, action.payload);
+        }
+      })
+      .addCase(updateTerm.rejected, (state, action) => {
+        state.error = action.payload || action.error.message;
+      })
+      .addCase(deleteTerm.fulfilled, (state, action) => {
+        termsAdapter.removeOne(state, action.payload);
+      })
+      .addCase(deleteTerm.rejected, (state, action) => {
         state.error = action.payload || action.error.message;
       });
   }

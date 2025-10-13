@@ -1,42 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
-import { DataProvider } from '@/contexts/DataContext';
-import { Toaster } from '@/components/ui/toaster';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/layout/Footer';
-import ScrollToTopButton from '@/components/layout/ScrollToTopButton';
-import Home from '@/pages/Home';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import Dashboard from '@/pages/Dashboard';
-import Submit from '@/pages/Submit';
-import EditTerm from '@/pages/EditTerm';
-import Fiche from '@/pages/Fiche';
-import Admin from '@/pages/Admin';
-import Search from '@/pages/Search';
-import NotFound from '@/pages/NotFound';
-import RegistrationComplete from '@/pages/RegistrationComplete';
-import Authors from '@/pages/Authors';
-import AuthorProfile from '@/pages/AuthorProfile';
-import MyProfile from '@/pages/MyProfile';
-import AuthorsRanking from '@/pages/admin/AuthorsRanking';
-import Reports from '@/pages/admin/Reports';
-import ProposeModification from '@/pages/ProposeModification';
-import Settings from '@/pages/Settings';
-import Modifications from '@/pages/Modifications';
-import ModificationDetails from '@/pages/ModificationDetails';
-import NewsletterPopup from '@/components/layout/NewsletterPopup';
-import TermsManagement from '@/components/admin/TermsManagement';
-import UsersManagement from '@/components/admin/UsersManagement';
-import ApiTest from '@/pages/ApiTest';
+import { useDispatch } from "react-redux";
+import { fetchTerms } from "@/features/terms/termsSlice";
+import { fetchCategories } from "@/features/categories/categoriesSlice";
+import { fetchUsers } from "@/features/users/usersSlice";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { DataProvider } from "@/contexts/DataContext";
+import { Toaster } from "@/components/ui/toaster";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/layout/Footer";
+import ScrollToTopButton from "@/components/layout/ScrollToTopButton";
+import Home from "@/pages/Home";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
+import Dashboard from "@/pages/Dashboard";
+import Submit from "@/pages/Submit";
+import EditTerm from "@/pages/EditTerm";
+import Fiche from "@/pages/Fiche";
+import Admin from "@/pages/Admin";
+import Search from "@/pages/Search";
+import NotFound from "@/pages/NotFound";
+import RegistrationComplete from "@/pages/RegistrationComplete";
+import Authors from "@/pages/Authors";
+import AuthorProfile from "@/pages/AuthorProfile";
+import MyProfile from "@/pages/MyProfile";
+import AuthorsRanking from "@/pages/admin/AuthorsRanking";
+import Reports from "@/pages/admin/Reports";
+import ProposeModification from "@/pages/ProposeModification";
+import Settings from "@/pages/Settings";
+import Modifications from "@/pages/Modifications";
+import ModificationDetails from "@/pages/ModificationDetails";
+import NewsletterPopup from "@/components/layout/NewsletterPopup";
+import TermsManagement from "@/components/admin/TermsManagement";
+import UsersManagement from "@/components/admin/UsersManagement";
+import ApiTest from "@/pages/ApiTest";
 import Introduction from "@/pages/Introduction";
+import ConnectionTest from "@/pages/ConnectionTest";
 
 const AppContent = () => {
   const { user, loading } = useAuth();
   const [isNewsletterOpen, setIsNewsletterOpen] = useState(false);
+  const dispatch = useDispatch();
+
+  // Fetch Redux data at app start
+  useEffect(() => {
+    dispatch(fetchTerms());
+    dispatch(fetchCategories());
+    dispatch(fetchUsers());
+  }, [dispatch]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -49,7 +62,7 @@ const AppContent = () => {
   }, [user, loading]);
 
   return (
-    <div className="min-h-screen bg-background font-sans flex flex-col">
+    <div className="min-h-screen bg-background font-sans flex flex-col px-4 sm:px-6 lg:px-8 xl:px-12">
       <Navbar />
       <main className="flex-grow">
         <Routes>
@@ -66,6 +79,7 @@ const AppContent = () => {
           <Route path="/author/:authorId" element={<AuthorProfile />} />
           <Route path="/api-test" element={<ApiTest />} />
           <Route path="/introduction" element={<Introduction />} />
+          <Route path="/connection-test" element={<ConnectionTest />} />
 
           <Route
             path="/dashboard"
@@ -190,7 +204,12 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <DataProvider>
-          <Router>
+          <Router
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
             <AppContent />
           </Router>
         </DataProvider>

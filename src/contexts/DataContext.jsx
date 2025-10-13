@@ -36,6 +36,61 @@ const normalizeTerm = (item, index) => {
       ? rawSources
       : [];
 
+  // Extract "Voir aussi" from definition and sources
+  let cleanedDefinition = rawDefinition;
+  let cleanedSources = [...sources];
+  const voirAussi = [];
+
+  // Pattern to match "Voir aussi:" followed by content (case insensitive)
+  const voirAussiRegex = /voir\s+aussi\s*:?\s*/i;
+
+  // Check definition for "Voir aussi"
+  if (
+    typeof cleanedDefinition === "string" &&
+    voirAussiRegex.test(cleanedDefinition)
+  ) {
+    const parts = cleanedDefinition.split(voirAussiRegex);
+    if (parts.length > 1) {
+      cleanedDefinition = parts[0].trim();
+      // The rest is "Voir aussi" content
+      const voirAussiText = parts.slice(1).join(" ").trim();
+      if (voirAussiText) {
+        voirAussi.push({ text: voirAussiText });
+      }
+    }
+  }
+
+  // Check sources for "Voir aussi"
+  const filteredSources = [];
+  for (const source of cleanedSources) {
+    const sourceText = source.text || "";
+    if (voirAussiRegex.test(sourceText)) {
+      const parts = sourceText.split(voirAussiRegex);
+      if (parts.length > 1) {
+        // First part stays in sources if not empty
+        const beforeText = parts[0].trim();
+        if (beforeText) {
+          filteredSources.push({ ...source, text: beforeText });
+        }
+        // Rest goes to Voir aussi
+        const voirAussiText = parts.slice(1).join(" ").trim();
+        if (voirAussiText) {
+          voirAussi.push({ text: voirAussiText, url: source.url || "" });
+        }
+      }
+    } else {
+      filteredSources.push(source);
+    }
+  }
+
+  const authorId = item.authorId || item.userId || item.author_id || null;
+  const firstName = item.firstname || item.firstName || "";
+  const lastName = item.lastname || item.lastName || "";
+  const authorNameFromBackend = `${firstName} ${lastName}`.trim();
+
+  // Set all terms to be authored by Mohamed Rachid Belhadj
+  const authorName = "Mohamed Rachid Belhadj";
+
   return {
     id: item.id || item._id || `term-${index + 1}`,
     slug:
@@ -43,12 +98,13 @@ const normalizeTerm = (item, index) => {
       slugify(rawTerm || `term-${index + 1}`, { lower: true, strict: true }),
     term: rawTerm,
     category: item.category || "Coaching",
-    definition: rawDefinition,
+    definition: cleanedDefinition,
     examples,
-    sources,
+    sources: filteredSources,
+    voirAussi: voirAussi.length > 0 ? voirAussi : [],
     remarque: rawRemark || null,
-    // normalize missing author to the special 'user-api' sentinel so UI can show the desired default name
-    authorId: item.authorId || item.userId || "user-api",
+    authorId,
+    authorName: authorName,
     status: item.status || "published",
     createdAt: item.createdAt || item.date || new Date().toISOString(),
     updatedAt: item.updatedAt || item.modifiedAt || new Date().toISOString(),
@@ -83,7 +139,6 @@ export const DataProvider = ({ children }) => {
     const code = String(err.code || "").toLowerCase();
     return (
       name === "aborterror" ||
-      code === "err_aborted" ||
       code === "err_aborted" ||
       msg.includes("aborted") ||
       msg.includes("abort")
@@ -125,11 +180,13 @@ export const DataProvider = ({ children }) => {
         : [];
 
       const normalized = rawTerms.map((t, i) => normalizeTerm(t, i));
+      // Don't filter out terms - just normalize them
       setTerms(normalized);
     } catch (e) {
       // Ignore aborted requests (caused by unmount/strict-mode double render or manual abort)
       if (isAbortError(e)) {
-        // do not set error for aborted fetches
+        // Silently ignore abort errors - this is expected behavior
+        console.debug("Request aborted (expected during navigation/unmount)");
         return;
       }
       console.error(
@@ -139,7 +196,10 @@ export const DataProvider = ({ children }) => {
       setError(e.message || String(e));
       setTerms([]); // fallback to empty list to avoid stale localStorage data
     } finally {
-      setLoading(false);
+      // Only update loading state if request wasn't aborted
+      if (currentController.current === controller || !controller) {
+        setLoading(false);
+      }
       // clear controller if it was ours
       if (currentController.current === controller)
         currentController.current = null;
@@ -148,7 +208,14 @@ export const DataProvider = ({ children }) => {
 
   useEffect(() => {
     // Initial fetch — create an internal controller
-    fetchFromBackend();
+    fetchFromBackend().catch((error) => {
+      if (!isAbortError(error)) {
+        console.error(
+          "Unexpected error while fetching terms during mount:",
+          error
+        );
+      }
+    });
 
     return () => {
       if (currentController.current) {
@@ -163,7 +230,12 @@ export const DataProvider = ({ children }) => {
 
   const refreshData = () => {
     // Start a fresh fetch and cancel any inflight one
-    fetchFromBackend();
+
+    return fetchFromBackend().catch((error) => {
+      if (!isAbortError(error)) {
+        console.error("Unexpected error while refreshing terms:", error);
+      }
+    });
   };
 
   const value = {

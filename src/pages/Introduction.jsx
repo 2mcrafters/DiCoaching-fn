@@ -244,9 +244,13 @@ const Introduction = () => {
       {/* Hero */}
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10 opacity-30 blur-3xl bg-gradient-to-tr from-blue-300 via-cyan-200 to-indigo-300 dark:from-blue-900 dark:via-indigo-800 dark:to-sky-900" />
-        <div className="max-w-6xl mx-auto px-4 pt-14 pb-10 md:pb-14">
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight" style={{ color: '#884dee' }}>
-            Dictionnaire du <span style={{ color: '#884dee' }}>Coach Global</span>
+        <div className="max-w-6xl mx-auto pt-14 pb-10 md:pb-14">
+          <h1
+            className="text-3xl md:text-5xl font-extrabold tracking-tight"
+            style={{ color: "#884dee" }}
+          >
+            Dictionnaire du{" "}
+            <span style={{ color: "#884dee" }}>Coach Global</span>
           </h1>
           <p className="mt-3 md:mt-4 text-zinc-600 dark:text-zinc-300 max-w-3xl">
             Un voyage créatif au cœur du coaching et de ses mots.
@@ -254,7 +258,7 @@ const Introduction = () => {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 pb-20 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10">
+      <main className="max-w-6xl mx-auto pb-20 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10">
         {/* Sidebar: Sommaire + Features */}
         <aside className="lg:sticky lg:top-10 self-start bg-white/70 dark:bg-zinc-900/60 backdrop-blur rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm space-y-6">
           <div>
@@ -295,10 +299,16 @@ const Introduction = () => {
         {/* Content */}
         <article className="space-y-10">
           <blockquote className="border-l-4 pl-6 py-4 bg-[#f3eaff] dark:bg-[#2a1e3a]/60 border-[#884dee] rounded-md text-zinc-800 dark:text-zinc-100">
-            <p className="text-lg md:text-xl font-serif leading-relaxed" style={{ color: '#884dee' }}>
+            <p
+              className="text-lg md:text-xl font-serif leading-relaxed"
+              style={{ color: "#884dee" }}
+            >
               {quote}
             </p>
-            <footer className="mt-2 text-sm font-medium" style={{ color: '#884dee' }}>
+            <footer
+              className="mt-2 text-sm font-medium"
+              style={{ color: "#884dee" }}
+            >
               {quoteAuthor}
             </footer>
           </blockquote>
@@ -309,7 +319,10 @@ const Introduction = () => {
               id={s.id}
               className="bg-white/80 dark:bg-zinc-900/60 backdrop-blur border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 md:p-8 shadow-sm scroll-mt-24"
             >
-              <h3 className="text-2xl md:text-3xl font-extrabold mb-4" style={{ color: '#884dee' }}>
+              <h3
+                className="text-2xl md:text-3xl font-extrabold mb-4"
+                style={{ color: "#884dee" }}
+              >
                 {s.title}
               </h3>
               <div className="prose prose-zinc dark:prose-invert max-w-none leading-relaxed">

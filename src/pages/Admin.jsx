@@ -2,58 +2,74 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { useData } from "@/contexts/DataContext";
+import { useDispatch, useSelector } from "react-redux";
+import { selectAllTerms, fetchTerms } from "@/features/terms/termsSlice";
+import { selectAllUsers, fetchUsers } from "@/features/users/usersSlice";
+import {
+  fetchGlobalStats,
+  selectGlobalStats,
+  selectStatsLoading,
+} from "@/features/dashboard/dashboardStatsSlice";
+import {
+  fetchReports,
+  selectReportsLoading,
+} from "@/features/reports/reportsSlice";
 import AdminStats from "@/components/admin/AdminStats";
 import TermsManagement from "@/components/admin/TermsManagement";
 import UsersManagement from "@/components/admin/UsersManagement";
 import PendingAuthors from "@/components/admin/PendingAuthors";
+import CategoriesManagement from "@/components/admin/CategoriesManagement";
 import ReportsManagement from "@/components/admin/ReportsManagement";
 import ProposedModifications from "@/components/admin/ProposedModifications";
 import { FileText, Users, UserCheck, ShieldAlert, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import apiService from "@/services/api";
 
 const Admin = () => {
   const { user } = useAuth();
+  const dispatch = useDispatch();
+  const terms = useSelector(selectAllTerms);
+  const users = useSelector(selectAllUsers);
+  const globalStats = useSelector(selectGlobalStats);
+  const statsLoading = useSelector(selectStatsLoading);
+  const reportsLoading = useSelector(selectReportsLoading);
   const [activeTab, setActiveTab] = useState("pendingAuthors");
-  const [terms, setTerms] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [reports, setReports] = useState([]);
   const [modifications, setModifications] = useState([]);
 
-  const loadData = () => {
-    const allTerms = data?.terms || [];
-    const allUsers = JSON.parse(
-      localStorage.getItem("coaching_dict_users") || "[]"
-    );
-    const allReports = JSON.parse(
-      localStorage.getItem("coaching_dict_reports") || "[]"
-    );
-    const allModifications = JSON.parse(
-      localStorage.getItem("coaching_dict_modifications") || "[]"
-    );
-    setTerms(allTerms);
-    setUsers(allUsers);
-    setReports(allReports);
-    setModifications(allModifications);
-  };
-
   useEffect(() => {
-    loadData();
-  }, []);
+    // Fetch comprehensive admin stats from database
+    dispatch(fetchGlobalStats());
+
+    // Ensure Redux has latest from backend for detailed management
+    if (!terms || terms.length === 0) dispatch(fetchTerms({ limit: 10000 }));
+    if (!users || users.length === 0) dispatch(fetchUsers());
+    dispatch(fetchReports());
+
+    // Fetch modifications
+    const fetchAdminData = async () => {
+      try {
+        const modificationsRes = await apiService.getModifications();
+        setModifications(modificationsRes.data || []);
+      } catch (error) {
+        console.error("Error fetching modifications:", error);
+        setModifications([]);
+      }
+    };
+
+    fetchAdminData();
+  }, [dispatch, terms?.length, users?.length]);
 
   const handleDataUpdate = () => {
-    loadData();
+    dispatch(fetchTerms({ limit: 10000 }));
+    dispatch(fetchUsers());
+    dispatch(fetchReports());
+    dispatch(fetchGlobalStats());
   };
 
-  const pendingAuthorsCount = users.filter(
-    (u) => u.role === "auteur" && u.status === "pending"
-  ).length;
-  const pendingModificationsCount = modifications.filter(
-    (m) => m.status === "pending"
-  ).length;
-  const pendingReportsCount = reports.filter(
-    (r) => r.status === "pending"
-  ).length;
+  // Use database stats when available, fallback to computed stats
+  const pendingAuthorsCount = globalStats.pendingUsers ?? 0;
+  const pendingModificationsCount = globalStats.pendingModifications ?? 0;
+  const pendingReportsCount = globalStats.pendingReports ?? 0;
 
   const TABS = [
     {
@@ -75,6 +91,7 @@ const Admin = () => {
       count: pendingReportsCount,
     },
     { id: "terms", label: "Gestion des termes", icon: FileText, count: 0 },
+    { id: "categories", label: "Catégories", icon: FileText, count: 0 },
     { id: "users", label: "Gestion des utilisateurs", icon: Users, count: 0 },
   ];
 
@@ -89,7 +106,7 @@ const Admin = () => {
       </Helmet>
 
       <div className="min-h-screen creative-bg py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -105,12 +122,7 @@ const Admin = () => {
             </p>
           </motion.div>
 
-          <AdminStats
-            terms={terms}
-            users={users}
-            reports={reports}
-            modifications={modifications}
-          />
+          <AdminStats globalStats={globalStats} loading={statsLoading} />
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -164,6 +176,7 @@ const Admin = () => {
                 onUpdate={handleDataUpdate}
               />
             )}
+            {activeTab === "categories" && <CategoriesManagement />}
             {activeTab === "users" && (
               <UsersManagement
                 allUsers={users}
@@ -173,8 +186,8 @@ const Admin = () => {
             )}
             {activeTab === "reports" && (
               <ReportsManagement
-                allReports={reports}
                 allUsers={users}
+                loadingOverride={reportsLoading}
                 onUpdate={handleDataUpdate}
               />
             )}

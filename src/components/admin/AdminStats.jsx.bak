@@ -1,0 +1,203 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Users,
+  FileText,
+  UserCheck,
+  ShieldAlert,
+  Edit,
+  TrendingUp,
+  Clock,
+} from "lucide-react";
+import { motion } from "framer-motion";
+
+const AdminStats = ({
+  globalStats,
+  terms,
+  users,
+  reports,
+  modifications,
+  loading,
+}) => {
+  // Use database stats when available, fallback to computed stats
+  const totalUsers = globalStats.totalUsers || users.length;
+  const totalTerms = globalStats.totalTerms || terms.length;
+  const pendingAuthors =
+    globalStats.pendingUsers ||
+    users.filter((u) => u.role === "auteur" && u.status === "pending").length;
+  const pendingReports =
+    globalStats.pendingReports ||
+    reports.filter((r) => r.status === "pending").length;
+  const pendingModifications =
+    globalStats.pendingModifications ||
+    modifications.filter((m) => m.status === "pending").length;
+  const recentUsers = globalStats.recentUsers || 0;
+  const recentTerms = globalStats.recentTerms || 0;
+
+  const stats = [
+    {
+      title: "Utilisateurs Total",
+      value: totalUsers,
+      icon: Users,
+      color: "from-blue-500 to-blue-400",
+      subtitle: `+${recentUsers} cette semaine`,
+    },
+    {
+      title: "Termes Total",
+      value: totalTerms,
+      icon: FileText,
+      color: "from-green-500 to-green-400",
+      subtitle: `+${recentTerms} cette semaine`,
+    },
+    {
+      title: "Auteurs en attente",
+      value: pendingAuthors,
+      icon: UserCheck,
+      color: "from-yellow-500 to-yellow-400",
+      urgent: pendingAuthors > 0,
+    },
+    {
+      title: "Signalements",
+      value: pendingReports,
+      icon: ShieldAlert,
+      color: "from-red-500 to-red-400",
+      urgent: pendingReports > 0,
+    },
+    {
+      title: "Modifications",
+      value: pendingModifications,
+      icon: Edit,
+      color: "from-purple-500 to-purple-400",
+      urgent: pendingModifications > 0,
+    },
+  ];
+
+  // Additional detailed stats for admins
+  const detailedStats = [
+    {
+      title: "Activité Récente",
+      items: [
+        {
+          label: "Nouveaux utilisateurs (7j)",
+          value: recentUsers,
+          icon: TrendingUp,
+        },
+        { label: "Nouveaux termes (7j)", value: recentTerms, icon: Clock },
+      ],
+    },
+    {
+      title: "Répartition par Rôle",
+      items: Object.entries(globalStats.usersByRole || {}).map(
+        ([role, count]) => ({
+          label: role,
+          value: count,
+          icon: Users,
+        })
+      ),
+    },
+    {
+      title: "Statut des Termes",
+      items: Object.entries(globalStats.termsByStatus || {}).map(
+        ([status, count]) => ({
+          label: status,
+          value: count,
+          icon: FileText,
+        })
+      ),
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mb-8">
+        {[...Array(5)].map((_, index) => (
+          <Card key={index} className="animate-pulse">
+            <CardHeader className="pb-2">
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 bg-muted rounded w-1/2"></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 mb-8">
+      {/* Main Stats Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        {stats.map((stat, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+          >
+            <Card
+              className={`bg-gradient-to-br ${
+                stat.color
+              } text-white border-none shadow-lg ${
+                stat.urgent ? "ring-2 ring-red-400 ring-opacity-50" : ""
+              }`}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
+                <stat.icon
+                  className={`h-5 w-5 ${
+                    stat.urgent ? "animate-pulse" : ""
+                  } text-white/80`}
+                />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{stat.value}</div>
+                {stat.subtitle && (
+                  <p className="text-white/80 text-xs mt-1">{stat.subtitle}</p>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Detailed Stats */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {detailedStats.map((section, sectionIndex) => (
+          <motion.div
+            key={sectionIndex}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: (sectionIndex + 5) * 0.1 }}
+          >
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-lg">{section.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {section.items.map((item, itemIndex) => (
+                    <div
+                      key={itemIndex}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{item.label}</span>
+                      </div>
+                      <span className="font-semibold">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default AdminStats;

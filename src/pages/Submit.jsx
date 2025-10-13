@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
-import { useData } from "@/contexts/DataContext";
+import { useDispatch } from "react-redux";
+import { createTerm } from "@/features/terms/termsSlice";
 import SubmitFormSection from "@/components/submit/SubmitFormSection";
 import { Save, Send } from "lucide-react";
 
@@ -15,15 +16,17 @@ const Submit = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { terms, setTerms } = useData();
+  const dispatch = useDispatch();
 
   const [formData, setFormData] = useState({
     term: "",
-    category: "Coaching", // Default to Coaching
+    category: "Coaching", // label for UI; real id set in categorie_id
+    categorie_id: null,
     definition: "",
     exemples: [{ text: "" }],
     sources: [{ text: "" }],
     moderatorComment: "",
+    remarques: [{ text: "" }],
   });
   const [progress, setProgress] = useState(0);
 
@@ -52,7 +55,7 @@ const Submit = () => {
       .trim("-");
   };
 
-  const handleFormAction = (status) => {
+  const handleFormAction = async (status) => {
     if (
       !formData.term?.trim() ||
       (status !== "draft" &&
@@ -72,26 +75,32 @@ const Submit = () => {
     const finalStatus =
       user.role === "auteur" || user.role === "admin" ? "published" : status;
 
-    const newTerm = {
-      id: `term-${Date.now()}`,
+    const payload = {
       term: formData.term,
       slug: generateSlug(formData.term),
-      category: "Coaching", // Enforce Coaching category
+      category: formData.category || "Coaching",
+      categorie_id: formData.categorie_id || undefined,
       definition: formData.definition,
       exemples: formData.exemples.filter((ex) => ex.text?.trim()),
       sources: formData.sources.filter((res) => res.text?.trim()),
+      remarques: (formData.remarques || []).filter((r) => r.text?.trim()),
       status: finalStatus,
       authorId: user.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      views: 0,
+      // backend compatibility (legacy french keys)
+      terme: formData.term,
+      author_id: user.id,
     };
 
-    // update the shared data context (single source of truth - backend)
-    setTerms((prev) => {
-      const next = Array.isArray(prev) ? [...prev, newTerm] : [newTerm];
-      return next;
-    });
+    try {
+      await dispatch(createTerm(payload)).unwrap();
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de créer le terme.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     toast({
       title:
@@ -118,7 +127,7 @@ const Submit = () => {
       </Helmet>
 
       <div className="min-h-screen creative-bg py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

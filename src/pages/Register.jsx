@@ -31,25 +31,27 @@ const steps = [
 const Register = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: "",
+    lastName: "",
+    name: "", // Calculé automatiquement à partir de firstName + lastName
     birthDate: null,
-    sex: '',
-    phone: '',
+    sex: "",
+    phone: "",
     profilePicture: null,
-    email: '',
-    password: '',
-    confirmPassword: '',
-    professionalStatus: '',
-    otherStatus: '',
-    role: '',
-    presentation: '',
+    email: "",
+    password: "",
+    confirmPassword: "",
+    professionalStatus: "",
+    otherStatus: "",
+    role: "",
+    presentation: "",
     documents: [],
-    biography: '',
+    biography: "",
     socials: [
-      { network: 'Facebook', url: '', customNetwork: '' },
-      { network: 'Instagram', url: '', customNetwork: '' },
-      { network: 'LinkedIn', url: '', customNetwork: '' },
-      { network: 'X', url: '', customNetwork: '' },
+      { network: "Facebook", url: "", customNetwork: "" },
+      { network: "Instagram", url: "", customNetwork: "" },
+      { network: "LinkedIn", url: "", customNetwork: "" },
+      { network: "X", url: "", customNetwork: "" },
     ],
   });
   const [loading, setLoading] = useState(false);
@@ -58,22 +60,40 @@ const Register = () => {
   const { toast } = useToast();
   const [showAuthorPopup, setShowAuthorPopup] = useState(false);
 
-  const handleNext = () => setCurrentStep(prev => prev + 1);
-  const handleBack = () => setCurrentStep(prev => prev - 1);
+  const handleNext = () => setCurrentStep((prev) => prev + 1);
+  const handleBack = () => setCurrentStep((prev) => prev - 1);
+
+  // Fonction pour mettre à jour formData avec nom complet automatique
+  const updateFormData = (newData) => {
+    const updatedData = { ...formData, ...newData };
+
+    // Si firstName ou lastName changent, mettre à jour automatiquement le champ name
+    if (newData.firstName !== undefined || newData.lastName !== undefined) {
+      const firstName =
+        newData.firstName !== undefined
+          ? newData.firstName
+          : formData.firstName;
+      const lastName =
+        newData.lastName !== undefined ? newData.lastName : formData.lastName;
+      updatedData.name = `${firstName} ${lastName}`.trim();
+    }
+
+    setFormData(updatedData);
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
       const result = await register(formData);
       if (result.success) {
-        if (formData.role === 'auteur') {
+        if (formData.role === "auteur") {
           setShowAuthorPopup(true);
         } else {
           toast({
             title: "Inscription réussie !",
             description: "Bienvenue dans le dictionnaire !",
           });
-          navigate('/dashboard');
+          navigate("/dashboard");
         }
       } else {
         toast({
@@ -96,34 +116,72 @@ const Register = () => {
 
   const handlePopupClose = () => {
     setShowAuthorPopup(false);
-    navigate('/dashboard');
-  }
+    navigate("/dashboard");
+  };
 
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <Step1PersonalInfo formData={formData} setFormData={setFormData} onNext={handleNext} />;
+        return (
+          <Step1PersonalInfo
+            formData={formData}
+            setFormData={updateFormData}
+            onNext={handleNext}
+          />
+        );
       case 2:
-        return <Step2RoleChoice formData={formData} setFormData={setFormData} onNext={handleNext} onBack={handleBack} />;
+        return (
+          <Step2RoleChoice
+            formData={formData}
+            setFormData={updateFormData}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
       case 3:
-        if (formData.role === 'chercheur') {
-          return <Step3AResearcher formData={formData} setFormData={setFormData} onBack={handleBack} onSubmit={handleSubmit} loading={loading} />;
+        if (formData.role === "chercheur") {
+          return (
+            <Step3AResearcher
+              formData={formData}
+              setFormData={updateFormData}
+              onBack={handleBack}
+              onSubmit={handleSubmit}
+              loading={loading}
+            />
+          );
         }
-        if (formData.role === 'auteur') {
-          return <Step3BAuthor formData={formData} setFormData={setFormData} onBack={handleBack} onSubmit={handleSubmit} loading={loading} />;
+        if (formData.role === "auteur") {
+          return (
+            <Step3BAuthor
+              formData={formData}
+              setFormData={updateFormData}
+              onBack={handleBack}
+              onSubmit={handleSubmit}
+              loading={loading}
+            />
+          );
         }
         handleBack();
         return null;
       default:
-        return <Step1PersonalInfo formData={formData} setFormData={setFormData} onNext={handleNext} />;
+        return (
+          <Step1PersonalInfo
+            formData={formData}
+            setFormData={updateFormData}
+            onNext={handleNext}
+          />
+        );
     }
   };
 
   return (
     <>
       <Helmet>
-        <title>Inscription - Dictionnaire Digital Collaboratif du Coaching</title>
-        <meta name="description" content="Créez votre compte pour rejoindre la communauté du dictionnaire collaboratif du coaching et commencer à contribuer." />
+        <title>Inscription - Dicoaching</title>
+        <meta
+          name="description"
+          content="Créez votre compte pour rejoindre la communauté du dictionnaire collaboratif du coaching et commencer à contribuer."
+        />
       </Helmet>
 
       <Dialog open={showAuthorPopup} onOpenChange={setShowAuthorPopup}>
@@ -131,9 +189,13 @@ const Register = () => {
           <DialogHeader>
             <div className="flex flex-col items-center text-center">
               <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-              <DialogTitle className="text-2xl">Candidature envoyée !</DialogTitle>
+              <DialogTitle className="text-2xl">
+                Candidature envoyée !
+              </DialogTitle>
               <DialogDescription className="mt-2">
-                Merci d'avoir postulé. Votre candidature est en cours de validation. Vous serez notifié par email une fois votre profil approuvé.
+                Merci d'avoir postulé. Votre candidature est en cours de
+                validation. Vous serez notifié par email une fois votre profil
+                approuvé.
               </DialogDescription>
             </div>
           </DialogHeader>
@@ -143,14 +205,14 @@ const Register = () => {
         </DialogContent>
       </Dialog>
 
-
       <div className="min-h-screen flex flex-col items-center justify-center creative-bg py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-3xl">
           <div className="text-center mb-8">
             <Link to="/" className="inline-flex items-center space-x-2">
               <BookOpen className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold text-foreground">
-                Dico<span className="creative-gradient-text">Coaching</span>
+              <span className="text-2xl font-bold">
+                <span style={{ color: "#884dee" }}>Di</span>
+                <span className="text-black dark:text-white">coaching</span>
               </span>
             </Link>
           </div>
@@ -162,16 +224,31 @@ const Register = () => {
                   <div className="flex flex-col items-center">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300 ${
-                        currentStep > step.id ? 'bg-primary text-primary-foreground' :
-                        currentStep === step.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
+                        currentStep > step.id
+                          ? "bg-primary text-primary-foreground"
+                          : currentStep === step.id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground"
                       }`}
                     >
-                      {currentStep > step.id ? '✓' : step.id}
+                      {currentStep > step.id ? "✓" : step.id}
                     </div>
-                    <p className={`mt-2 text-xs text-center ${currentStep >= step.id ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{step.name}</p>
+                    <p
+                      className={`mt-2 text-xs text-center ${
+                        currentStep >= step.id
+                          ? "text-primary font-semibold"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {step.name}
+                    </p>
                   </div>
                   {index < steps.length - 1 && (
-                    <div className={`flex-1 h-1 transition-colors duration-300 ${currentStep > step.id ? 'bg-primary' : 'bg-secondary'}`}></div>
+                    <div
+                      className={`flex-1 h-1 transition-colors duration-300 ${
+                        currentStep > step.id ? "bg-primary" : "bg-secondary"
+                      }`}
+                    ></div>
                   )}
                 </React.Fragment>
               ))}
@@ -193,17 +270,17 @@ const Register = () => {
               </AnimatePresence>
             </CardContent>
           </Card>
-           <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Déjà un compte ?{' '}
-                <Link
-                  to="/login"
-                  className="font-medium text-primary hover:underline"
-                >
-                  Se connecter
-                </Link>
-              </p>
-            </div>
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Déjà un compte ?{" "}
+              <Link
+                to="/login"
+                className="font-medium text-primary hover:underline"
+              >
+                Se connecter
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </>

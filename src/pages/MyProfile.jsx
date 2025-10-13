@@ -2,14 +2,43 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Upload, Save, Lock, Trash2, Plus, Facebook, Instagram, Linkedin, Twitter, Link as LinkIcon, Camera, BadgeInfo } from 'lucide-react';
+import authService from "@/services/authService";
+import { getProfilePictureUrl } from "@/lib/avatarUtils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  User,
+  Upload,
+  Save,
+  Lock,
+  Trash2,
+  Plus,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Link as LinkIcon,
+  Camera,
+  BadgeInfo,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,28 +47,63 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import AddDocumentDialog from '@/components/profile/AddDocumentDialog';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/dialog";
+import AddDocumentDialog from "@/components/profile/AddDocumentDialog";
+import { Badge } from "@/components/ui/badge";
+
+const professionalStatuses = [
+  "Étudiant",
+  "Enseignant / Professeur",
+  "Coach / Formateur",
+  "Chercheur",
+  "Professionnel RH",
+  "Autre",
+];
+
+const genderOptions = [
+  { value: "homme", label: "Homme" },
+  { value: "femme", label: "Femme" },
+];
+
+const parseSocialArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    if (!value.trim()) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+  return [];
+};
 
 const SocialIcon = ({ network }) => {
   switch (network.toLowerCase()) {
-    case 'facebook': return <Facebook className="h-5 w-5 text-blue-600" />;
-    case 'instagram': return <Instagram className="h-5 w-5 text-pink-500" />;
-    case 'linkedin': return <Linkedin className="h-5 w-5 text-blue-700" />;
-    case 'x': return <Twitter className="h-5 w-5" />;
-    default: return <LinkIcon className="h-5 w-5" />;
+    case "facebook":
+      return <Facebook className="h-5 w-5 text-blue-600" />;
+    case "instagram":
+      return <Instagram className="h-5 w-5 text-pink-500" />;
+    case "linkedin":
+      return <Linkedin className="h-5 w-5 text-blue-700" />;
+    case "x":
+      return <Twitter className="h-5 w-5" />;
+    default:
+      return <LinkIcon className="h-5 w-5" />;
   }
 };
 
 const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
       setError("Les nouveaux mots de passe ne correspondent pas.");
       return;
@@ -49,25 +113,41 @@ const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
       return;
     }
 
-    const allUsers = JSON.parse(localStorage.getItem('coaching_dict_users') || '[]');
-    const userIndex = allUsers.findIndex(u => u.id === userId);
-    
-    if (userIndex === -1) {
-      setError("Utilisateur non trouvé.");
-      return;
-    }
+    setLoading(true);
+    setError("");
 
-    if (allUsers[userIndex].password !== currentPassword) {
-      setError("Le mot de passe actuel est incorrect.");
-      return;
-    }
+    try {
+      // TODO: Implement password change API endpoint
+      // For now, keep the localStorage approach until backend endpoint is ready
+      const allUsers = JSON.parse(
+        localStorage.getItem("coaching_dict_users") || "[]"
+      );
+      const userIndex = allUsers.findIndex((u) => u.id === userId);
 
-    allUsers[userIndex].password = newPassword;
-    localStorage.setItem('coaching_dict_users', JSON.stringify(allUsers));
-    
-    setError('');
-    onPasswordChanged();
-    setIsDialogOpen(false);
+      if (userIndex === -1) {
+        setError("Utilisateur non trouvé.");
+        return;
+      }
+
+      if (allUsers[userIndex].password !== currentPassword) {
+        setError("Le mot de passe actuel est incorrect.");
+        return;
+      }
+
+      allUsers[userIndex].password = newPassword;
+      localStorage.setItem("coaching_dict_users", JSON.stringify(allUsers));
+
+      setError("");
+      onPasswordChanged();
+      setIsDialogOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      setError("Erreur lors du changement de mot de passe");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -121,88 +201,288 @@ const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
               className="col-span-3"
             />
           </div>
-          {error && <p className="col-span-4 text-center text-red-500 text-sm">{error}</p>}
+          {error && (
+            <p className="col-span-4 text-center text-red-500 text-sm">
+              {error}
+            </p>
+          )}
         </div>
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Annuler</Button>
-          <Button type="submit" onClick={handleChangePassword}>Confirmer</Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsDialogOpen(false)}
+          >
+            Annuler
+          </Button>
+          <Button type="submit" onClick={handleChangePassword}>
+            Confirmer
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
 
-const MyProfile = () => {
-  const { user } = useAuth();
+function MyProfile() {
+  const { user, updateUser } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    if (user) {
-      const allUsers = JSON.parse(localStorage.getItem('coaching_dict_users') || '[]');
-      const currentUserData = allUsers.find(u => u.id === user.id);
-      setFormData({
-        ...currentUserData,
-        socials: currentUserData.socials || [],
-        documents: currentUserData.documents || []
-      });
-    }
-    setLoading(false);
-  }, [user]);
+    const fetchUserProfile = async () => {
+      if (user) {
+        setLoading(true);
+        try {
+          // Get the current user data from the auth context
+          const userData = {
+            id: user.id,
+            email: user.email || "",
+            firstname: user.firstname || "",
+            lastname: user.lastname || "",
+            phone: user.phone || "",
+            birth_date: user.birth_date
+              ? String(user.birth_date).slice(0, 10)
+              : "",
+            sex: user.sex || "",
+            role: user.role,
+            biography: user.biography || "",
+            professional_status: user.professional_status || "",
+            other_status: user.other_status || "",
+            profile_picture: user.profile_picture || "",
+            profile_picture_url: user.profile_picture_url || "",
+            presentation: user.presentation || "",
+            socials: parseSocialArray(user.socials),
+            documents: [], // Documents functionality to be implemented later
+            profilePictureFile: null,
+            profilePicturePreview: null,
+          };
+
+          setFormData(userData);
+        } catch (error) {
+          console.error("Erreur lors du chargement du profil:", error);
+          toast({
+            title: "Erreur",
+            description: "Impossible de charger les données du profil",
+            variant: "destructive",
+          });
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchUserProfile();
+  }, [user, toast]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Erreur",
+          description: "La taille du fichier ne doit pas dépasser 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Erreur",
+          description: "Seules les images sont autorisées",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Store file for upload and create preview
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, profilePicture: reader.result }));
+        setFormData((prev) => ({
+          ...prev,
+          profilePictureFile: file,
+          profilePicturePreview: reader.result,
+          profile_picture_url: null,
+        }));
       };
       reader.readAsDataURL(file);
     }
   };
-  
+
   const handleSocialChange = (index, field, value) => {
     const newSocials = [...formData.socials];
     newSocials[index][field] = value;
-    setFormData(prev => ({ ...prev, socials: newSocials }));
+    setFormData((prev) => ({ ...prev, socials: newSocials }));
   };
 
   const addSocialField = () => {
-    setFormData(prev => ({ ...prev, socials: [...prev.socials, { network: '', url: '' }] }));
+    setFormData((prev) => ({
+      ...prev,
+      socials: [...prev.socials, { network: "", url: "" }],
+    }));
   };
 
   const removeSocialField = (index) => {
     const newSocials = [...formData.socials];
     newSocials.splice(index, 1);
-    setFormData(prev => ({ ...prev, socials: newSocials }));
+    setFormData((prev) => ({ ...prev, socials: newSocials }));
   };
 
   const handleAddDocument = (newDoc) => {
-    setFormData(prev => ({ ...prev, documents: [...(prev.documents || []), newDoc] }));
+    setFormData((prev) => ({
+      ...prev,
+      documents: [...(prev.documents || []), newDoc],
+    }));
   };
 
   const handleRemoveDocument = (index) => {
     const newDocuments = [...formData.documents];
     newDocuments.splice(index, 1);
-    setFormData(prev => ({ ...prev, documents: newDocuments }));
+    setFormData((prev) => ({ ...prev, documents: newDocuments }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const allUsers = JSON.parse(localStorage.getItem('coaching_dict_users') || '[]');
-    const updatedUsers = allUsers.map(u => u.id === user.id ? { ...u, ...formData } : u);
-    localStorage.setItem('coaching_dict_users', JSON.stringify(updatedUsers));
-    toast({
-      title: "Profil mis à jour !",
-      description: "Vos informations ont été sauvegardées avec succès.",
-    });
+
+    if (!formData || !user) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      if (!formData.firstname?.trim() || !formData.lastname?.trim()) {
+        toast({
+          title: "Nom et prénom requis",
+          description:
+            "Veuillez renseigner votre prénom et votre nom avant d'enregistrer.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      const trimmedEmail = formData.email?.trim() || "";
+      if (!trimmedEmail) {
+        toast({
+          title: "Email requis",
+          description: "Votre adresse email ne peut pas être vide.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      const emailRegex = /\S+@\S+\.\S+/;
+      if (!emailRegex.test(trimmedEmail)) {
+        toast({
+          title: "Email invalide",
+          description: "Veuillez saisir une adresse email valide.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      const sanitizedSocials = Array.isArray(formData.socials)
+        ? formData.socials
+            .map((social) => ({
+              network: (social.network || "").trim(),
+              url: (social.url || "").trim(),
+            }))
+            .filter((social) => social.network && social.url)
+        : [];
+
+      const profileData = {
+        firstname: formData.firstname?.trim() || "",
+        lastname: formData.lastname?.trim() || "",
+        biography: formData.biography || "",
+        professional_status: formData.professional_status || "",
+        presentation: formData.presentation || "",
+        socials: sanitizedSocials,
+        email: trimmedEmail,
+        phone: formData.phone ? formData.phone.trim() : "",
+        sex: formData.sex || "",
+        birth_date: formData.birth_date || "",
+      };
+
+      profileData.other_status =
+        formData.professional_status === "Autre"
+          ? formData.other_status?.trim() || ""
+          : "";
+
+      // Add profile picture file if it was changed
+      if (formData.profilePictureFile) {
+        profileData.profilePictureFile = formData.profilePictureFile;
+      }
+
+      const result = await authService.updateProfile(user.id, profileData);
+
+      if (result.success) {
+        const normalizedSocials = parseSocialArray(result.data.socials);
+
+        const updatedData = {
+          id: result.data.id,
+          email: result.data.email || "",
+          firstname: result.data.firstname || "",
+          lastname: result.data.lastname || "",
+          phone: result.data.phone || "",
+          birth_date: result.data.birth_date
+            ? String(result.data.birth_date).slice(0, 10)
+            : "",
+          sex: result.data.sex || "",
+          role: result.data.role || formData.role,
+          biography: result.data.biography || "",
+          professional_status: result.data.professional_status || "",
+          other_status: result.data.other_status || "",
+          profile_picture:
+            result.data.profile_picture || formData.profile_picture || "",
+          profile_picture_url:
+            result.data.profile_picture_url || formData.profile_picture_url || "",
+          presentation: result.data.presentation || "",
+          socials: normalizedSocials,
+          documents: formData.documents || [],
+          profilePictureFile: null,
+          profilePicturePreview: result.data.profile_picture_url || null,
+        };
+
+        setFormData(updatedData);
+
+        const contextUser = {
+          ...result.data,
+          socials: normalizedSocials,
+        };
+
+        updateUser(contextUser);
+
+        toast({
+          title: "Profil mis à jour !",
+          description: "Vos informations ont été sauvegardées avec succès.",
+        });
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la mise Ã  jour:", error);
+      toast({
+        title: "Erreur",
+        description:
+          error.message || "Impossible de sauvegarder les modifications",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePasswordChanged = () => {
@@ -213,31 +493,57 @@ const MyProfile = () => {
   };
 
   if (loading || !formData) {
-    return <div className="text-center py-20">Chargement de votre profil...</div>;
+    return (
+      <div className="text-center py-20">Chargement de votre profil...</div>
+    );
   }
 
   return (
     <>
       <Helmet>
-        <title>{formData.name ? `Mon Profil - ${formData.name}` : 'Mon Profil'} - Dictionnaire Collaboratif</title>
-        <meta name="description" content="Gérez vos informations de profil, votre biographie et vos contributions." />
+        <title>
+          {formData.firstname || formData.lastname
+            ? `Mon Profil - ${formData.firstname} ${formData.lastname}`
+            : "Mon Profil"}{" "}
+          - Dictionnaire Collaboratif
+        </title>
+        <meta
+          name="description"
+          content="Gérez vos informations de profil, votre biographie et vos contributions."
+        />
       </Helmet>
       <div className="min-h-screen creative-bg py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <h1 className="text-3xl font-bold text-foreground mb-8">Mon Profil</h1>
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h1 className="text-3xl font-bold text-foreground mb-8">
+              Mon Profil
+            </h1>
             <form onSubmit={handleSubmit}>
               <Card className="mb-8">
                 <CardHeader>
                   <CardTitle>Informations personnelles</CardTitle>
-                  <CardDescription>Mettez à jour vos informations de base.</CardDescription>
+                  <CardDescription>
+                    Mettez à jour vos informations de base.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex items-center gap-6">
                     <div className="relative group">
                       <Avatar className="h-24 w-24">
-                        <AvatarImage src={formData.profilePicture} alt={formData.name} />
-                        <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
+                        <AvatarImage
+                          src={
+                            formData.profilePicturePreview ||
+                            getProfilePictureUrl(formData)
+                          }
+                          alt={`${formData.firstname} ${formData.lastname}`}
+                        />
+                        <AvatarFallback>
+                          <User className="h-12 w-12" />
+                        </AvatarFallback>
                       </Avatar>
                       <button
                         type="button"
@@ -257,70 +563,241 @@ const MyProfile = () => {
                     </div>
                     <div className="flex-1">
                       <Label>Photo de profil</Label>
-                      <p className="text-sm text-muted-foreground">Cliquez sur l'image pour la changer.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Cliquez sur l'image pour la changer. Max 5MB.
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <Label htmlFor="name">Nom complet</Label>
-                      <Input id="name" name="name" value={formData.name} onChange={handleInputChange} />
+                      <Label htmlFor="firstname">Prénom</Label>
+                      <Input
+                        id="firstname"
+                        name="firstname"
+                        value={formData.firstname}
+                        onChange={handleInputChange}
+                      />
                     </div>
                     <div>
-                      <Label htmlFor="professionalStatus">Profession</Label>
-                      <Input id="professionalStatus" name="professionalStatus" value={formData.professionalStatus} onChange={handleInputChange} />
+                      <Label htmlFor="lastname">Nom</Label>
+                      <Input
+                        id="lastname"
+                        name="lastname"
+                        value={formData.lastname}
+                        onChange={handleInputChange}
+                      />
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="role">Rôle</Label>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <Label htmlFor="phone">Téléphone</Label>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        placeholder="06 12 34 56 78"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="birth_date">Date de naissance</Label>
+                      <Input
+                        id="birth_date"
+                        name="birth_date"
+                        type="date"
+                        value={formData.birth_date}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <Label htmlFor="sex">Sexe</Label>
+                      <Select
+                        value={formData.sex || undefined}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({ ...prev, sex: value }))
+                        }
+                      >
+                        <SelectTrigger id="sex">
+                          <SelectValue placeholder="Sélectionnez" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {genderOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="professional_status">
+                        Statut professionnel
+                      </Label>
+                      <Select
+                        value={formData.professional_status || undefined}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            professional_status: value,
+                            other_status:
+                              value === "Autre" ? prev.other_status : "",
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="professional_status">
+                          <SelectValue placeholder="Sélectionnez votre statut" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {professionalStatuses.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {formData.professional_status === "Autre" && (
+                    <div>
+                      <Label htmlFor="other_status">
+                        Précisez votre statut
+                      </Label>
+                      <Input
+                        id="other_status"
+                        name="other_status"
+                        value={formData.other_status}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="presentation">Présentation</Label>
+                    <Textarea
+                      id="presentation"
+                      name="presentation"
+                      value={formData.presentation}
+                      onChange={handleInputChange}
+                      rows={4}
+                      placeholder="Vos motivations, vos centres d'intÃ©rÃªt..."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="role">RÃ´le</Label>
                     <div className="flex items-center gap-2 mt-2">
                       <BadgeInfo className="h-5 w-5 text-primary" />
-                      <Badge variant="secondary" className="text-base capitalize">{formData.role}</Badge>
+                      <Badge
+                        variant="secondary"
+                        className="text-base capitalize"
+                      >
+                        {formData.role}
+                      </Badge>
                     </div>
                   </div>
                   <div>
                     <Label htmlFor="biography">Biographie</Label>
-                    <Textarea id="biography" name="biography" value={formData.biography} onChange={handleInputChange} rows={5} />
+                    <Textarea
+                      id="biography"
+                      name="biography"
+                      value={formData.biography}
+                      onChange={handleInputChange}
+                      rows={5}
+                    />
                   </div>
                 </CardContent>
               </Card>
 
-              {formData.role === 'auteur' && (
+              {formData.role === "auteur" && (
                 <Card className="mb-8">
                   <CardHeader>
-                    <CardTitle>Réseaux Sociaux</CardTitle>
-                    <CardDescription>Gérez vos liens vers les réseaux sociaux.</CardDescription>
+                    <CardTitle>RÃ©seaux Sociaux</CardTitle>
+                    <CardDescription>
+                      GÃ©rez vos liens vers les rÃ©seaux sociaux.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {formData.socials.map((social, index) => (
                       <div key={index} className="flex items-center gap-2">
                         <div className="flex-1 flex items-center gap-2 border rounded-md p-2">
                           <SocialIcon network={social.network} />
-                          <Input className="border-none focus-visible:ring-0 font-medium" value={social.network} readOnly />
-                          <Input className="border-none focus-visible:ring-0" placeholder="URL du profil" value={social.url} onChange={(e) => handleSocialChange(index, 'url', e.target.value)} />
+                          <Input
+                            className="border-none focus-visible:ring-0 font-medium"
+                            value={social.network}
+                            placeholder="Nom du rÃ©seau"
+                            onChange={(e) =>
+                              handleSocialChange(
+                                index,
+                                "network",
+                                e.target.value
+                              )
+                            }
+                          />
+                          <Input
+                            className="border-none focus-visible:ring-0"
+                            placeholder="URL du profil"
+                            value={social.url}
+                            onChange={(e) =>
+                              handleSocialChange(index, "url", e.target.value)
+                            }
+                          />
                         </div>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeSocialField(index)}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeSocialField(index)}
+                        >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={addSocialField}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addSocialField}
+                    >
                       <Plus className="h-4 w-4 mr-2" /> Ajouter un réseau
                     </Button>
                   </CardContent>
                 </Card>
               )}
 
-              {formData.role === 'auteur' && (
+              {formData.role === "auteur" && (
                 <Card className="mb-8">
                   <CardHeader>
                     <CardTitle>Documents</CardTitle>
-                    <CardDescription>Gérez vos documents publics (certifications, etc.). Seuls les PDF et images sont acceptés.</CardDescription>
+                    <CardDescription>
+                      Gérez vos documents publics (certifications, etc.). Seuls
+                      les PDF et images sont acceptés.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {formData.documents.map((doc, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
-                        <p className="text-sm font-medium truncate">{doc.title}</p>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveDocument(index)}>
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 border rounded-md bg-muted/50"
+                      >
+                        <p className="text-sm font-medium truncate">
+                          {doc.title}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveDocument(index)}
+                        >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
@@ -333,16 +810,22 @@ const MyProfile = () => {
               <Card className="mb-8">
                 <CardHeader>
                   <CardTitle>Sécurité</CardTitle>
-                  <CardDescription>Gérez les paramètres de sécurité de votre compte.</CardDescription>
+                  <CardDescription>
+                    Gérez les paramètres de sécurité de votre compte.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ChangePasswordDialog userId={user.id} onPasswordChanged={handlePasswordChanged} />
+                  <ChangePasswordDialog
+                    userId={user.id}
+                    onPasswordChanged={handlePasswordChanged}
+                  />
                 </CardContent>
               </Card>
 
               <div className="flex justify-end">
-                <Button type="submit">
-                  <Save className="mr-2 h-4 w-4" /> Sauvegarder les modifications
+                <Button type="submit" disabled={saving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? "Sauvegarde..." : "Sauvegarder les modifications"}
                 </Button>
               </div>
             </form>
@@ -351,6 +834,6 @@ const MyProfile = () => {
       </div>
     </>
   );
-};
+}
 
 export default MyProfile;

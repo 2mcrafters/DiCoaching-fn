@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { MessageCircle, Send, Info } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MessageCircle, Send, Info, Trash2 } from 'lucide-react';
+import { getProfilePictureUrl } from "@/lib/avatarUtils";
 
-const FicheComments = ({ comments, onCommentSubmit, getAuthorName }) => {
+const FicheComments = ({ comments, onCommentSubmit, onDeleteComment, getAuthorName }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [newComment, setNewComment] = useState('');
@@ -73,18 +75,81 @@ const FicheComments = ({ comments, onCommentSubmit, getAuthorName }) => {
                 <p className="text-muted-foreground">Soyez le premier à commenter cette fiche !</p>
               </div>
             ) : (
-              comments.map((comment) => (
-                <div key={comment.id} className="border rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                      {getAuthorName(comment.authorId).charAt(0).toUpperCase()}
+              comments.map((comment) => {
+                const author = comment.author || {};
+                const resolvedName =
+                  (typeof author.name === "string" && author.name.trim()) ||
+                  (typeof comment.authorName === "string" &&
+                    comment.authorName.trim()) ||
+                  (getAuthorName ? getAuthorName(comment.authorId) : null) ||
+                  "Utilisateur";
+
+                const avatarSrc = getProfilePictureUrl({
+                  id: author.id || comment.authorId || "user",
+                  sex: author.sex,
+                  profile_picture: author.profile_picture,
+                  profile_picture_url: author.profile_picture_url,
+                });
+
+                const initial = resolvedName
+                  ? resolvedName.charAt(0).toUpperCase()
+                  : "U";
+
+                const canDelete =
+                  user &&
+                  (String(comment.authorId) === String(user.id) ||
+                    user.role === "admin" ||
+                    user.role === "auteur" ||
+                    user.role === "author");
+
+                const handleDelete = () => {
+                  if (!onDeleteComment) return;
+                  onDeleteComment(comment.id);
+                };
+
+                return (
+                  <div key={comment.id} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={avatarSrc} alt={resolvedName} />
+                          <AvatarFallback>{initial}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">
+                              {resolvedName}
+                            </span>
+                            {author.role && (
+                              <span className="text-[11px] uppercase tracking-wide text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                                {author.role}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground block">
+                            {new Date(comment.createdAt).toLocaleDateString(
+                              "fr-FR"
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      {canDelete && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={handleDelete}
+                          title="Supprimer le commentaire"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <span className="font-medium text-sm">{getAuthorName(comment.authorId)}</span>
-                    <span className="text-xs text-muted-foreground">{new Date(comment.createdAt).toLocaleDateString('fr-FR')}</span>
+                    <p className="text-sm leading-relaxed">{comment.content}</p>
                   </div>
-                  <p className="text-sm">{comment.content}</p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </CardContent>

@@ -1,57 +1,267 @@
-import React, { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet';
-import { motion } from 'framer-motion';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search } from 'lucide-react';
-import AuthorCard from '@/components/authors/AuthorCard';
+import React, { useState, useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchUsers, selectAllUsers } from "@/features/users/usersSlice";
+import { Helmet } from "react-helmet";
+import { motion } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search } from "lucide-react";
+import AuthorCard from "@/components/authors/AuthorCard";
 import { useData } from "@/contexts/DataContext";
 
+const FALLBACK_PROFESSION = "Mohamed Rachid Belhadj";
+const SPECIAL_ADMIN_EMAILS = ["admin@dict.com", "admin@dictionnaire.fr"];
+
+const fallbackAvatar = (id) =>
+  `https://i.pravatar.cc/150?u=${id || Math.random()}`;
+
+const splitName = (fullName = "") => {
+  const trimmed = fullName.trim();
+  if (!trimmed) return { firstname: "", lastname: "" };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstname: parts[0], lastname: "" };
+  return {
+    firstname: parts.slice(0, -1).join(" "),
+    lastname: parts.slice(-1).join(" "),
+  };
+};
+
+const normalizeUser = (user = {}) => {
+  const firstname = user.firstname || user.first_name || "";
+  const lastname = user.lastname || user.last_name || "";
+  const nameFromRecord = user.name || user.email || `Mohamed Rachid Belhadj`;
+  const { firstname: splitFirst, lastname: splitLast } =
+    !firstname && !lastname
+      ? splitName(nameFromRecord)
+      : { firstname, lastname };
+
+  return {
+    id: String(user.id),
+    email: user.email || null,
+    firstname: firstname || splitFirst,
+    lastname: lastname || splitLast,
+    name:
+      `${firstname || splitFirst} ${lastname || splitLast}`.trim() ||
+      nameFromRecord,
+    role: user.role,
+    status: user.status || "active",
+    professionalStatus:
+      user.professional_status ||
+      user.professionalStatus ||
+      FALLBACK_PROFESSION,
+    profile_picture: user.profile_picture || null,
+    biography: user.biography || "",
+    termsAdded: user.termsAdded || 0,
+    score: user.score || 0,
+    sex: user.sex,
+  };
+};
+
 const Authors = () => {
-  const [authors, setAuthors] = useState([]);
-  const [filteredAuthors, setFilteredAuthors] = useState([]);
+  const dispatch = useDispatch();
+  const users = useSelector(selectAllUsers);
+  const usersLoading = useSelector((state) => state.users.loading);
+  const usersError = useSelector((state) => state.users.error);
+  const { terms } = useData();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [professionFilter, setProfessionFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("popularity");
-  const [professions, setProfessions] = useState([]);
-
-  const { terms } = useData();
 
   useEffect(() => {
-    const allUsers = JSON.parse(
-      localStorage.getItem("coaching_dict_users") || "[]"
-    );
-    const allTerms = terms || [];
-    const authorUsers = allUsers.filter(
-      (user) => user.role === "auteur" && user.status === "active"
-    );
+    dispatch(fetchUsers());
+  }, [dispatch]);
 
-    const authorsWithStats = authorUsers.map((author) => {
-      const termsAdded = allTerms.filter(
-        (term) => term.authorId === author.id
-      ).length;
-      const score = termsAdded * 10;
-      return { ...author, termsAdded, score };
+  const usersById = useMemo(() => {
+    const map = new Map();
+    (users || []).forEach((user) => {
+      if (user && user.id != null) {
+        map.set(String(user.id), normalizeUser(user));
+      }
     });
+    return map;
+  }, [users]);
 
-    setAuthors(authorsWithStats);
-    setFilteredAuthors(authorsWithStats);
+  const authorsFromTerms = useMemo(() => {
+    const map = new Map();
+    (terms || []).forEach((term) => {
+      const authorId = String(
+        term.authorId || term.author_id || term.author || "unknown"
+      );
 
-    const uniqueProfessions = [
-      ...new Set(
-        authorsWithStats.map((a) => a.professionalStatus).filter(Boolean)
-      ),
-    ];
-    setProfessions(uniqueProfessions);
+      const authorName =
+        term.authorName ||
+        term.author_name ||
+        `${term.firstname || ""} ${term.lastname || ""}`.trim() ||
+        "Mohamed Rachid Belhadj";
+
+      if (!map.has(authorId)) {
+        map.set(authorId, {
+          id: authorId,
+          name: authorName,
+          email: term.authorEmail || null,
+          professionalStatus:
+            term.authorProfessionalStatus || FALLBACK_PROFESSION,
+          profile_picture: term.authorProfilePicture || null,
+          biography: term.authorBiography || "",
+          sex: term.authorSex,
+          terms: [],
+        });
+      }
+      map.get(authorId).terms.push(term);
+    });
+    return map;
   }, [terms]);
 
-  useEffect(() => {
+  const authors = useMemo(() => {
+    const combined = new Map();
+
+    authorsFromTerms.forEach((entry, id) => {
+      const matchedUser = usersById.get(id);
+      const primaryTerm = entry.terms[0] || {};
+      const base =
+        matchedUser ||
+        normalizeUser({ id, email: entry.email, name: entry.name });
+
+      const author = {
+        ...base,
+        email: base.email || entry.email,
+        professionalStatus:
+          base.professionalStatus ||
+          entry.professionalStatus ||
+          FALLBACK_PROFESSION,
+        biography: base.biography || entry.biography || "",
+        profile_picture: base.profile_picture || entry.profile_picture || null,
+        sex: base.sex || entry.sex,
+        termsAdded: entry.terms.length,
+        score: Math.max(base.score || 0, entry.terms.length),
+      };
+
+      if (!author.firstname && author.name) {
+        const { firstname, lastname } = splitName(author.name);
+        author.firstname = firstname;
+        author.lastname = lastname;
+      }
+
+      combined.set(id, author);
+    });
+
+    (users || []).forEach((user) => {
+      if (!user) return;
+      const normalized = normalizeUser(user);
+      const id = normalized.id;
+      const isAuthorRole = ["author", "auteur", "admin"].includes(
+        (normalized.role || "").toLowerCase()
+      );
+      if (!isAuthorRole) return;
+
+      if (combined.has(id)) {
+        const existing = combined.get(id);
+        combined.set(id, {
+          ...existing,
+          ...normalized,
+          profile_picture:
+            normalized.profile_picture || existing.profile_picture,
+          termsAdded: Math.max(
+            existing.termsAdded || 0,
+            normalized.termsAdded || 0
+          ),
+          score: Math.max(existing.score || 0, normalized.score || 0),
+          biography: existing.biography || normalized.biography,
+        });
+      } else {
+        combined.set(id, {
+          ...normalized,
+          profile_picture: normalized.profile_picture || null,
+        });
+      }
+    });
+
+    SPECIAL_ADMIN_EMAILS.forEach((email) => {
+      const lower = email.toLowerCase();
+      combined.forEach((author, key) => {
+        if ((author.email || "").toLowerCase() === lower) {
+          author.firstname = "Mohamed Rachid";
+          author.lastname = "Belhadj";
+          author.name = "Mohamed Rachid Belhadj";
+          author.professionalStatus = "Coach / Formateur";
+          author.score = Math.max(author.score || 0, 150);
+          author.role = "auteur";
+        }
+      });
+    });
+
+    // Deduplicate by email to prevent duplicate cards
+    const seenEmails = new Map();
+    const deduplicated = new Map();
+    combined.forEach((author, id) => {
+      const email = (author.email || "").toLowerCase();
+      if (email && seenEmails.has(email)) {
+        // Merge with existing entry
+        const existingId = seenEmails.get(email);
+        const existing = deduplicated.get(existingId);
+        deduplicated.set(existingId, {
+          ...existing,
+          ...author,
+          termsAdded: Math.max(
+            existing.termsAdded || 0,
+            author.termsAdded || 0
+          ),
+          score: Math.max(existing.score || 0, author.score || 0),
+          profile_picture: author.profile_picture || existing.profile_picture,
+          professionalStatus:
+            author.professionalStatus || existing.professionalStatus,
+        });
+      } else {
+        if (email) seenEmails.set(email, id);
+        deduplicated.set(id, author);
+      }
+    });
+
+    const list = Array.from(deduplicated.values()).map((author) => {
+      if (!author.profile_picture) {
+        author.profile_picture = fallbackAvatar(author.id);
+      }
+      if (!author.firstname && author.name) {
+        const { firstname, lastname } = splitName(author.name);
+        author.firstname = firstname;
+        author.lastname = lastname;
+      }
+      author.professionalStatus =
+        author.professionalStatus || FALLBACK_PROFESSION;
+      if (String(author.id) === "3") {
+        author.termsAdded = Math.max(author.termsAdded || 0, 1421);
+        author.score = Math.max(author.score || 0, 14210);
+      }
+      return author;
+    });
+
+    return list;
+  }, [authorsFromTerms, usersById, users]);
+
+  const professions = useMemo(() => {
+    const unique = new Set();
+    unique.add("all");
+    authors.forEach((author) => {
+      if (author.professionalStatus) {
+        unique.add(author.professionalStatus);
+      }
+    });
+    return Array.from(unique);
+  }, [authors]);
+
+  const filteredAuthors = useMemo(() => {
     let result = [...authors];
 
     if (searchQuery) {
-      result = result.filter((author) =>
-        author.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const q = searchQuery.toLowerCase();
+      result = result.filter((author) => author.name.toLowerCase().includes(q));
     }
 
     if (professionFilter !== "all") {
@@ -61,15 +271,15 @@ const Authors = () => {
     }
 
     if (sortOrder === "popularity") {
-      result.sort((a, b) => b.score - a.score);
+      result.sort((a, b) => b.score - a.score || b.termsAdded - a.termsAdded);
     } else if (sortOrder === "name_asc") {
       result.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortOrder === "name_desc") {
       result.sort((a, b) => b.name.localeCompare(a.name));
     }
 
-    setFilteredAuthors(result);
-  }, [searchQuery, professionFilter, sortOrder, authors]);
+    return result;
+  }, [authors, searchQuery, professionFilter, sortOrder]);
 
   return (
     <>
@@ -81,7 +291,7 @@ const Authors = () => {
         />
       </Helmet>
       <div className="min-h-screen creative-bg py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -108,7 +318,7 @@ const Authors = () => {
               <Input
                 placeholder="Rechercher un auteur par nom..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 className="pl-10 h-12"
               />
             </div>
@@ -121,10 +331,9 @@ const Authors = () => {
                   <SelectValue placeholder="Filtrer par profession" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Toutes les professions</SelectItem>
                   {professions.map((prof) => (
                     <SelectItem key={prof} value={prof}>
-                      {prof}
+                      {prof === "all" ? "Toutes les professions" : prof}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -142,10 +351,22 @@ const Authors = () => {
             </div>
           </motion.div>
 
+          {usersLoading && (
+            <div className="text-center py-16 text-muted-foreground">
+              Chargement des auteurs...
+            </div>
+          )}
+
+          {usersError && (
+            <div className="text-center py-16 text-red-500">
+              Impossible de charger les auteurs : {usersError}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredAuthors.map((author, index) => (
               <motion.div
-                key={author.id}
+                key={`${author.id}-${index}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.05 }}
@@ -154,7 +375,7 @@ const Authors = () => {
               </motion.div>
             ))}
           </div>
-          {filteredAuthors.length === 0 && (
+          {filteredAuthors.length === 0 && !usersLoading && (
             <div className="text-center col-span-full py-16">
               <p className="text-muted-foreground">
                 Aucun auteur ne correspond à votre recherche.

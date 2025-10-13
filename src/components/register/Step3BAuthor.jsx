@@ -33,7 +33,8 @@ const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
 
   const handleFileChange = (files) => {
     if (files) {
-      const newFiles = Array.from(files).map(file => ({
+      const newFiles = Array.from(files).map((file) => ({
+        file: file, // Stocker le fichier réel
         name: file.name,
         size: file.size,
         type: file.type,

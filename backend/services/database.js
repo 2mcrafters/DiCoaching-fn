@@ -90,10 +90,15 @@ class DatabaseService {
     }
 
     try {
-      const [results] = await this.pool.execute(sql, params);
+      // Ensure params is always an array
+      const queryParams = Array.isArray(params) ? params : [];
+      // Use query instead of execute for compatibility
+      const [results] = await this.pool.query(sql, queryParams);
       return results;
     } catch (error) {
       console.error('❌ Erreur lors de l\'exécution de la requête:', error.message);
+      console.error('SQL:', sql);
+      console.error('Params:', params);
       throw error;
     }
   }
@@ -197,17 +202,33 @@ class DatabaseService {
   }
 
   async getUserStats(userId) {
-    const sql = `
+    let sql = `
       SELECT 
-        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_terms,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_terms,
+        COUNT(CASE WHEN status = 'published' THEN 1 END) as published_terms,
+        COUNT(CASE WHEN status = 'review' THEN 1 END) as review_terms,
         COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_terms,
         COUNT(*) as total_terms
-      FROM terms 
+      FROM termes 
       WHERE author_id = ?
     `;
-    const results = await this.query(sql, [userId]);
-    return results[0] || {};
+
+    try {
+      const results = await this.query(sql, [userId]);
+      return results[0] || {};
+    } catch (error) {
+      // Fallback to English schema
+      sql = `
+        SELECT 
+          COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_terms,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_terms,
+          COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_terms,
+          COUNT(*) as total_terms
+        FROM terms 
+        WHERE author_id = ?
+      `;
+      const results = await this.query(sql, [userId]);
+      return results[0] || {};
+    }
   }
 }
 

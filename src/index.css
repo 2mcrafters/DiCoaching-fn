@@ -82,34 +82,5 @@ body {
   background-size: 100px 100px;
 }
 
-/* Mobile: center text, icons, and images */
-@media (max-width: 640px) {
-  /* Center most textual content by default */
-  body, main, header, footer, section, article, aside, nav {
-    text-align: center;
-  }
-
-  /* Center common media and icon elements */
-  img, svg, picture, video, canvas, i, .icon, .iconify, .lucide {
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* Override common Tailwind flex alignments to center on phones */
-  .justify-start,
-  .justify-between,
-  .justify-end {
-    justify-content: center !important;
-  }
-
-  .items-start,
-  .items-end {
-    align-items: center !important;
-  }
-
-  /* Ensure text utilities don't force left alignment on phones */
-  .text-left {
-    text-align: center !important;
-  }
-}
+/* Mobile-specific rules kept minimal to avoid overriding layout.
+   Titles can be centered per-component using utility classes. */

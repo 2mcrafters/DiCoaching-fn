@@ -60,8 +60,11 @@ const Login = () => {
   return (
     <>
       <Helmet>
-        <title>Connexion - Dictionnaire Digital Collaboratif du Coaching</title>
-        <meta name="description" content="Connectez-vous à votre compte pour accéder au dictionnaire collaboratif du coaching et contribuer à la communauté." />
+        <title>Connexion - Dicoaching</title>
+        <meta
+          name="description"
+          content="Connectez-vous à votre compte pour accéder au dictionnaire collaboratif du coaching et contribuer à la communauté."
+        />
       </Helmet>
 
       <div className="min-h-screen flex items-center justify-center creative-bg py-12 px-4 sm:px-6 lg:px-8">
@@ -74,8 +77,9 @@ const Login = () => {
           <div className="text-center mb-8">
             <Link to="/" className="inline-flex items-center space-x-2">
               <BookOpen className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold text-foreground">
-                Dico<span className="creative-gradient-text">Coaching</span>
+              <span className="text-2xl font-bold">
+                <span style={{ color: "#884dee" }}>Di</span>
+                <span className="text-black dark:text-white">coaching</span>
               </span>
             </Link>
           </div>
@@ -152,18 +156,21 @@ const Login = () => {
                   </button>
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={loading}
-                >
-                  {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Connexion...</> : "Se connecter"}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                      Connexion...
+                    </>
+                  ) : (
+                    "Se connecter"
+                  )}
                 </Button>
               </form>
 
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Pas encore de compte ?{' '}
+                  Pas encore de compte ?{" "}
                   <Link
                     to="/register"
                     className="font-medium text-primary hover:underline"

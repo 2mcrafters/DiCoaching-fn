@@ -5,7 +5,13 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { useData } from "@/contexts/DataContext";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  selectAllTerms,
+  selectTermById,
+  fetchTerms,
+  updateTerm,
+} from "@/features/terms/termsSlice";
 import SubmitFormSection from "@/components/submit/SubmitFormSection";
 import { Save, Send, ArrowLeft, Loader2 } from "lucide-react";
 
@@ -15,19 +21,31 @@ const EditTerm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { terms, setTerms } = useData();
+  const terms = useSelector(selectAllTerms);
+  const termFromStore = useSelector((state) =>
+    selectAllTerms(state).find((t) => t.slug === slug)
+  );
 
   useEffect(() => {
-    // Use in-memory terms coming from backend via DataContext
-    const termToEdit = (terms || []).find((t) => t.slug === slug);
-
+    if (!terms || terms.length === 0) {
+      dispatch(fetchTerms());
+      setLoading(true);
+      return;
+    }
+    const termToEdit = termFromStore;
     if (termToEdit) {
-      if (user.role === "admin" || user.role === "auteur") {
+      // Admin can edit all terms, Author can edit only their own terms
+      const isAdmin = user.role === "admin";
+      const isAuthor = user.role === "auteur" || user.role === "author";
+      const isOwner = String(termToEdit.authorId) === String(user.id);
+      const canEdit = isAdmin || (isAuthor && isOwner);
+
+      if (canEdit) {
         setFormData({
           ...termToEdit,
-          // Ensure category is "Coaching" for consistency
           category: "Coaching",
           exemples:
             termToEdit.exemples && termToEdit.exemples.length > 0
@@ -36,6 +54,10 @@ const EditTerm = () => {
           sources:
             termToEdit.sources && termToEdit.sources.length > 0
               ? termToEdit.sources
+              : [{ text: "" }],
+          remarques:
+            termToEdit.remarques && termToEdit.remarques.length > 0
+              ? termToEdit.remarques
               : [{ text: "" }],
           moderatorComment: termToEdit.moderatorComment || "",
         });
@@ -57,7 +79,7 @@ const EditTerm = () => {
       navigate("/dashboard");
     }
     setLoading(false);
-  }, [slug, user, navigate, toast]);
+  }, [slug, user, navigate, toast, terms, termFromStore, dispatch]);
 
   const generateSlug = (title) => {
     return title
@@ -70,7 +92,7 @@ const EditTerm = () => {
       .trim("-");
   };
 
-  const handleFormAction = (newStatus) => {
+  const handleFormAction = async (newStatus) => {
     if (
       !formData.term?.trim() ||
       (newStatus !== "draft" &&
@@ -91,32 +113,45 @@ const EditTerm = () => {
       user.role === "auteur" || user.role === "admin" ? "published" : newStatus;
 
     const updatedTermData = {
-      ...formData,
-      slug: generateSlug(formData.term),
-      // Ensure category remains "Coaching" upon save
-      category: "Coaching",
+      terme: formData.term,
+      definition: formData.definition,
+      categorie_id: formData.categorie_id || 1,
       exemples: formData.exemples.filter((ex) => ex.text?.trim()),
       sources: formData.sources.filter((res) => res.text?.trim()),
+      remarques: (formData.remarques || []).filter((r) => r.text?.trim()),
       status: finalStatus,
-      updatedAt: new Date().toISOString(),
+      author_id: formData.authorId || user.id,
     };
 
-    setTerms((prev) =>
-      (prev || []).map((t) => (t.id === formData.id ? updatedTermData : t))
-    );
+    try {
+      setLoading(true);
+      // Save to backend via Redux thunk
+      await dispatch(
+        updateTerm({ id: formData.id, changes: updatedTermData })
+      ).unwrap();
 
-    toast({
-      title:
-        finalStatus === "published"
-          ? "Terme publié !"
-          : "Modifications sauvegardées !",
-      description:
-        finalStatus === "published"
-          ? "Vos modifications ont été publiées."
-          : "Vos modifications ont été sauvegardées en tant que brouillon.",
-    });
+      toast({
+        title:
+          finalStatus === "published"
+            ? "Terme publié !"
+            : "Modifications sauvegardées !",
+        description:
+          finalStatus === "published"
+            ? "Vos modifications ont été publiées."
+            : "Vos modifications ont été sauvegardées en tant que brouillon.",
+      });
 
-    navigate("/dashboard");
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder les modifications.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading || !formData) {
@@ -141,7 +176,7 @@ const EditTerm = () => {
       </Helmet>
 
       <div className="min-h-screen creative-bg py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
