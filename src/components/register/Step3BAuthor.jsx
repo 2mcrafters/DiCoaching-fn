@@ -27,7 +27,14 @@ const SocialIcon = ({ network }) => {
   }
 };
 
-const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
+const Step3BAuthor = ({
+  formData,
+  setFormData,
+  onBack,
+  onSubmit,
+  loading,
+  serverErrors = {},
+}) => {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
 
@@ -39,20 +46,37 @@ const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
         size: file.size,
         type: file.type,
       }));
-      setFormData({ ...formData, documents: [...formData.documents, ...newFiles] });
+      setFormData({
+        ...formData,
+        documents: [...formData.documents, ...newFiles],
+      });
     }
   };
 
-  const onDrop = useCallback((event) => {
+  const onDrop = useCallback(
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsDragging(false);
+      handleFileChange(event.dataTransfer.files);
+    },
+    [formData, setFormData]
+  );
+
+  const onDragOver = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+  const onDragEnter = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(true);
+  }, []);
+  const onDragLeave = useCallback((event) => {
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(false);
-    handleFileChange(event.dataTransfer.files);
-  }, [formData, setFormData]);
-
-  const onDragOver = useCallback((event) => { event.preventDefault(); event.stopPropagation(); }, []);
-  const onDragEnter = useCallback((event) => { event.preventDefault(); event.stopPropagation(); setIsDragging(true); }, []);
-  const onDragLeave = useCallback((event) => { event.preventDefault(); event.stopPropagation(); setIsDragging(false); }, []);
+  }, []);
 
   const removeFile = (index) => {
     const newDocuments = [...formData.documents];
@@ -63,14 +87,20 @@ const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
   const handleSocialChange = (index, field, value) => {
     const newSocials = [...formData.socials];
     newSocials[index][field] = value;
-    if (field === 'network' && value !== 'Autre') {
-      newSocials[index].customNetwork = '';
+    if (field === "network" && value !== "Autre") {
+      newSocials[index].customNetwork = "";
     }
     setFormData({ ...formData, socials: newSocials });
   };
 
   const addSocialField = () => {
-    setFormData({ ...formData, socials: [...formData.socials, { network: '', customNetwork: '', url: '' }] });
+    setFormData({
+      ...formData,
+      socials: [
+        ...formData.socials,
+        { network: "", customNetwork: "", url: "" },
+      ],
+    });
   };
 
   const removeSocialField = (index) => {
@@ -85,25 +115,51 @@ const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
       <div className="space-y-4">
         <Label>Documents à fournir (CV, diplômes, etc.)</Label>
         <div
-          onDrop={onDrop} onDragOver={onDragOver} onDragEnter={onDragEnter} onDragLeave={onDragLeave}
-          className={`flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDragging ? 'border-purple-500 bg-purple-50' : 'border-gray-300 hover:border-gray-400'}`}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragEnter={onDragEnter}
+          onDragLeave={onDragLeave}
+          className={`flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+            isDragging
+              ? "border-purple-500 bg-purple-50"
+              : "border-gray-300 hover:border-gray-400"
+          }`}
         >
-          <input id="dropzone-file" type="file" className="hidden" multiple onChange={(e) => handleFileChange(e.target.files)} />
-          <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full cursor-pointer">
+          <input
+            id="dropzone-file"
+            type="file"
+            className="hidden"
+            multiple
+            onChange={(e) => handleFileChange(e.target.files)}
+          />
+          <label
+            htmlFor="dropzone-file"
+            className="flex flex-col items-center justify-center w-full cursor-pointer"
+          >
             <UploadCloud className="w-10 h-10 mb-3 text-gray-400" />
-            <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Cliquez pour uploader</span> ou glissez-déposez</p>
+            <p className="mb-2 text-sm text-gray-500">
+              <span className="font-semibold">Cliquez pour uploader</span> ou
+              glissez-déposez
+            </p>
             <p className="text-xs text-gray-500">PDF, DOCX, etc.</p>
           </label>
         </div>
         {formData.documents.length > 0 && (
           <div className="space-y-2 mt-4">
             {formData.documents.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-2 border rounded-lg">
+              <div
+                key={index}
+                className="flex items-center justify-between p-2 border rounded-lg"
+              >
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-gray-500" />
                   <span className="text-sm">{file.name}</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => removeFile(index)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeFile(index)}
+                >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
               </div>
@@ -114,7 +170,18 @@ const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
 
       <div className="space-y-2">
         <Label htmlFor="biography">Biographie professionnelle</Label>
-        <Textarea id="biography" rows={6} value={formData.biography} onChange={(e) => setFormData({ ...formData, biography: e.target.value })} placeholder="Présentez-vous, votre parcours, vos spécialités, vos motivations..." />
+        <Textarea
+          id="biography"
+          rows={6}
+          value={formData.biography}
+          onChange={(e) =>
+            setFormData({ ...formData, biography: e.target.value })
+          }
+          placeholder="Présentez-vous, votre parcours, vos spécialités, vos motivations..."
+        />
+        {serverErrors.biography && (
+          <p className="text-red-500 text-xs mt-1">{serverErrors.biography}</p>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -125,33 +192,69 @@ const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
               {index < 4 ? (
                 <div className="flex-1 flex items-center gap-2 border rounded-md p-2">
                   <SocialIcon network={social.network} />
-                  <Input className="border-none focus-visible:ring-0" placeholder={`URL du profil ${social.network}`} value={social.url} onChange={(e) => handleSocialChange(index, 'url', e.target.value)} />
+                  <Input
+                    className="border-none focus-visible:ring-0"
+                    placeholder={`URL du profil ${social.network}`}
+                    value={social.url}
+                    onChange={(e) =>
+                      handleSocialChange(index, "url", e.target.value)
+                    }
+                  />
                 </div>
               ) : (
                 <>
                   <div className="flex-1 flex items-center gap-2 border rounded-md p-2">
-                    <Select value={social.network} onValueChange={(value) => handleSocialChange(index, 'network', value)}>
+                    <Select
+                      value={social.network}
+                      onValueChange={(value) =>
+                        handleSocialChange(index, "network", value)
+                      }
+                    >
                       <SelectTrigger className="w-[150px] border-none focus:ring-0">
                         <SelectValue placeholder="Choisir" />
                       </SelectTrigger>
                       <SelectContent>
-                        {socialPlatforms.map(platform => (
+                        {socialPlatforms.map((platform) => (
                           <SelectItem key={platform.name} value={platform.name}>
-                            <div className="flex items-center gap-2">{platform.icon} {platform.name}</div>
+                            <div className="flex items-center gap-2">
+                              {platform.icon} {platform.name}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    
-                    {social.network === 'Autre' && (
-                       <Input className="border-none focus-visible:ring-0" placeholder="Nom du réseau" value={social.customNetwork} onChange={(e) => handleSocialChange(index, 'customNetwork', e.target.value)} />
+
+                    {social.network === "Autre" && (
+                      <Input
+                        className="border-none focus-visible:ring-0"
+                        placeholder="Nom du réseau"
+                        value={social.customNetwork}
+                        onChange={(e) =>
+                          handleSocialChange(
+                            index,
+                            "customNetwork",
+                            e.target.value
+                          )
+                        }
+                      />
                     )}
 
-                    <Input className="border-none focus-visible:ring-0" placeholder="URL du profil" value={social.url} onChange={(e) => handleSocialChange(index, 'url', e.target.value)} />
+                    <Input
+                      className="border-none focus-visible:ring-0"
+                      placeholder="URL du profil"
+                      value={social.url}
+                      onChange={(e) =>
+                        handleSocialChange(index, "url", e.target.value)
+                      }
+                    />
                   </div>
-                   <Button variant="ghost" size="icon" onClick={() => removeSocialField(index)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeSocialField(index)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
                 </>
               )}
             </div>
@@ -163,9 +266,11 @@ const Step3BAuthor = ({ formData, setFormData, onBack, onSubmit, loading }) => {
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={loading}>← Précédent</Button>
+        <Button variant="outline" onClick={onBack} disabled={loading}>
+          ← Précédent
+        </Button>
         <Button onClick={onSubmit} disabled={loading}>
-          {loading ? 'Envoi en cours...' : 'Soumettre ma candidature'}
+          {loading ? "Envoi en cours..." : "Soumettre ma candidature"}
         </Button>
       </div>
     </div>

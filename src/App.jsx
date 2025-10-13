@@ -29,7 +29,6 @@ import MyProfile from "@/pages/MyProfile";
 import AuthorsRanking from "@/pages/admin/AuthorsRanking";
 import Reports from "@/pages/admin/Reports";
 import ProposeModification from "@/pages/ProposeModification";
-import Settings from "@/pages/Settings";
 import Modifications from "@/pages/Modifications";
 import ModificationDetails from "@/pages/ModificationDetails";
 import NewsletterPopup from "@/components/layout/NewsletterPopup";
@@ -97,14 +96,7 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
+          {/* Settings page removed */}
           <Route
             path="/submit"
             element={

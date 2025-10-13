@@ -176,7 +176,7 @@ const sanitizeChanges = (changes) => {
 
 const ModificationDetails = () => {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const { terms, refreshData, loading: termsLoading } = useData();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -234,7 +234,8 @@ const ModificationDetails = () => {
 
   const canReview =
     user &&
-    (user.role === "admin" || user.role === "auteur") &&
+    ((typeof hasAuthorPermissions === "function" && hasAuthorPermissions()) ||
+      user.role === "admin") &&
     modification?.status === "pending";
 
   const handleAction = async (action) => {

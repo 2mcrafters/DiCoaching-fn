@@ -55,6 +55,9 @@ const Register = () => {
     ],
   });
   const [loading, setLoading] = useState(false);
+  const [serverErrors, setServerErrors] = useState({});
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogItems, setErrorDialogItems] = useState([]);
   const { register } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -82,11 +85,17 @@ const Register = () => {
   };
 
   const handleSubmit = async () => {
+    // delegate to submitData to allow retries with modified payload
+    await submitData(formData);
+  };
+
+  const submitData = async (data) => {
     setLoading(true);
+    setServerErrors({});
     try {
-      const result = await register(formData);
+      const result = await register(data);
       if (result.success) {
-        if (formData.role === "auteur") {
+        if (data.role === "auteur") {
           setShowAuthorPopup(true);
         } else {
           toast({
@@ -96,11 +105,37 @@ const Register = () => {
           navigate("/dashboard");
         }
       } else {
+        const err = result.error || {
+          message: "Erreur d'inscription",
+          fields: {},
+        };
         toast({
           title: "Erreur d'inscription",
-          description: result.error,
+          description: err.message || "Erreur lors de l'inscription",
           variant: "destructive",
         });
+
+        // If backend provided field-level errors, show them inline and in a popup
+        if (
+          err.fields &&
+          typeof err.fields === "object" &&
+          Object.keys(err.fields).length > 0
+        ) {
+          setServerErrors(err.fields);
+          const items = Object.keys(err.fields).map((k) => ({
+            field: k,
+            message: err.fields[k],
+          }));
+          setErrorDialogItems(items);
+          setShowErrorDialog(true);
+        } else {
+          // No structured fields: show general error in dialog with suggestions
+          setErrorDialogItems([
+            { field: "Erreur", message: err.message || "Erreur inconnue" },
+          ]);
+          setShowErrorDialog(true);
+        }
+
         setCurrentStep(1);
       }
     } catch (error) {
@@ -109,9 +144,26 @@ const Register = () => {
         description: "Une erreur inattendue s'est produite.",
         variant: "destructive",
       });
+      setErrorDialogItems([
+        { field: "Erreur", message: String(error.message || error) },
+      ]);
+      setShowErrorDialog(true);
     } finally {
       setLoading(false);
     }
+  };
+
+  const retryWithoutDocuments = async () => {
+    // Close dialog then retry submitting without documents/profile picture
+    setShowErrorDialog(false);
+    const newData = {
+      ...formData,
+      documents: [],
+      profilePictureFile: null,
+      profilePicture: null,
+    };
+    setFormData(newData);
+    await submitData(newData);
   };
 
   const handlePopupClose = () => {
@@ -127,6 +179,7 @@ const Register = () => {
             formData={formData}
             setFormData={updateFormData}
             onNext={handleNext}
+            serverErrors={serverErrors}
           />
         );
       case 2:
@@ -136,6 +189,7 @@ const Register = () => {
             setFormData={updateFormData}
             onNext={handleNext}
             onBack={handleBack}
+            serverErrors={serverErrors}
           />
         );
       case 3:
@@ -147,6 +201,7 @@ const Register = () => {
               onBack={handleBack}
               onSubmit={handleSubmit}
               loading={loading}
+              serverErrors={serverErrors}
             />
           );
         }
@@ -158,6 +213,7 @@ const Register = () => {
               onBack={handleBack}
               onSubmit={handleSubmit}
               loading={loading}
+              serverErrors={serverErrors}
             />
           );
         }
@@ -201,6 +257,50 @@ const Register = () => {
           </DialogHeader>
           <DialogFooter className="sm:justify-center">
             <Button onClick={handlePopupClose}>Aller au Dashboard</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <div className="flex flex-col items-center text-center">
+              <DialogTitle className="text-2xl">
+                Erreurs d'inscription
+              </DialogTitle>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Veuillez corriger les erreurs suivantes :
+              </p>
+            </div>
+          </DialogHeader>
+          <div className="p-4 max-h-80 overflow-y-auto">
+            {errorDialogItems.length === 0 ? (
+              <p>Aucune erreur détaillée fournie par le serveur.</p>
+            ) : (
+              <ul className="space-y-2 text-left">
+                {errorDialogItems.map((it, idx) => (
+                  <li key={idx} className="border rounded p-2">
+                    <strong className="block text-sm">{it.field}</strong>
+                    <p className="text-sm text-red-600">{it.message}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <DialogFooter className="sm:justify-center space-x-2">
+            {/* If the server error hints at documents/file DB issue, offer retry without files */}
+            {errorDialogItems.some((it) =>
+              /original_name|file|document|documents/i.test(it.message)
+            ) && (
+              <Button
+                variant="outline"
+                onClick={retryWithoutDocuments}
+                disabled={loading}
+              >
+                Réessayer sans documents
+              </Button>
+            )}
+            <Button onClick={() => setShowErrorDialog(false)}>Fermer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

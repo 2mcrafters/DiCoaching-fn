@@ -77,12 +77,14 @@ export const AuthProvider = ({ children }) => {
         setUser(result.data.user);
         return { success: true };
       } else {
-        setError(result.error);
-        return { success: false, error: result.error };
+          // result.error may be an object { message, fields }
+          const err = result.error || { message: 'Erreur d\'inscription', fields: {} };
+          setError(err.message || err);
+          return { success: false, error: err };
       }
     } catch (error) {
-      setError('Erreur d\'inscription');
-      return { success: false, error: 'Erreur d\'inscription' };
+        setError("Erreur d'inscription");
+        return { success: false, error: { message: "Erreur d'inscription", fields: {} } };
     } finally {
       setLoading(false);
     }
@@ -98,6 +100,16 @@ export const AuthProvider = ({ children }) => {
     return !!user;
   };
 
+  const hasAuthorPermissions = () => {
+    if (!user) return false;
+    // Admins always have author-like permissions
+    if (user.role === "admin") return true;
+    // Authors must have a confirmed/active status to be able to write/modify
+    const isAuthorRole = user.role === "auteur" || user.role === "author";
+    const isConfirmed = user.status === "confirmed" || user.status === "active";
+    return isAuthorRole && isConfirmed;
+  };
+
   const updateUser = (userData) => {
     setUser(userData);
     // Also update localStorage to persist the changes
@@ -110,6 +122,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     isAuthenticated,
+    hasAuthorPermissions,
     updateUser,
     loading,
     error,

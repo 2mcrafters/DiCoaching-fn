@@ -27,7 +27,7 @@ const FALLBACK_PROPOSER_NAME = "Mohamed Rachid Belhadj";
 
 const Modifications = () => {
   const dispatch = useDispatch();
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const { terms } = useData();
   const modifications = useSelector(selectAllModifications);
   const loading = useSelector(selectModificationsLoading);
@@ -50,9 +50,12 @@ const Modifications = () => {
   const filteredModifications = useMemo(() => {
     if (!user || !Array.isArray(modifications)) return [];
     const userId = String(user.id);
-    if (user.role === "admin" || user.role === "auteur") {
-      return modifications.filter((mod) => mod.status === "pending");
-    }
+  if (
+    (typeof hasAuthorPermissions === "function" && hasAuthorPermissions()) ||
+    user.role === "admin"
+  ) {
+    return modifications.filter((mod) => mod.status === "pending");
+  }
     return modifications.filter(
       (mod) => mod.proposerId && String(mod.proposerId) === userId
     );

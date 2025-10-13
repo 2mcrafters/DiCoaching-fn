@@ -17,7 +17,7 @@ import { Save, Send, ArrowLeft, Loader2 } from "lucide-react";
 
 const EditTerm = () => {
   const { slug } = useParams();
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -39,7 +39,10 @@ const EditTerm = () => {
     if (termToEdit) {
       // Admin can edit all terms, Author can edit only their own terms
       const isAdmin = user.role === "admin";
-      const isAuthor = user.role === "auteur" || user.role === "author";
+      const isAuthor =
+        typeof hasAuthorPermissions === "function"
+          ? hasAuthorPermissions()
+          : user.role === "auteur" || user.role === "author";
       const isOwner = String(termToEdit.authorId) === String(user.id);
       const canEdit = isAdmin || (isAuthor && isOwner);
 

@@ -40,7 +40,7 @@ import {
 import NotificationBell from "@/components/NotificationBell";
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasAuthorPermissions } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -111,17 +111,20 @@ const Navbar = () => {
                   Introduction
                 </Button>
               </Link>
-              {user && (user.role === "auteur" || user.role === "admin") && (
-                <Link to="/submit">
-                  <Button
-                    variant={isActive("/submit") ? "secondary" : "ghost"}
-                    size="sm"
-                  >
-                    <Edit2 className="mr-2 h-4 w-4" />
-                    Contribuer
-                  </Button>
-                </Link>
-              )}
+              {user &&
+                (hasAuthorPermissions
+                  ? hasAuthorPermissions()
+                  : user.role === "auteur" || user.role === "admin") && (
+                  <Link to="/submit">
+                    <Button
+                      variant={isActive("/submit") ? "secondary" : "ghost"}
+                      size="sm"
+                    >
+                      <Edit2 className="mr-2 h-4 w-4" />
+                      Contribuer
+                    </Button>
+                  </Link>
+                )}
               {user && (
                 <>
                   <Link to="/dashboard">
@@ -225,12 +228,7 @@ const Navbar = () => {
                         <span>Mon Profil</span>
                       </DropdownMenuItem>
                     </Link>
-                    <Link to="/settings">
-                      <DropdownMenuItem>
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Paramètres</span>
-                      </DropdownMenuItem>
-                    </Link>
+                    {/* Settings link removed */}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={() => setLogoutDialogOpen(true)}
@@ -337,16 +335,7 @@ const Navbar = () => {
                         Mon Profil
                       </Button>
                     </Link>
-                    <Link to="/settings" className="block">
-                      <Button
-                        variant={isActive("/settings") ? "default" : "ghost"}
-                        className="w-full justify-start"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <Settings className="mr-2 h-4 w-4" />
-                        Paramètres
-                      </Button>
-                    </Link>
+                    {/* Mobile settings link removed */}
                     {(user.role === "auteur" || user.role === "admin") && (
                       <Link to="/submit" className="block">
                         <Button

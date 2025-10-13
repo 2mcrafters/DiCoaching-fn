@@ -250,14 +250,18 @@ router.post(
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       // Créer le nouvel utilisateur avec tous les champs disponibles
+      // If role is author, mark the account as pending approval
+      const userStatus =
+        role === "auteur" || role === "author" ? "pending" : "active";
+
       const result = await db.query(
         `
       INSERT INTO users (
         email, password, firstname, lastname, name, role, sex, phone, 
         birth_date, professional_status, other_status, presentation, 
-        biography, socials, profile_picture, created_at
+        biography, socials, profile_picture, status, created_at
       ) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `,
         [
           email,
@@ -275,6 +279,7 @@ router.post(
           biography || null,
           socials ? JSON.stringify(socials) : null,
           profilePicturePath,
+          userStatus,
         ]
       );
 
@@ -284,15 +289,17 @@ router.post(
       // Enregistrer les documents dans la base de données
       if (documentsData.length > 0) {
         const documentQueries = documentsData.map((doc) => {
+          // Migration defines columns as: filename, original_filename, file_path, file_size, mime_type, uploaded_at
+          // Ensure we insert into the correct column names and order to avoid SQL errors.
           return db.query(
-            "INSERT INTO user_documents (user_id, filename, original_name, file_path, mime_type, file_size, upload_date) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+            "INSERT INTO user_documents (user_id, filename, original_filename, file_path, file_size, mime_type, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
             [
               userId,
               doc.filename,
               doc.originalName,
               doc.path,
-              doc.mimetype,
               doc.size,
+              doc.mimetype,
             ]
           );
         });
@@ -314,14 +321,26 @@ router.post(
         { expiresIn: "24h" }
       );
 
-      const formattedUser = formatUserForResponse({
-        id: result.insertId,
-        email,
-        firstname,
-        lastname,
-        role,
-        profile_picture: profilePicturePath,
-      });
+      // Fetch the created user row to include status and other fields
+      const createdUsers = await db.query(
+        `SELECT id, email, firstname, lastname, role, status, profile_picture FROM users WHERE id = ?`,
+        [result.insertId]
+      );
+
+      const createdUser =
+        createdUsers && createdUsers[0]
+          ? createdUsers[0]
+          : {
+              id: result.insertId,
+              email,
+              firstname,
+              lastname,
+              role,
+              profile_picture: profilePicturePath,
+              status: userStatus,
+            };
+
+      const formattedUser = formatUserForResponse(createdUser);
 
       res.status(201).json({
         status: "success",

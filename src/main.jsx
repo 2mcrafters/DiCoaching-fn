@@ -95,30 +95,7 @@ const initializeLegacyData = () => {
   if (!localStorage.getItem("coaching_dict_comments")) {
     localStorage.setItem("coaching_dict_comments", JSON.stringify([]));
   }
-  if (!localStorage.getItem("coaching_dict_notifications")) {
-    const initialNotifications = [
-      {
-        id: 1,
-        userId: "user-admin",
-        content:
-          "Bienvenue sur la plateforme ! N'hésitez pas à explorer les fonctionnalités d'administration.",
-        read: false,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        userId: "user-auteur-1",
-        content:
-          "Votre compte auteur a été approuvé. Vous pouvez maintenant soumettre des termes.",
-        read: false,
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    localStorage.setItem(
-      "coaching_dict_notifications",
-      JSON.stringify(initialNotifications)
-    );
-  }
+  // local notifications initialization removed (notifications disabled)
   if (!localStorage.getItem("coaching_dict_newsletter_subscribers")) {
     localStorage.setItem(
       "coaching_dict_newsletter_subscribers",
@@ -130,6 +107,35 @@ const initializeLegacyData = () => {
 };
 
 initializeLegacyData();
+
+// Ignore unhandled promise rejections caused by AbortController (common during
+// StrictMode double-render and navigation). This prevents noisy console errors
+// for expected aborts while keeping other rejections visible.
+window.addEventListener("unhandledrejection", (event) => {
+  try {
+    const reason = event.reason;
+    const name = ((reason && (reason.name || "")) || "")
+      .toString()
+      .toLowerCase();
+    const msg = ((reason && (reason.message || "")) || "")
+      .toString()
+      .toLowerCase();
+    if (
+      name === "aborterror" ||
+      msg.includes("aborted") ||
+      msg.includes("abort")
+    ) {
+      // prevent the default logging for aborted requests
+      event.preventDefault();
+      console.debug(
+        "Suppressed unhandled rejection due to AbortError:",
+        reason
+      );
+    }
+  } catch (e) {
+    // ignore
+  }
+});
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

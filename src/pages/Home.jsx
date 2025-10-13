@@ -126,7 +126,7 @@ const LatestTermsSection = () => {
 };
 
 const Home = () => {
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [showSuggestions, setShowSuggestions] = React.useState(false);
@@ -343,7 +343,9 @@ const Home = () => {
                     Découvrir le dictionnaire
                   </Button>
                 </Link>
-                {(user?.role === "auteur" || user?.role === "admin") && (
+                {((typeof hasAuthorPermissions === "function" &&
+                  hasAuthorPermissions()) ||
+                  user?.role === "admin") && (
                   <Link to="/submit">
                     <Button
                       size="lg"

@@ -92,7 +92,25 @@ class AuthService {
         localStorage.setItem('user', JSON.stringify(data.data.user));
         return { success: true, data: data.data };
       } else {
-        return { success: false, error: data.message || 'Erreur d\'inscription' };
+        // Normalize possible validation error shapes from backend
+        // Some backends return { message, errors: { field: "msg" } }
+        // or { message, data: { errors: {...} } }
+        let fields = {};
+        if (data.errors && typeof data.errors === "object") {
+          fields = data.errors;
+        } else if (
+          data.data &&
+          data.data.errors &&
+          typeof data.data.errors === "object"
+        ) {
+          fields = data.data.errors;
+        } else if (data.validation && typeof data.validation === "object") {
+          fields = data.validation;
+        }
+
+        const message =
+          data.message || Object.values(fields)[0] || "Erreur d'inscription";
+        return { success: false, error: { message, fields } };
       }
     } catch (error) {
       console.error('Erreur lors de l\'inscription:', error);

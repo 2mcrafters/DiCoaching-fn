@@ -36,7 +36,7 @@ import { sanitizeModificationChanges } from "@/lib/modifications";
 import { useToast } from "@/components/ui/use-toast";
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const { toast } = useToast();
   const dispatch = useDispatch();
   const allTerms = useSelector(selectAllTerms);
@@ -61,7 +61,10 @@ const Dashboard = () => {
 
   const isResearcher =
     user?.role === "chercheur" || user?.role === "researcher";
-  const isAuthor = user?.role === "auteur" || user?.role === "author";
+  const isAuthor =
+    typeof hasAuthorPermissions === "function"
+      ? hasAuthorPermissions()
+      : user?.role === "auteur" || user?.role === "author";
 
   useEffect(() => {
     if (isResearcher && user?.id) {
@@ -209,6 +212,17 @@ const Dashboard = () => {
       .toLowerCase();
     return SPECIAL_EMAILS.has(email) || name === "mohamed rachid belhadj";
   })();
+
+  // Compute a full display name from available fields
+  const fullName =
+    (
+      (user?.firstname || "").trim() +
+      " " +
+      (user?.lastname || "").trim()
+    ).trim() ||
+    user?.name ||
+    user?.email ||
+    "Utilisateur";
 
   // Create the final stats object with optional overrides
   const statsData = (() => {
@@ -1331,7 +1345,10 @@ const Dashboard = () => {
               <div>
                 <h1 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
                   Bonjour,{" "}
-                  <span className="creative-gradient-text">{user.name}</span> !
+                  <span className="creative-gradient-text">
+                    {isResearcher ? fullName : user.name}
+                  </span>{" "}
+                  !
                 </h1>
                 <p className="text-muted-foreground text-lg">
                   {isResearcher

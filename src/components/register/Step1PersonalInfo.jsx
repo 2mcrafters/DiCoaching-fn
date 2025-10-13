@@ -18,7 +18,12 @@ import {
   Upload,
 } from "lucide-react";
 
-const Step1PersonalInfo = ({ formData, setFormData, onNext }) => {
+const Step1PersonalInfo = ({
+  formData,
+  setFormData,
+  onNext,
+  serverErrors = {},
+}) => {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -40,6 +45,13 @@ const Step1PersonalInfo = ({ formData, setFormData, onNext }) => {
     if (!formData.lastName) newErrors.lastName = "Le nom est requis.";
     if (!formData.sex) newErrors.sex = "Le sexe est requis.";
     if (!formData.phone) newErrors.phone = "Le numéro de téléphone est requis.";
+    else {
+      // Allow digits, spaces, +, - and parentheses; require 8-15 digits
+      const digits = (formData.phone.match(/\d/g) || []).length;
+      if (digits < 8 || digits > 15)
+        newErrors.phone =
+          "Le numéro de téléphone est invalide (8-15 chiffres attendus).";
+    }
     if (!formData.email) newErrors.email = "L'email est requis.";
     else if (!/\S+@\S+\.\S+/.test(formData.email))
       newErrors.email = "L'email est invalide.";
@@ -137,6 +149,11 @@ const Step1PersonalInfo = ({ formData, setFormData, onNext }) => {
             {errors.firstName && (
               <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
             )}
+            {serverErrors.firstName && (
+              <p className="text-red-500 text-xs mt-1">
+                {serverErrors.firstName}
+              </p>
+            )}
           </div>
           <div>
             <Label htmlFor="lastName">Nom</Label>
@@ -150,6 +167,11 @@ const Step1PersonalInfo = ({ formData, setFormData, onNext }) => {
             />
             {errors.lastName && (
               <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
+            )}
+            {serverErrors.lastName && (
+              <p className="text-red-500 text-xs mt-1">
+                {serverErrors.lastName}
+              </p>
             )}
           </div>
         </div>
@@ -240,6 +262,9 @@ const Step1PersonalInfo = ({ formData, setFormData, onNext }) => {
           {errors.email && (
             <p className="text-red-500 text-xs mt-1">{errors.email}</p>
           )}
+          {serverErrors.email && (
+            <p className="text-red-500 text-xs mt-1">{serverErrors.email}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -270,6 +295,11 @@ const Step1PersonalInfo = ({ formData, setFormData, onNext }) => {
             </div>
             {errors.password && (
               <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+            )}
+            {serverErrors.password && (
+              <p className="text-red-500 text-xs mt-1">
+                {serverErrors.password}
+              </p>
             )}
           </div>
 
@@ -303,6 +333,11 @@ const Step1PersonalInfo = ({ formData, setFormData, onNext }) => {
             {errors.confirmPassword && (
               <p className="text-red-500 text-xs mt-1">
                 {errors.confirmPassword}
+              </p>
+            )}
+            {serverErrors.confirmPassword && (
+              <p className="text-red-500 text-xs mt-1">
+                {serverErrors.confirmPassword}
               </p>
             )}
           </div>

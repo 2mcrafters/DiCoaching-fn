@@ -225,7 +225,7 @@ const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
 };
 
 function MyProfile() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, hasAuthorPermissions } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -448,7 +448,9 @@ function MyProfile() {
           profile_picture:
             result.data.profile_picture || formData.profile_picture || "",
           profile_picture_url:
-            result.data.profile_picture_url || formData.profile_picture_url || "",
+            result.data.profile_picture_url ||
+            formData.profile_picture_url ||
+            "",
           presentation: result.data.presentation || "",
           socials: normalizedSocials,
           documents: formData.documents || [],
@@ -718,7 +720,9 @@ function MyProfile() {
                 </CardContent>
               </Card>
 
-              {formData.role === "auteur" && (
+              {(typeof hasAuthorPermissions === "function"
+                ? hasAuthorPermissions()
+                : formData.role === "auteur") && (
                 <Card className="mb-8">
                   <CardHeader>
                     <CardTitle>RÃ©seaux Sociaux</CardTitle>

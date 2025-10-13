@@ -36,7 +36,7 @@ import {
 
 const Fiche = () => {
   const { slug } = useParams();
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const dispatch = useDispatch();
   const terms = useSelector(selectAllTerms);
   const dataLoading = useSelector((state) => state.terms.loading);
@@ -414,7 +414,9 @@ const Fiche = () => {
 
   const handleDeleteComment = async (commentId) => {
     if (!commentId) return;
-    const confirmed = window.confirm("Voulez-vous vraiment supprimer ce commentaire ?");
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer ce commentaire ?"
+    );
     if (!confirmed) return;
 
     try {
@@ -553,7 +555,11 @@ const Fiche = () => {
 
   // Admin can edit all terms, Author can only edit their own terms
   const isAdmin = user && user.role === "admin";
-  const isAuthor = user && (user.role === "auteur" || user.role === "author");
+  const isAuthor =
+    user &&
+    (typeof hasAuthorPermissions === "function"
+      ? hasAuthorPermissions()
+      : user.role === "auteur" || user.role === "author");
   const isOwner = user && String(term?.authorId) === String(user.id);
   const canEditDirectly = isAdmin || (isAuthor && isOwner);
   const canProposeModification = user && !canEditDirectly;
