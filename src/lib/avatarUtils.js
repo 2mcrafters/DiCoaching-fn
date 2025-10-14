@@ -1,89 +1,98 @@
-// Utility functions for avatar management
-export const getGenderAvatar = (userId, gender) => {
-  // Generate a consistent seed based on user ID for consistent avatar
-  const seed = `user${userId}`;
-  
-  if (gender === 'femme') {
-    // Female avatars - using different avatar services for women
-    return `https://avatar.iran.liara.run/public/girl?username=${seed}`;
-  } else if (gender === 'homme') {
-    // Male avatars - using different avatar services for men  
-    return `https://avatar.iran.liara.run/public/boy?username=${seed}`;
-  } else {
-    // Default/neutral avatar for 'autre' or undefined gender
-    return `https://avatar.iran.liara.run/public?username=${seed}`;
-  }
+// Avatar helpers used across the app
+// - getGenderAvatar(seed, sex): deterministic gender-based avatar URL
+// - getProfilePictureUrl(userLike): resolves uploaded picture or falls back to gender avatar
+
+// Build a normalized backend base URL (no trailing slash, no trailing /api)
+function getBackendBaseUrl() {
+	try {
+		let base = import.meta?.env?.VITE_API_URL || "http://localhost:5000";
+		base = String(base).replace(/\/+$/g, "");
+		if (base.endsWith("/api")) base = base.slice(0, -4);
+		return base;
+	} catch (_) {
+		return "http://localhost:5000";
+	}
+}
+
+const isAbsoluteUrl = (u) => typeof u === "string" && /^(https?:)?\/\//i.test(u);
+const isDataUrl = (u) => typeof u === "string" && /^data:/i.test(u);
+
+// Normalize a possibly relative uploads path to absolute URL
+function toAbsoluteUploadsUrl(urlLike) {
+	if (!urlLike) return null;
+	if (isAbsoluteUrl(urlLike) || isDataUrl(urlLike)) return urlLike;
+
+	const base = getBackendBaseUrl();
+	let p = String(urlLike).trim().replace(/\\/g, "/");
+
+	// Remove leading uploads/ if present; we'll add it back once
+	p = p.replace(/^\/?uploads\/?/i, "");
+
+	// If already has known subfolder, keep; else assume profiles/
+	if (!p.startsWith("profiles/") && !p.startsWith("documents/")) {
+		// If looks like just a filename, force profiles/
+		if (!p.includes("/")) p = `profiles/${p}`;
+	}
+
+	return `${base}/uploads/${p}`;
+}
+
+// Map sex value to avatar service path
+function mapSexToVariant(sex) {
+	const s = String(sex || "").toLowerCase();
+	if (s === "femme" || s === "female" || s === "woman" || s === "girl") return "girl";
+	if (s === "homme" || s === "male" || s === "man" || s === "boy") return "boy";
+	return "neutral";
+}
+
+export function getGenderAvatar(seed = "user", sex = "") {
+	// Deterministic seed ensures consistent avatar per user
+	const username = encodeURIComponent(String(seed || "user"));
+	const variant = mapSexToVariant(sex);
+
+	// Primary service: avatar.iran.liara.run
+	if (variant === "girl") return `https://avatar.iran.liara.run/public/girl?username=${username}`;
+	if (variant === "boy") return `https://avatar.iran.liara.run/public/boy?username=${username}`;
+	return `https://avatar.iran.liara.run/public?username=${username}`;
+}
+
+export function getProfilePictureUrl(userLike) {
+	if (!userLike) return null;
+
+	// Accept different shapes: may be user, profile form data, or lightweight object
+	const u = userLike || {};
+
+	// Prefer explicit URL fields first
+	const directUrl = u.profile_picture_url || u.profilePictureUrl || u.profileURL || u.url;
+	if (directUrl) {
+		if (isAbsoluteUrl(directUrl) || isDataUrl(directUrl)) return directUrl;
+		return toAbsoluteUploadsUrl(directUrl);
+	}
+
+	// Then file/path style fields
+	const fileField =
+		u.profile_picture ||
+		u.profilePicture ||
+		u.picture ||
+		u.avatar ||
+		u.image;
+	if (fileField) {
+		if (isAbsoluteUrl(fileField) || isDataUrl(fileField)) return fileField;
+		return toAbsoluteUploadsUrl(fileField);
+	}
+
+	// Nothing uploaded: fallback to gender-based deterministic avatar
+	const seed =
+		(u.id != null && `user${u.id}`) ||
+		(u.email ? `mail:${u.email}` : null) ||
+		(u.firstname || u.lastname ? `${u.firstname || ""}${u.lastname || ""}` : null) ||
+		"user";
+	const sex = u.sex || u.gender || u.sexe || "";
+	return getGenderAvatar(seed, sex);
+}
+
+export default {
+	getGenderAvatar,
+	getProfilePictureUrl,
 };
 
-// Alternative service if the above doesn't work well
-export const getGenderAvatarAlternative = (userId, gender) => {
-  const seed = `user${userId}`;
-  
-  if (gender === 'femme') {
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&gender=female`;
-  } else if (gender === 'homme') {
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&gender=male`;
-  } else {
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
-  }
-};
-
-// Normalize stored filename or object to an accessible relative path
-const buildProfilePicturePath = (profilePicture) => {
-  if (!profilePicture) return null;
-
-  // Handle objects returned from some APIs ({ url, path, filename, ... })
-  if (typeof profilePicture === "object") {
-    const candidate =
-      profilePicture.url ||
-      profilePicture.path ||
-      profilePicture.filePath ||
-      profilePicture.filename;
-    return buildProfilePicturePath(candidate);
-  }
-
-  let sanitized = String(profilePicture).trim();
-  if (!sanitized) return null;
-
-  // If it's already an absolute URL, keep it as-is
-  if (/^https?:\/\//i.test(sanitized)) {
-    return sanitized;
-  }
-
-  sanitized = sanitized.replace(/\\/g, "/").replace(/^\/+/, "");
-
-  // Remove leading uploads/ that might already be part of the stored value
-  if (sanitized.startsWith("uploads/")) {
-    sanitized = sanitized.substring("uploads/".length);
-  }
-
-  const alreadyScoped =
-    sanitized.startsWith("profiles/") || sanitized.startsWith("documents/");
-
-  return alreadyScoped ? sanitized : `profiles/${sanitized}`;
-};
-
-// Get profile picture URL with proper fallback
-export const getProfilePictureUrl = (user = {}) => {
-  const API_BASE_URL =
-    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "")?.replace(/\/+$/, "") ||
-    "http://localhost:5000";
-
-  const storedPicture =
-    user.profile_picture_url ||
-    user.profilePictureUrl ||
-    user.profile_picture ||
-    user.profilePicture ||
-    user.profilePhoto;
-  const normalizedPath = buildProfilePicturePath(storedPicture);
-
-  if (normalizedPath) {
-    if (/^https?:\/\//i.test(normalizedPath)) {
-      return normalizedPath;
-    }
-    return `${API_BASE_URL}/uploads/${normalizedPath}`;
-  }
-
-  // Otherwise use gender-appropriate avatar
-  return getGenderAvatar(user.id || "user", user.sex);
-};

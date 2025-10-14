@@ -47,12 +47,8 @@ class ApiService {
       const data = await response.json();
       return data;
     } catch (error) {
-      // Silently re-throw AbortError without logging (expected during navigation/unmount)
-      if (
-        error &&
-        (error.name === "AbortError" || error.code === "ABORT_ERR")
-      ) {
-        // Don't log abort errors - they're expected during component unmount or navigation
+      // Don't spam console for AbortError (AbortController from React StrictMode)
+      if (error && error.name === "AbortError") {
         throw error;
       }
       console.error("API Request Error:", error);
@@ -138,86 +134,13 @@ class ApiService {
     return this.get("/api/stats");
   }
 
-  // Utilisateurs
+  // Utilisateurs (à implémenter plus tard)
   async getUsers() {
     return this.get("/api/users");
   }
 
   async getUser(id) {
     return this.get(`/api/users/${id}`);
-  }
-
-  async createUser(userData) {
-    return this.post("/api/users", userData);
-  }
-
-  async updateUser(id, userData) {
-    return this.put(`/api/users/${id}`, userData);
-  }
-
-  async getUserStats(id) {
-    return this.get(`/api/users/${id}/stats`);
-  }
-
-  async deleteUser(id) {
-    return this.delete(`/api/users/${id}`);
-  }
-
-  // Gestion des signalements
-  async getReports() {
-    const response = await this.get("/api/reports");
-    return response.data || response;
-  }
-
-  async createReport(reportData) {
-    const response = await this.post("/api/reports", reportData);
-    return response.data || response;
-  }
-
-  async updateReport(id, reportData) {
-    const response = await this.put(`/api/reports/${id}`, reportData);
-    return response.data || response;
-  }
-
-  async deleteReport(id) {
-    const response = await this.delete(`/api/reports/${id}`);
-    return response.data || response;
-  }
-
-  // Modifications
-  async getModifications() {
-    return this.get("/api/modifications");
-  }
-
-  async getModificationById(id, options = {}) {
-    return this.get(`/api/modifications/${id}`, options);
-  }
-
-  async createModification(modificationData) {
-    return this.post("/api/modifications", modificationData);
-  }
-
-  async updateModification(id, modificationData) {
-    return this.put(`/api/modifications/${id}`, modificationData);
-  }
-
-  async deleteModification(id) {
-    return this.delete(`/api/modifications/${id}`);
-  }
-
-  // Comments
-  async getAuthorComments(authorId) {
-    return this.get(`/api/comments/author/${authorId}`);
-  }
-
-  // Reports on author's terms
-  async getAuthorReports(authorId) {
-    const res = await this.get(`/api/reports/author/${authorId}`);
-    return res?.data ?? res;
-  }
-
-  async deleteComment(commentId) {
-    return this.delete(`/api/comments/${commentId}`);
   }
 
   // Authentification (à implémenter plus tard)
@@ -231,6 +154,29 @@ class ApiService {
 
   async logout() {
     return this.post("/api/auth/logout");
+  }
+
+  // Notifications
+  async getNotifications(limit = 20) {
+    const res = await this.get(
+      `/api/notifications?limit=${encodeURIComponent(limit)}`
+    );
+    return res?.data ?? res;
+  }
+
+  async getUnreadNotificationsCount() {
+    const res = await this.get(`/api/notifications/unread-count`);
+    return res?.data ?? res;
+  }
+
+  async markNotificationRead(id) {
+    const res = await this.post(`/api/notifications/${id}/read`, {});
+    return res?.data ?? res;
+  }
+
+  async markAllNotificationsRead() {
+    const res = await this.post(`/api/notifications/mark-all-read`, {});
+    return res?.data ?? res;
   }
 
   // Likes
@@ -249,75 +195,22 @@ class ApiService {
     return res?.data ?? res;
   }
 
-  async getUserLikeStats() {
-    const res = await this.get("/api/user/likes/stats");
-    return res?.data ?? res;
-  }
-
-  async getUserLikedTerms() {
-    const res = await this.get("/api/user/liked-terms");
-    return res?.data ?? res;
-  }
-
   // Comments
   async getComments(termId) {
     const res = await this.get(`/api/terms/${termId}/comments`);
     return res?.data ?? res;
   }
 
-  async addComment(termId, content) {
-    const res = await this.post(`/api/terms/${termId}/comments`, { content });
+  async addComment(termId, content, parent_id = null) {
+    const res = await this.post(`/api/terms/${termId}/comments`, {
+      content,
+      parent_id,
+    });
     return res?.data ?? res;
   }
 
   async deleteComment(commentId) {
     const res = await this.delete(`/api/comments/${commentId}`);
-    return res?.data ?? res;
-  }
-
-  // Decisions
-  async getDecisions() {
-    const res = await this.get("/api/decisions");
-    return res?.data ?? res;
-  }
-
-  async getTermDecisions(termId) {
-    const res = await this.get(`/api/terms/${termId}/decisions`);
-    return res?.data ?? res;
-  }
-
-  async createDecision(termId, decisionType, comment) {
-    const res = await this.post("/api/decisions", {
-      termId,
-      decisionType,
-      comment,
-    });
-    return res?.data ?? res;
-  }
-
-  async updateDecision(decisionId, data) {
-    const res = await this.put(`/api/decisions/${decisionId}`, data);
-    return res?.data ?? res;
-  }
-
-  async deleteDecision(decisionId) {
-    const res = await this.delete(`/api/decisions/${decisionId}`);
-    return res?.data ?? res;
-  }
-
-  async getDecisionStats() {
-    const res = await this.get("/api/decisions/stats");
-    return res?.data ?? res;
-  }
-
-  // Dashboard
-  async getDashboardStats() {
-    const res = await this.get("/api/dashboard/stats");
-    return res?.data ?? res;
-  }
-
-  async getDashboardChartData(period = 30) {
-    const res = await this.get(`/api/dashboard/chart-data?period=${period}`);
     return res?.data ?? res;
   }
 }
