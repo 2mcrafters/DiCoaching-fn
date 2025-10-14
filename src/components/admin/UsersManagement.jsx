@@ -84,6 +84,26 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
     }
   };
 
+  const getStatusBadge = (status) => {
+    const s = (status || "").toString().toLowerCase();
+    switch (s) {
+      case "confirmed":
+        return <Badge className="bg-green-100 text-green-800">Confirmé</Badge>;
+      case "active":
+        return <Badge className="bg-green-100 text-green-800">Actif</Badge>;
+      case "pending":
+        return (
+          <Badge className="bg-amber-100 text-amber-800">En attente</Badge>
+        );
+      case "rejected":
+        return <Badge className="bg-red-100 text-red-800">Rejeté</Badge>;
+      case "suspended":
+        return <Badge className="bg-red-100 text-red-800">Suspendu</Badge>;
+      default:
+        return s ? <Badge variant="outline">{status}</Badge> : null;
+    }
+  };
+
   const handleUserRoleChange = async (userId, newRole) => {
     try {
       await apiService.updateUser(userId, { role: newRole });
@@ -198,7 +218,11 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
   };
 
   const filteredUsers = users
-    .filter((u) => roleFilter === "all" || u.role === roleFilter)
+    .filter((u) => {
+      if (roleFilter === "all") return true;
+      if (roleFilter === "author") return u.role === "author";
+      return u.role === roleFilter;
+    })
     .filter(
       (u) =>
         searchQuery.trim() === "" ||
@@ -468,6 +492,7 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium">{displayName}</h4>
                         {getRoleBadge(userData.role)}
+                        {getStatusBadge(userData.status)}
                         {userData.id === currentUser?.id && (
                           <Badge variant="outline" className="text-xs">
                             Vous

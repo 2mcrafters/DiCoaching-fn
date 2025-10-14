@@ -95,7 +95,8 @@ const Register = () => {
     try {
       const result = await register(data);
       if (result.success) {
-        if (data.role === "auteur") {
+        // Show popup if user registered as author (backend accepts 'auteur' but client normalizes to 'author')
+        if (data.role === "auteur" || data.role === "author") {
           setShowAuthorPopup(true);
         } else {
           toast({

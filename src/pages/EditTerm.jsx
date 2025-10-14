@@ -42,7 +42,7 @@ const EditTerm = () => {
       const isAuthor =
         typeof hasAuthorPermissions === "function"
           ? hasAuthorPermissions()
-          : user.role === "auteur" || user.role === "author";
+          : user.role === "author";
       const isOwner = String(termToEdit.authorId) === String(user.id);
       const canEdit = isAdmin || (isAuthor && isOwner);
 
@@ -113,7 +113,7 @@ const EditTerm = () => {
     }
 
     const finalStatus =
-      user.role === "auteur" || user.role === "admin" ? "published" : newStatus;
+      user.role === "author" || user.role === "admin" ? "published" : newStatus;
 
     const updatedTermData = {
       terme: formData.term,

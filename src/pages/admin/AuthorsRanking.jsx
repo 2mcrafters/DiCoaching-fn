@@ -24,7 +24,9 @@ const AuthorsRanking = () => {
       localStorage.getItem("coaching_dict_users") || "[]"
     );
     const allTerms = terms || [];
-    const authorUsers = allUsers.filter((user) => user.role === "auteur");
+    const authorUsers = allUsers.filter((user) =>
+      ["author", "auteur", "admin"].includes((user.role || "").toLowerCase())
+    );
 
     const authorsWithStats = authorUsers.map((author) => {
       const termsAdded = allTerms.filter(

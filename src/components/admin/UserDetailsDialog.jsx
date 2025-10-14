@@ -24,6 +24,7 @@ import {
   Twitter,
 } from "lucide-react";
 import DocumentViewerDialog from "@/components/DocumentViewerDialog";
+import { getProfilePictureUrl } from "@/lib/avatarUtils";
 import apiService from "@/services/api";
 
 const SocialIcon = ({ network }) => {
@@ -35,6 +36,7 @@ const SocialIcon = ({ network }) => {
     case "linkedin":
       return <Linkedin className="h-5 w-5 text-blue-700" />;
     case "x":
+    case "twitter":
       return <Twitter className="h-5 w-5" />;
     default:
       return <LinkIcon className="h-5 w-5" />;
@@ -66,12 +68,8 @@ const UserDetailsDialog = ({ user }) => {
   // Prefer the fetched detailedUser when present, otherwise fall back to the list-provided `user`
   const effectiveUser = detailedUser || user;
   const displayName = getDisplayName(effectiveUser);
-  const profilePicture =
-    effectiveUser?.profilePicture ||
-    effectiveUser?.profile_picture ||
-    effectiveUser?.avatar ||
-    effectiveUser?.profile_picture_url ||
-    null;
+  // Normalize profile picture URL for correct rendering
+  const profilePicture = getProfilePictureUrl(effectiveUser);
   const role = effectiveUser?.role || "user";
   const status = (
     effectiveUser?.status ||
@@ -133,6 +131,9 @@ const UserDetailsDialog = ({ user }) => {
           f.label ||
           `fichier-${idx + 1}`,
         downloadUrl: f.downloadUrl || null,
+        mime: f.mime || f.mime_type || f.mimeType || null,
+        purpose: f.purpose || null,
+        status: f.status || null,
         _raw: f,
       };
     })
@@ -267,11 +268,18 @@ const UserDetailsDialog = ({ user }) => {
         // Normalize and push into allFilesRaw-like structure
         if (Array.isArray(docs) && docs.length > 0) {
           const normalized = docs.map((d) => ({
-            url: d.url || d.file_path || null,
+            url:
+              d.url ||
+              (d.filename ? `/uploads/documents/${d.filename}` : null) ||
+              d.file_path ||
+              null,
             title: d.original_filename || d.filename || `document-${d.id}`,
             downloadUrl:
               d.downloadUrl ||
               (d.id ? `/api/documents/download/${d.id}` : null),
+            mime: d.mime_type || d.mimeType || null,
+            purpose: d.purpose || null,
+            status: d.status || null,
           }));
           // merge into allFiles by appending to detailedUser (so UI picks them up via effectiveUser)
           setDetailedUser((prev) => {
@@ -368,13 +376,31 @@ const UserDetailsDialog = ({ user }) => {
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <span>{professionalStatus || "—"}</span>
                 </div>
+                {effectiveUser?.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="h-4 w-4 text-muted-foreground">📞</span>
+                    <span>{effectiveUser.phone}</span>
+                  </div>
+                )}
+                {effectiveUser?.sex && (
+                  <div className="flex items-center gap-2">
+                    <span className="h-4 w-4 text-muted-foreground">⚧</span>
+                    <span className="capitalize">{effectiveUser.sex}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <span>Documents fournis: {documents.length}</span>
+                  <span>Documents fournis: {allFiles.length}</span>
                 </div>
+                {effectiveUser?.birth_date && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>{String(effectiveUser.birth_date).slice(0, 10)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -383,6 +409,15 @@ const UserDetailsDialog = ({ user }) => {
                 <h4 className="font-semibold mb-2">Biographie</h4>
                 <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
                   {biography}
+                </p>
+              </div>
+            )}
+
+            {effectiveUser?.presentation && (
+              <div>
+                <h4 className="font-semibold mb-2">Présentation</h4>
+                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                  {effectiveUser.presentation}
                 </p>
               </div>
             )}
@@ -423,40 +458,87 @@ const UserDetailsDialog = ({ user }) => {
             {allFiles && allFiles.length > 0 && (
               <div>
                 <h4 className="font-semibold mb-2">Fichiers & Documents</h4>
-                <div className="space-y-2">
-                  {allFiles.map((f, idx) => (
-                    <div
-                      key={f.url || f.title || idx}
-                      className="flex items-center gap-3"
-                    >
-                      <span className="text-sm">{f.title}</span>
-                      <div className="flex items-center gap-2 ml-auto">
-                        {f.url &&
-                          /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(f.url) && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedDoc({ url: f.url, title: f.title });
-                                setIsViewerOpen(true);
-                              }}
-                            >
-                              Aperçu
-                            </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {allFiles.map((f, idx) => {
+                    const isPreviewable =
+                      f.url && /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(f.url);
+                    const ext = (f.title || "").split(".").pop()?.toLowerCase();
+                    return (
+                      <div
+                        key={f.url || f.title || idx}
+                        className="p-3 border rounded-md bg-muted/30 flex items-start gap-3"
+                      >
+                        <div className="h-9 w-9 flex items-center justify-center rounded bg-background border text-muted-foreground shrink-0">
+                          {ext === "pdf" ? (
+                            <span className="text-[10px] font-semibold">
+                              PDF
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold">
+                              FILE
+                            </span>
                           )}
-                        {f.url && (
-                          <a
-                            href={f.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            Ouvrir
-                          </a>
-                        )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {f.title}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            {f.purpose && (
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-wide">
+                                {f.purpose}
+                              </span>
+                            )}
+                            {f.status && (
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wide">
+                                {f.status}
+                              </span>
+                            )}
+                            {f.mime && (
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                {f.mime}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-2">
+                            {isPreviewable && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedDoc({
+                                    url: f.url,
+                                    title: f.title,
+                                  });
+                                  setIsViewerOpen(true);
+                                }}
+                              >
+                                Aperçu
+                              </Button>
+                            )}
+                            {f.url && (
+                              <a
+                                className="text-sm text-primary hover:underline"
+                                href={f.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Ouvrir
+                              </a>
+                            )}
+                            {f.downloadUrl && (
+                              <a
+                                className="text-sm text-primary hover:underline"
+                                href={f.downloadUrl}
+                              >
+                                Télécharger
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

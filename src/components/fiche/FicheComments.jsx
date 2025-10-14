@@ -11,7 +11,7 @@ import { MessageCircle, Send, Info, Trash2 } from 'lucide-react';
 import { getProfilePictureUrl } from "@/lib/avatarUtils";
 
 const FicheComments = ({ comments, onCommentSubmit, onDeleteComment, getAuthorName }) => {
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const { toast } = useToast();
   const [newComment, setNewComment] = useState('');
 
@@ -99,8 +99,8 @@ const FicheComments = ({ comments, onCommentSubmit, onDeleteComment, getAuthorNa
                   user &&
                   (String(comment.authorId) === String(user.id) ||
                     user.role === "admin" ||
-                    user.role === "auteur" ||
-                    user.role === "author");
+                    (typeof hasAuthorPermissions === "function" &&
+                      hasAuthorPermissions()));
 
                 const handleDelete = () => {
                   if (!onDeleteComment) return;

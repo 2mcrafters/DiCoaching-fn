@@ -52,9 +52,32 @@ router.get("/user/:userId", async (req, res) => {
 });
 
 // POST /api/documents/upload/:userId - Upload de documents pour un utilisateur
+// Middleware to handle multer errors gracefully (413 for oversized files)
+const handleDocumentUpload = (req, res, next) => {
+  const upload = documentUpload.array("documents", 10);
+  upload(req, res, function (err) {
+    if (err) {
+      // Multer file size limit
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({
+          status: "error",
+          message: "Fichier trop volumineux (max 10MB)",
+          error: err.message,
+        });
+      }
+      return res.status(400).json({
+        status: "error",
+        message: err.message || "Erreur lors du téléchargement",
+        code: err.code || "UPLOAD_ERROR",
+      });
+    }
+    next();
+  });
+};
+
 router.post(
   "/upload/:userId",
-  documentUpload.array("documents", 10),
+  handleDocumentUpload,
   async (req, res) => {
     try {
       const { userId } = req.params;

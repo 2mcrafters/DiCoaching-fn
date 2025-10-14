@@ -74,10 +74,21 @@ const parseSocialArray = (value) => {
     if (!value.trim()) return [];
     try {
       const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === "object") {
+        return Object.keys(parsed)
+          .map((k) => ({ network: k, url: parsed[k] }))
+          .filter((e) => e.network && e.url);
+      }
+      return [];
     } catch (error) {
       return [];
     }
+  }
+  if (typeof value === "object") {
+    return Object.keys(value)
+      .map((k) => ({ network: k, url: value[k] }))
+      .filter((e) => e.network && e.url);
   }
   return [];
 };
@@ -91,6 +102,7 @@ const SocialIcon = ({ network }) => {
     case "linkedin":
       return <Linkedin className="h-5 w-5 text-blue-700" />;
     case "x":
+    case "twitter":
       return <Twitter className="h-5 w-5" />;
     default:
       return <LinkIcon className="h-5 w-5" />;
@@ -297,6 +309,8 @@ function MyProfile() {
                 d.downloadUrl ||
                 (d.id ? `/api/documents/download/${d.id}` : null),
               mime: d.mime_type || d.mimeType || null,
+              purpose: d.purpose || null,
+              status: d.status || null,
             }))
           : [];
         setUserDocs(normalized);
@@ -354,6 +368,32 @@ function MyProfile() {
     const newSocials = [...formData.socials];
     newSocials[index][field] = value;
     setFormData((prev) => ({ ...prev, socials: newSocials }));
+  };
+
+  const FIXED_NETWORKS = ["facebook", "instagram", "linkedin", "x"];
+
+  const getFixedSocialUrl = (key) => {
+    const entry = (formData.socials || []).find(
+      (s) => (s.network || "").toLowerCase() === key
+    );
+    return entry?.url || "";
+  };
+
+  const setFixedSocialUrl = (key, url) => {
+    const socials = [...(formData.socials || [])];
+    const idx = socials.findIndex(
+      (s) => (s.network || "").toLowerCase() === key
+    );
+    const trimmed = (url || "").trim();
+    if (!trimmed) {
+      // remove existing entry if clearing
+      if (idx >= 0) socials.splice(idx, 1);
+    } else if (idx >= 0) {
+      socials[idx] = { ...socials[idx], network: key, url: trimmed };
+    } else {
+      socials.push({ network: key, url: trimmed });
+    }
+    setFormData((prev) => ({ ...prev, socials }));
   };
 
   const addSocialField = () => {
@@ -446,12 +486,26 @@ function MyProfile() {
       }
 
       const sanitizedSocials = Array.isArray(formData.socials)
-        ? formData.socials
-            .map((social) => ({
-              network: (social.network || "").trim(),
-              url: (social.url || "").trim(),
-            }))
-            .filter((social) => social.network && social.url)
+        ? (() => {
+            const toPairs = formData.socials
+              .map((s) => ({
+                network: (s.network || "").trim(),
+                url: (s.url || "").trim(),
+              }))
+              .filter((s) => s.network && s.url);
+            // normalize URLs (prepend https:// if missing scheme)
+            const normalizeUrl = (u) => {
+              if (!u) return u;
+              const hasScheme = /^(https?:)?\/\//i.test(u);
+              return hasScheme ? u : `https://${u.replace(/^\/*/, "")}`;
+            };
+            const map = new Map();
+            for (const item of toPairs) {
+              const key = item.network.toLowerCase();
+              map.set(key, { network: key, url: normalizeUrl(item.url) });
+            }
+            return Array.from(map.values());
+          })()
         : [];
 
       const profileData = {
@@ -771,39 +825,67 @@ function MyProfile() {
                 </CardContent>
               </Card>
 
-              {(typeof hasAuthorPermissions === "function"
-                ? hasAuthorPermissions()
-                : formData.role === "auteur") && (
-                <Card className="mb-8">
-                  <CardHeader>
-                    <CardTitle>RÃ©seaux Sociaux</CardTitle>
-                    <CardDescription>
-                      GÃ©rez vos liens vers les rÃ©seaux sociaux.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {formData.socials.map((social, index) => (
-                      <div key={index} className="flex items-center gap-2">
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle>Réseaux sociaux</CardTitle>
+                  <CardDescription>
+                    Ajoutez les liens de vos profils. Laissez vide si non
+                    applicable.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Fixed popular networks */}
+                  {[
+                    { key: "facebook", label: "URL du profil Facebook" },
+                    { key: "instagram", label: "URL du profil Instagram" },
+                    { key: "linkedin", label: "URL du profil LinkedIn" },
+                    { key: "x", label: "URL du profil X" },
+                  ].map((n) => (
+                    <div key={n.key} className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-3 border rounded-md p-3">
+                        <SocialIcon network={n.key} />
+                        <Input
+                          className="border-none focus-visible:ring-0"
+                          placeholder={n.label}
+                          value={getFixedSocialUrl(n.key)}
+                          onChange={(e) =>
+                            setFixedSocialUrl(n.key, e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Extra/custom networks */}
+                  {formData.socials
+                    .map((s, i) => ({ s, i }))
+                    .filter(
+                      ({ s }) =>
+                        !FIXED_NETWORKS.includes(
+                          (s.network || "").toLowerCase()
+                        )
+                    )
+                    .map(({ s, i }) => (
+                      <div
+                        key={`${i}-${s.network || "custom"}`}
+                        className="flex items-center gap-2"
+                      >
                         <div className="flex-1 flex items-center gap-2 border rounded-md p-2">
-                          <SocialIcon network={social.network} />
+                          <SocialIcon network={s.network || "link"} />
                           <Input
                             className="border-none focus-visible:ring-0 font-medium"
-                            value={social.network}
-                            placeholder="Nom du rÃ©seau"
+                            value={s.network}
+                            placeholder="Nom du réseau"
                             onChange={(e) =>
-                              handleSocialChange(
-                                index,
-                                "network",
-                                e.target.value
-                              )
+                              handleSocialChange(i, "network", e.target.value)
                             }
                           />
                           <Input
                             className="border-none focus-visible:ring-0"
                             placeholder="URL du profil"
-                            value={social.url}
+                            value={s.url}
                             onChange={(e) =>
-                              handleSocialChange(index, "url", e.target.value)
+                              handleSocialChange(i, "url", e.target.value)
                             }
                           />
                         </div>
@@ -811,25 +893,25 @@ function MyProfile() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => removeSocialField(index)}
+                          onClick={() => removeSocialField(i)}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
                     ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addSocialField}
-                    >
-                      <Plus className="h-4 w-4 mr-2" /> Ajouter un réseau
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
 
-              {formData.role === "auteur" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addSocialField}
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Ajouter un autre réseau
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {true && (
                 <Card className="mb-8">
                   <CardHeader>
                     <CardTitle>Documents</CardTitle>
@@ -857,7 +939,10 @@ function MyProfile() {
                         </Button>
                       </div>
                     ))}
-                    <AddDocumentDialog onAddDocument={handleAddDocument} />
+                    <AddDocumentDialog
+                      onAddDocument={handleAddDocument}
+                      userId={user?.id}
+                    />
                   </CardContent>
                 </Card>
               )}
@@ -870,57 +955,93 @@ function MyProfile() {
                       Documents associés à votre compte (uploadés et vérifiés).
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {userDocs.map((d) => (
-                      <div key={d.id} className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {d.title}
-                          </p>
-                          {d.mime && (
-                            <p className="text-xs text-muted-foreground">
-                              {d.mime}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {d.url &&
-                            /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(d.url) && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedDoc({
-                                    url: d.url,
-                                    title: d.title,
-                                  });
-                                  setIsViewerOpen(true);
-                                }}
-                              >
-                                Aperçu
-                              </Button>
-                            )}
-                          {d.url && (
-                            <a
-                              className="text-sm text-primary hover:underline"
-                              href={d.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Ouvrir
-                            </a>
-                          )}
-                          {d.downloadUrl && (
-                            <a
-                              className="text-sm text-primary hover:underline"
-                              href={d.downloadUrl}
-                            >
-                              Télécharger
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {userDocs.map((d) => {
+                        const isPreviewable =
+                          d.url &&
+                          /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(d.url);
+                        const ext = (d.title || "")
+                          .split(".")
+                          .pop()
+                          ?.toLowerCase();
+                        return (
+                          <div
+                            key={d.id}
+                            className="p-3 border rounded-md bg-muted/30 flex items-start gap-3"
+                          >
+                            <div className="h-10 w-10 flex items-center justify-center rounded bg-background border text-muted-foreground shrink-0">
+                              {ext === "pdf" ? (
+                                <span className="text-xs font-semibold">
+                                  PDF
+                                </span>
+                              ) : (
+                                <span className="text-xs font-semibold">
+                                  FILE
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">
+                                {d.title}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                {d.purpose && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-wide">
+                                    {d.purpose}
+                                  </span>
+                                )}
+                                {d.status && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wide">
+                                    {d.status}
+                                  </span>
+                                )}
+                                {d.mime && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                    {d.mime}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-2">
+                                {isPreviewable && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setSelectedDoc({
+                                        url: d.url,
+                                        title: d.title,
+                                      });
+                                      setIsViewerOpen(true);
+                                    }}
+                                  >
+                                    Aperçu
+                                  </Button>
+                                )}
+                                {d.url && (
+                                  <a
+                                    className="text-sm text-primary hover:underline"
+                                    href={d.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Ouvrir
+                                  </a>
+                                )}
+                                {d.downloadUrl && (
+                                  <a
+                                    className="text-sm text-primary hover:underline"
+                                    href={d.downloadUrl}
+                                  >
+                                    Télécharger
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </CardContent>
                 </Card>
               )}

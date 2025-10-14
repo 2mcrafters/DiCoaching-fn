@@ -23,6 +23,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import DocumentViewerDialog from "@/components/DocumentViewerDialog";
+import apiService from "@/services/api";
 
 const SocialIcon = ({ network }) => {
   switch (network.toLowerCase()) {
@@ -33,6 +34,7 @@ const SocialIcon = ({ network }) => {
     case "linkedin":
       return <Linkedin className="h-5 w-5 text-blue-700" />;
     case "x":
+    case "twitter":
       return <Twitter className="h-5 w-5" />;
     default:
       return <LinkIcon className="h-5 w-5" />;
@@ -45,6 +47,34 @@ const AuthorProfile = () => {
   const terms = useSelector(selectAllTerms);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [storedDocs, setStoredDocs] = useState([]);
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        if (!authorId) return;
+        const res = await apiService.get(`/api/documents/user/${authorId}`);
+        const docs = (res && res.data) || res || [];
+        const normalized = Array.isArray(docs)
+          ? docs.map((d) => ({
+              id: d.id,
+              title: d.original_filename || d.filename || `document-${d.id}`,
+              url:
+                d.url ||
+                (d.filename ? `/uploads/documents/${d.filename}` : null),
+              downloadUrl:
+                d.downloadUrl ||
+                (d.id ? `/api/documents/download/${d.id}` : null),
+              mime: d.mime_type || d.mimeType || null,
+            }))
+          : [];
+        setStoredDocs(normalized);
+      } catch (e) {
+        // fail silent on public page
+      }
+    };
+    fetchDocs();
+  }, [authorId]);
 
   // Calcul stats et badge
   let stats = { termsAdded: 0, termsModified: 0 };
@@ -192,18 +222,20 @@ const AuthorProfile = () => {
                   </p>
                 </div>
 
-                {author.documents &&
-                  Array.isArray(author.documents) &&
-                  author.documents.length > 0 && (
-                    <div className="mt-8">
-                      <h2 className="text-xl font-bold text-foreground">
-                        Documents
-                      </h2>
-                      <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {author.documents.map((doc, index) => (
+                {(storedDocs.length > 0 ||
+                  (author.documents &&
+                    Array.isArray(author.documents) &&
+                    author.documents.length > 0)) && (
+                  <div className="mt-8">
+                    <h2 className="text-xl font-bold text-foreground">
+                      Documents
+                    </h2>
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {(storedDocs.length ? storedDocs : author.documents).map(
+                        (doc, index) => (
                           <button
                             onClick={() => handleDocumentClick(doc)}
-                            key={index}
+                            key={doc.id || index}
                             className="block p-4 border rounded-lg hover:bg-muted/50 text-center cursor-pointer"
                           >
                             <FileText className="h-8 w-8 mx-auto text-muted-foreground" />
@@ -211,10 +243,11 @@ const AuthorProfile = () => {
                               {doc.title || doc.originalName || doc.filename}
                             </p>
                           </button>
-                        ))}
-                      </div>
+                        )
+                      )}
                     </div>
-                  )}
+                  </div>
+                )}
 
                 {author.socials &&
                   author.socials.filter((s) => s.url).length > 0 && (

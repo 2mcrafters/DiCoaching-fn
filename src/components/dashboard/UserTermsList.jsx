@@ -48,7 +48,7 @@ const UserTermsList = ({ userTerms, loading, user }) => {
     }
   };
 
-  const isAuthorRole = user.role === "auteur" || user.role === "author";
+  const isAuthorRole = user.role === "author";
   const isAdmin = user.role === "admin";
   const { hasAuthorPermissions } = useAuth();
   // Authors may have the role but still be awaiting admin approval; use hasAuthorPermissions

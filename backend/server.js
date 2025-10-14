@@ -196,15 +196,51 @@ app.post("/api/categories", async (req, res) => {
   }
 });
 
-// Routes API
-// TODO: Ajouter les routes pour les différentes fonctionnalités
-// app.use('/api/auth', require('./routes/auth'));
-// app.use('/api/users', require('./routes/users'));
-
-// Middleware de gestion d'erreurs
+// Enhanced global error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  console.error('❌ Server Error:', {
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    url: req.originalUrl,
+    method: req.method
+  });
+
+  // Handle large payloads or multer limits
+  if (err && (err.type === "entity.too.large" || err.status === 413)) {
+    return res.status(413).json({
+      status: "error",
+      message: "Fichier ou requête trop volumineux (max 10MB)",
+      error: process.env.NODE_ENV === "production" ? {} : err.message,
+    });
+  }
+
+  // Handle validation errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Validation failed',
+      errors: err.errors
+    });
+  }
+
+  // Handle authentication errors
+  if (err.name === 'UnauthorizedError' || err.status === 401) {
+    return res.status(401).json({
+      status: 'error',
+      message: 'Authentication required'
+    });
+  }
+
+  // Handle not found errors
+  if (err.status === 404) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Resource not found'
+    });
+  }
+
+  // Default error response
+  res.status(err.status || 500).json({
     message: "Erreur interne du serveur",
     error: process.env.NODE_ENV === "production" ? {} : err.message,
   });

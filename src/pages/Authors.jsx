@@ -162,7 +162,7 @@ const Authors = () => {
       // If the user has author role but is pending approval, don't show them on the public authors page
       if (!isAuthorRole) return;
       if (
-        (normalized.role || "").toLowerCase() === "auteur" &&
+        ["author", "auteur"].includes((normalized.role || "").toLowerCase()) &&
         (normalized.status || "").toLowerCase() === "pending"
       ) {
         return; // skip pending authors
@@ -199,7 +199,7 @@ const Authors = () => {
           author.name = "Mohamed Rachid Belhadj";
           author.professionalStatus = "Coach / Formateur";
           author.score = Math.max(author.score || 0, 150);
-          author.role = "auteur";
+          author.role = "author";
         }
       });
     });

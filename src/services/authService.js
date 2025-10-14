@@ -213,12 +213,27 @@ class AuthService {
 
   // Faire une requête authentifiée
   async authenticatedRequest(url, options = {}) {
+    const isFormData =
+      options &&
+      options.body &&
+      typeof FormData !== "undefined" &&
+      options.body instanceof FormData;
+    const baseHeaders = this.getHeaders();
+    // If sending FormData, do NOT set Content-Type manually; the browser will set the boundary
+    if (isFormData && baseHeaders["Content-Type"]) {
+      delete baseHeaders["Content-Type"];
+    }
+    const mergedHeaders = {
+      ...baseHeaders,
+      ...(options.headers || {}),
+    };
+    if (isFormData && mergedHeaders["Content-Type"]) {
+      delete mergedHeaders["Content-Type"];
+    }
+
     const config = {
       ...options,
-      headers: {
-        ...this.getHeaders(),
-        ...options.headers,
-      },
+      headers: mergedHeaders,
     };
 
     try {

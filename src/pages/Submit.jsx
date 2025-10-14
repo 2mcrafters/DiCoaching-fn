@@ -13,7 +13,7 @@ import SubmitFormSection from "@/components/submit/SubmitFormSection";
 import { Save, Send } from "lucide-react";
 
 const Submit = () => {
-  const { user } = useAuth();
+  const { user, hasAuthorPermissions } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const dispatch = useDispatch();
@@ -72,8 +72,11 @@ const Submit = () => {
       return;
     }
 
-    const finalStatus =
-      user.role === "auteur" || user.role === "admin" ? "published" : status;
+    const canPublishDirectly =
+      (typeof hasAuthorPermissions === "function" && hasAuthorPermissions()) ||
+      user.role === "admin";
+
+    const finalStatus = canPublishDirectly ? "published" : status;
 
     const payload = {
       term: formData.term,

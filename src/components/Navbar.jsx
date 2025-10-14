@@ -114,7 +114,7 @@ const Navbar = () => {
               {user &&
                 (hasAuthorPermissions
                   ? hasAuthorPermissions()
-                  : user.role === "auteur" || user.role === "admin") && (
+                  : user.role === "author" || user.role === "admin") && (
                   <Link to="/submit">
                     <Button
                       variant={isActive("/submit") ? "secondary" : "ghost"}
@@ -336,7 +336,7 @@ const Navbar = () => {
                       </Button>
                     </Link>
                     {/* Mobile settings link removed */}
-                    {(user.role === "auteur" || user.role === "admin") && (
+                    {(user.role === "author" || user.role === "admin") && (
                       <Link to="/submit" className="block">
                         <Button
                           variant={isActive("/submit") ? "default" : "ghost"}

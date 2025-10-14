@@ -10,7 +10,9 @@ const PendingAuthors = ({ allUsers, onUpdate }) => {
   const { toast } = useToast();
 
   const pendingAuthors = allUsers.filter(
-    (u) => u.role === "auteur" && u.status === "pending"
+    (u) =>
+      ["author", "auteur"].includes((u.role || "").toLowerCase()) &&
+      (u.status || "").toLowerCase() === "pending"
   );
 
   const handleAuthorAction = async (userId, action) => {
@@ -20,14 +22,27 @@ const PendingAuthors = ({ allUsers, onUpdate }) => {
       let newStatus = "";
 
       if (action === "approve") {
-        message = `L'auteur ${author.firstname} ${author.lastname} a été approuvé.`;
-        newStatus = "confirmed";
+        message = `L'auteur ${author.firstname} ${author.lastname} a été approuvé et activé.`;
+        // Prefer "active" as the final status when approving
+        newStatus = "active";
       } else {
         message = `La candidature de ${author.firstname} ${author.lastname} a été rejetée.`;
         newStatus = "rejected";
       }
 
-      await apiService.updateUser(userId, { status: newStatus });
+      // Do not change role here; keep the original role (should already be 'author')
+      const payload = { status: newStatus };
+      try {
+        await apiService.updateUser(userId, payload);
+      } catch (err) {
+        // Some databases may only accept 'confirmed' instead of 'active'. Fallback gracefully.
+        if (action === "approve" && newStatus === "active") {
+          const fallbackPayload = { status: "confirmed" };
+          await apiService.updateUser(userId, fallbackPayload);
+        } else {
+          throw err;
+        }
+      }
 
       if (typeof onUpdate === "function") {
         onUpdate();

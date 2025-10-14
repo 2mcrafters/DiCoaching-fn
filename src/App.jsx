@@ -100,7 +100,7 @@ const AppContent = () => {
           <Route
             path="/submit"
             element={
-              <ProtectedRoute roles={["admin", "auteur"]}>
+              <ProtectedRoute roles={["admin", "author"]}>
                 <Submit />
               </ProtectedRoute>
             }

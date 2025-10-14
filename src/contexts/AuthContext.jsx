@@ -20,16 +20,23 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       setLoading(true);
       setError(null);
-      
+
       if (authService.isAuthenticated()) {
         const currentUser = authService.getCurrentUser();
         if (currentUser) {
           setUser(currentUser);
-          
+
           // Vérifier que le token est toujours valide
           const profileResult = await authService.getProfile();
           if (profileResult.success) {
-            setUser(profileResult.data);
+            const normalized = {
+              ...profileResult.data,
+              role:
+                (profileResult.data?.role || "").toLowerCase() === "auteur"
+                  ? "author"
+                  : profileResult.data?.role,
+            };
+            setUser(normalized);
           } else {
             // Token invalide, déconnexion
             authService.logout();
@@ -37,7 +44,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
       }
-      
+
       setLoading(false);
     };
 
@@ -47,20 +54,27 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password, rememberMe = false) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const result = await authService.login(email, password);
-      
+
       if (result.success) {
-        setUser(result.data.user);
+        const normalized = {
+          ...result.data.user,
+          role:
+            (result.data.user?.role || "").toLowerCase() === "auteur"
+              ? "author"
+              : result.data.user?.role,
+        };
+        setUser(normalized);
         return { success: true };
       } else {
         setError(result.error);
         return { success: false, error: result.error };
       }
     } catch (error) {
-      setError('Erreur de connexion');
-      return { success: false, error: 'Erreur de connexion' };
+      setError("Erreur de connexion");
+      return { success: false, error: "Erreur de connexion" };
     } finally {
       setLoading(false);
     }
@@ -69,22 +83,35 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const result = await authService.register(userData);
-      
+
       if (result.success) {
-        setUser(result.data.user);
+        const normalized = {
+          ...result.data.user,
+          role:
+            (result.data.user?.role || "").toLowerCase() === "auteur"
+              ? "author"
+              : result.data.user?.role,
+        };
+        setUser(normalized);
         return { success: true };
       } else {
-          // result.error may be an object { message, fields }
-          const err = result.error || { message: 'Erreur d\'inscription', fields: {} };
-          setError(err.message || err);
-          return { success: false, error: err };
+        // result.error may be an object { message, fields }
+        const err = result.error || {
+          message: "Erreur d'inscription",
+          fields: {},
+        };
+        setError(err.message || err);
+        return { success: false, error: err };
       }
     } catch (error) {
-        setError("Erreur d'inscription");
-        return { success: false, error: { message: "Erreur d'inscription", fields: {} } };
+      setError("Erreur d'inscription");
+      return {
+        success: false,
+        error: { message: "Erreur d'inscription", fields: {} },
+      };
     } finally {
       setLoading(false);
     }
@@ -105,15 +132,22 @@ export const AuthProvider = ({ children }) => {
     // Admins always have author-like permissions
     if (user.role === "admin") return true;
     // Authors must have a confirmed/active status to be able to write/modify
-    const isAuthorRole = user.role === "auteur" || user.role === "author";
+    const isAuthorRole = user.role === "author";
     const isConfirmed = user.status === "confirmed" || user.status === "active";
     return isAuthorRole && isConfirmed;
   };
 
   const updateUser = (userData) => {
-    setUser(userData);
+    const normalized = {
+      ...userData,
+      role:
+        (userData?.role || "").toLowerCase() === "auteur"
+          ? "author"
+          : userData?.role,
+    };
+    setUser(normalized);
     // Also update localStorage to persist the changes
-    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("user", JSON.stringify(normalized));
   };
 
   const value = {

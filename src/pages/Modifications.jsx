@@ -85,15 +85,17 @@ const Modifications = () => {
     }
   };
 
-  const title =
-    user.role === "admin" || user.role === "auteur"
-      ? "Modifications en attente"
-      : "Vos Propositions de Modification";
+  const isModeratorOrAuthor =
+    (typeof hasAuthorPermissions === "function" && hasAuthorPermissions()) ||
+    user.role === "admin";
 
-  const description =
-    user.role === "admin" || user.role === "auteur"
-      ? "Examinez les propositions d amelioration des termes en attente de validation."
-      : "Suivez le statut de vos propositions de modification.";
+  const title = isModeratorOrAuthor
+    ? "Modifications en attente"
+    : "Vos Propositions de Modification";
+
+  const description = isModeratorOrAuthor
+    ? "Examinez les propositions d amelioration des termes en attente de validation."
+    : "Suivez le statut de vos propositions de modification.";
 
   if (loading) {
     return (
@@ -144,12 +146,12 @@ const Modifications = () => {
             >
               <Edit className="h-12 w-12 mx-auto mb-4" />
               <h3 className="text-xl font-semibold">
-                {user.role === "admin" || user.role === "auteur"
+                {isModeratorOrAuthor
                   ? "Aucune modification en attente."
                   : "Aucune proposition a afficher."}
               </h3>
               <p>
-                {user.role === "admin" || user.role === "auteur"
+                {isModeratorOrAuthor
                   ? "Toutes les propositions ont ete traitees."
                   : "Vous n'avez pas encore propose de modification."}
               </p>

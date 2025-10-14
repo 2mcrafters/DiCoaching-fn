@@ -64,7 +64,7 @@ const Dashboard = () => {
   const isAuthor =
     typeof hasAuthorPermissions === "function"
       ? hasAuthorPermissions()
-      : user?.role === "auteur" || user?.role === "author";
+      : user?.role === "author";
 
   useEffect(() => {
     if (isResearcher && user?.id) {

@@ -524,61 +524,81 @@ router.get('/:id/stats', async (req, res) => {
     else if (user.role === 'chercheur' || user.role === 'researcher') {
       try {
         // Get likes given by researcher
-        const [likesStats] = await db.query(`
+        const [likesStats] = await db.query(
+          `
           SELECT COUNT(*) as terms_liked
           FROM likes 
           WHERE user_id = ?
-        `, [id]);
+        `,
+          [id]
+        );
 
-        // Get research documents uploaded
-        const [documentsStats] = await db.query(`
+        // Get research documents uploaded from user_documents table
+        const [documentsStats] = await db.query(
+          `
           SELECT COUNT(*) as research_documents
-          FROM documents 
-          WHERE user_id = ? AND purpose = 'research'
-        `, [id]);
+          FROM user_documents 
+          WHERE user_id = ?
+        `,
+          [id]
+        );
 
         // Get proposed modifications - try both schemas
-        let modificationsStats = { total_modifications: 0, approved_modifications: 0, pending_modifications: 0 };
-        
+        let modificationsStats = {
+          total_modifications: 0,
+          approved_modifications: 0,
+          pending_modifications: 0,
+        };
+
         try {
           // Try new schema first (from migration)
-          const [modStats] = await db.query(`
+          const [modStats] = await db.query(
+            `
             SELECT 
               COUNT(*) as total_modifications,
               COUNT(CASE WHEN status = 'approved' OR status = 'implemented' THEN 1 END) as approved_modifications,
               COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_modifications
             FROM proposed_modifications 
             WHERE proposer_id = ?
-          `, [id]);
+          `,
+            [id]
+          );
           modificationsStats = modStats;
         } catch (errNew) {
           try {
             // Fallback to old schema
-            const [modStats] = await db.query(`
+            const [modStats] = await db.query(
+              `
               SELECT 
                 COUNT(*) as total_modifications,
                 COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_modifications,
                 COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_modifications
               FROM proposed_modifications 
               WHERE user_id = ?
-            `, [id]);
+            `,
+              [id]
+            );
             modificationsStats = modStats;
           } catch (errOld) {
-            console.log("âš ï¸ No proposed_modifications table found, using default values");
+            console.log(
+              "âš ï¸ No proposed_modifications table found, using default values"
+            );
           }
         }
 
         // Calculate activity score: 1 point per like + 5 points per approved modification
-        const activityScore = (likesStats.terms_liked || 0) + 
-                            ((modificationsStats.approved_modifications || 0) * 5);
+        const activityScore =
+          (likesStats.terms_liked || 0) +
+          (modificationsStats.approved_modifications || 0) * 5;
 
         stats = {
           terms_liked: likesStats.terms_liked || 0,
           research_documents: documentsStats.research_documents || 0,
           total_modifications: modificationsStats.total_modifications || 0,
-          approved_modifications: modificationsStats.approved_modifications || 0,
+          approved_modifications:
+            modificationsStats.approved_modifications || 0,
           pending_modifications: modificationsStats.pending_modifications || 0,
-          activity_score: activityScore
+          activity_score: activityScore,
         };
 
         console.log(`âœ… Researcher stats for user ${id}:`, stats);
