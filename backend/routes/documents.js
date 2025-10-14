@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db from '../services/database.js';
-import { documentUpload } from '../services/uploadService.js';
+import { documentUpload, getFileUrl } from "../services/uploadService.js";
 
 const router = express.Router();
 
@@ -11,90 +11,112 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // GET /api/documents/user/:userId - Récupérer les documents d'un utilisateur
-router.get('/user/:userId', async (req, res) => {
+router.get("/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    const documents = await db.query(`
+
+    const documents = await db.query(
+      `
       SELECT id, filename, original_filename, file_size, mime_type, purpose, 
              status, uploaded_at, reviewed_at, review_comment
       FROM user_documents 
       WHERE user_id = ?
       ORDER BY uploaded_at DESC
-    `, [userId]);
+    `,
+      [userId]
+    );
+
+    // Attach accessible URL and download URL for each document
+    const docsWithUrls = (documents || []).map((d) => {
+      const filename = d.filename || d.original_filename || null;
+      return {
+        ...d,
+        url: filename ? getFileUrl(filename, "documents") : null,
+        downloadUrl: d.id ? `/api/documents/download/${d.id}` : null,
+      };
+    });
 
     res.json({
-      status: 'success',
-      data: documents,
+      status: "success",
+      data: docsWithUrls,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.log("❌ Erreur lors de l'exécution de la requête:", error.message);
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la récupération des documents',
+      status: "error",
+      message: "Erreur lors de la récupération des documents",
       error: error.message,
     });
   }
 });
 
 // POST /api/documents/upload/:userId - Upload de documents pour un utilisateur
-router.post('/upload/:userId', documentUpload.array('documents', 10), async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { purpose = 'other' } = req.body;
-    
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Aucun fichier uploadé',
-      });
-    }
+router.post(
+  "/upload/:userId",
+  documentUpload.array("documents", 10),
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { purpose = "other" } = req.body;
 
-    const uploadedDocuments = [];
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Aucun fichier uploadé",
+        });
+      }
 
-    for (const file of req.files) {
-      const result = await db.query(`
+      const uploadedDocuments = [];
+
+      for (const file of req.files) {
+        const result = await db.query(
+          `
         INSERT INTO user_documents (
           user_id, filename, original_filename, file_path, 
           file_size, mime_type, purpose, uploaded_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-      `, [
-        userId,
-        file.filename,
-        file.originalname,
-        file.path,
-        file.size,
-        file.mimetype,
-        purpose
-      ]);
+      `,
+          [
+            userId,
+            file.filename,
+            file.originalname,
+            file.path,
+            file.size,
+            file.mimetype,
+            purpose,
+          ]
+        );
 
-      uploadedDocuments.push({
-        id: result.insertId,
-        filename: file.filename,
-        original_filename: file.originalname,
-        file_size: file.size,
-        mime_type: file.mimetype,
-        purpose,
-        status: 'pending'
+        uploadedDocuments.push({
+          id: result.insertId,
+          filename: file.filename,
+          original_filename: file.originalname,
+          file_size: file.size,
+          mime_type: file.mimetype,
+          purpose,
+          status: "pending",
+          url: getFileUrl(file.filename, "documents"),
+          downloadUrl: `/api/documents/download/${result.insertId}`,
+        });
+      }
+
+      res.json({
+        status: "success",
+        message: `${uploadedDocuments.length} document(s) uploadé(s) avec succès`,
+        data: uploadedDocuments,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.log("❌ Erreur lors de l'upload:", error.message);
+      res.status(500).json({
+        status: "error",
+        message: "Erreur lors de l'upload des documents",
+        error: error.message,
       });
     }
-
-    res.json({
-      status: 'success',
-      message: `${uploadedDocuments.length} document(s) uploadé(s) avec succès`,
-      data: uploadedDocuments,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.log("❌ Erreur lors de l'upload:", error.message);
-    res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de l\'upload des documents',
-      error: error.message,
-    });
   }
-});
+);
 
 // PUT /api/documents/:id/review - Approuver/rejeter un document (admin seulement)
 router.put('/:id/review', async (req, res) => {

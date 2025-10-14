@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/dialog";
 import AddDocumentDialog from "@/components/profile/AddDocumentDialog";
 import { Badge } from "@/components/ui/badge";
+import DocumentViewerDialog from "@/components/DocumentViewerDialog";
+import apiService from "@/services/api";
 
 const professionalStatuses = [
   "Étudiant",
@@ -231,6 +233,9 @@ function MyProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const [userDocs, setUserDocs] = useState([]);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState(null);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -275,6 +280,32 @@ function MyProfile() {
     };
 
     fetchUserProfile();
+    // fetch persisted documents from backend
+    const fetchUserDocuments = async () => {
+      if (!user || !user.id) return;
+      try {
+        const res = await apiService.get(`/api/documents/user/${user.id}`);
+        const docs = (res && res.data) || res || [];
+        const normalized = Array.isArray(docs)
+          ? docs.map((d) => ({
+              id: d.id,
+              title: d.original_filename || d.filename || `document-${d.id}`,
+              url:
+                d.url ||
+                (d.filename ? `/uploads/documents/${d.filename}` : null),
+              downloadUrl:
+                d.downloadUrl ||
+                (d.id ? `/api/documents/download/${d.id}` : null),
+              mime: d.mime_type || d.mimeType || null,
+            }))
+          : [];
+        setUserDocs(normalized);
+      } catch (err) {
+        console.error("Error fetching user documents for profile:", err);
+      }
+    };
+
+    fetchUserDocuments();
   }, [user, toast]);
 
   const handleInputChange = (e) => {
@@ -339,10 +370,30 @@ function MyProfile() {
   };
 
   const handleAddDocument = (newDoc) => {
+    // newDoc can be a single doc object, an array of uploaded documents, or client-only doc
+    const docsToAdd = Array.isArray(newDoc) ? newDoc : [newDoc];
+    const normalized = docsToAdd.map((d) => ({
+      title:
+        d.original_filename ||
+        d.filename ||
+        d.title ||
+        d.name ||
+        d.label ||
+        "Document",
+      url: d.url || d.file || d.downloadUrl || d.url || null,
+      downloadUrl:
+        d.downloadUrl || (d.id ? `/api/documents/download/${d.id}` : null),
+      id: d.id || null,
+      _raw: d,
+    }));
+
     setFormData((prev) => ({
       ...prev,
-      documents: [...(prev.documents || []), newDoc],
+      documents: [...(prev.documents || []), ...normalized],
     }));
+
+    // also merge into userDocs (persisted list) if the uploaded items came from server
+    setUserDocs((prev) => [...(prev || []), ...normalized]);
   };
 
   const handleRemoveDocument = (index) => {
@@ -807,6 +858,69 @@ function MyProfile() {
                       </div>
                     ))}
                     <AddDocumentDialog onAddDocument={handleAddDocument} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {userDocs && userDocs.length > 0 && (
+                <Card className="mb-8">
+                  <CardHeader>
+                    <CardTitle>Fichiers & Documents</CardTitle>
+                    <CardDescription>
+                      Documents associés à votre compte (uploadés et vérifiés).
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {userDocs.map((d) => (
+                      <div key={d.id} className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {d.title}
+                          </p>
+                          {d.mime && (
+                            <p className="text-xs text-muted-foreground">
+                              {d.mime}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {d.url &&
+                            /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(d.url) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedDoc({
+                                    url: d.url,
+                                    title: d.title,
+                                  });
+                                  setIsViewerOpen(true);
+                                }}
+                              >
+                                Aperçu
+                              </Button>
+                            )}
+                          {d.url && (
+                            <a
+                              className="text-sm text-primary hover:underline"
+                              href={d.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Ouvrir
+                            </a>
+                          )}
+                          {d.downloadUrl && (
+                            <a
+                              className="text-sm text-primary hover:underline"
+                              href={d.downloadUrl}
+                            >
+                              Télécharger
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
               )}

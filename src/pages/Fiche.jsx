@@ -562,7 +562,13 @@ const Fiche = () => {
       : user.role === "auteur" || user.role === "author");
   const isOwner = user && String(term?.authorId) === String(user.id);
   const canEditDirectly = isAdmin || (isAuthor && isOwner);
-  const canProposeModification = user && !canEditDirectly;
+  // Only users with confirmed author permissions (or admins) can propose modifications.
+  const canProposeModification =
+    user &&
+    !canEditDirectly &&
+    (typeof hasAuthorPermissions === "function"
+      ? hasAuthorPermissions()
+      : user.role === "auteur" || user.role === "author");
   const authorBadge = author ? getAuthorBadge(author.termsCount || 0) : null;
 
   return (

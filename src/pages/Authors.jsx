@@ -159,7 +159,14 @@ const Authors = () => {
       const isAuthorRole = ["author", "auteur", "admin"].includes(
         (normalized.role || "").toLowerCase()
       );
+      // If the user has author role but is pending approval, don't show them on the public authors page
       if (!isAuthorRole) return;
+      if (
+        (normalized.role || "").toLowerCase() === "auteur" &&
+        (normalized.status || "").toLowerCase() === "pending"
+      ) {
+        return; // skip pending authors
+      }
 
       if (combined.has(id)) {
         const existing = combined.get(id);

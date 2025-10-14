@@ -80,10 +80,28 @@ const PendingAuthors = ({ allUsers, onUpdate }) => {
                   <p className="text-sm text-muted-foreground">
                     {author.email}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Candidature du{" "}
-                    {new Date(author.created_at).toLocaleDateString("fr-FR")}
-                  </p>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    <div>
+                      Candidature du{" "}
+                      {new Date(
+                        author.created_at || author.createdAt
+                      ).toLocaleDateString("fr-FR")}
+                    </div>
+                    <div>
+                      Profession:{" "}
+                      {author.professional_status ||
+                        author.professionalStatus ||
+                        "—"}
+                    </div>
+                    <div>
+                      Termes ajoutés:{" "}
+                      {author.termsAdded ?? author.terms_added ?? 0}
+                    </div>
+                    <div>
+                      Documents fournis:{" "}
+                      {(author.documents && author.documents.length) || 0}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <UserDetailsDialog user={author} />

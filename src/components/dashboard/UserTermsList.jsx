@@ -1,8 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   PlusCircle,
   Edit,
@@ -41,8 +48,12 @@ const UserTermsList = ({ userTerms, loading, user }) => {
     }
   };
 
-  const isAuthor = user.role === "auteur";
+  const isAuthorRole = user.role === "auteur" || user.role === "author";
   const isAdmin = user.role === "admin";
+  const { hasAuthorPermissions } = useAuth();
+  // Authors may have the role but still be awaiting admin approval; use hasAuthorPermissions
+  const canAuthor = isAdmin || (isAuthorRole && hasAuthorPermissions());
+  const isAuthor = isAuthorRole;
   const isResearcher = user.role === "chercheur" || user.role === "researcher";
 
   return (
@@ -66,6 +77,7 @@ const UserTermsList = ({ userTerms, loading, user }) => {
                   : "Gérez vos termes soumis et vos brouillons."}
               </CardDescription>
             </div>
+
             <div className="flex gap-2 flex-wrap">
               {isResearcher && (
                 <>
@@ -83,15 +95,28 @@ const UserTermsList = ({ userTerms, loading, user }) => {
                   </Button>
                 </>
               )}
-              {isAuthor && (
-                <Button asChild>
-                  <Link to="/submit">
+              {/* New term: only enabled for authors with confirmed permissions or admins */}
+              {isAuthor &&
+                (canAuthor ? (
+                  <Button asChild>
+                    <Link to="/submit">
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Nouveau terme
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    disabled
+                    title="Votre demande d'auteur est en attente d'approbation"
+                    className="opacity-60 cursor-not-allowed"
+                  >
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Nouveau terme
-                  </Link>
-                </Button>
-              )}
-              {(isAdmin || isAuthor) && (
+                  </Button>
+                ))}
+
+              {/* Modifications button: available to admins and confirmed authors only (pending authors cannot propose) */}
+              {(isAdmin || canAuthor) && (
                 <Button asChild variant="outline">
                   <Link to="/modifications">
                     <GitPullRequest className="h-4 w-4 mr-2" />
@@ -114,6 +139,17 @@ const UserTermsList = ({ userTerms, loading, user }) => {
             </div>
           </div>
         </CardHeader>
+        {/* Pending-author banner: placed below the header so it appears under the 'Vos Contributions' cards */}
+        {isAuthor && !canAuthor && (
+          <div className="mt-3 mb-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-4 py-3 mx-4">
+            Votre demande d'auteur est actuellement en attente d'approbation par
+            un administrateur. Vous ne pouvez pas ajouter ni modifier des termes
+            tant que votre compte n'est pas validé.
+            <div className="mt-1 text-xs text-amber-600">
+              Si vous avez des questions, contactez un administrateur.
+            </div>
+          </div>
+        )}
         <CardContent>
           {loading ? (
             <p className="text-center py-10 text-muted-foreground">
@@ -214,11 +250,23 @@ const UserTermsList = ({ userTerms, loading, user }) => {
                   </div>
                   <div className="flex items-center gap-4">
                     {getStatusBadge(term.status)}
-                    <Button asChild variant="ghost" size="icon">
-                      <Link to={`/edit/${term.slug}`}>
+                    {canAuthor ? (
+                      <Button asChild variant="ghost" size="icon">
+                        <Link to={`/edit/${term.slug}`}>
+                          <Edit className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled
+                        title="En attente d'approbation"
+                        className="opacity-50 cursor-not-allowed"
+                      >
                         <Edit className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                      </Button>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -255,17 +303,37 @@ const UserTermsList = ({ userTerms, loading, user }) => {
                     Aucune contribution pour le moment
                   </h3>
                   {isAuthor ? (
-                    <>
-                      <p className="text-muted-foreground mb-6">
-                        Commencez par ajouter un nouveau terme au dictionnaire.
-                      </p>
-                      <Button asChild>
-                        <Link to="/submit">
+                    canAuthor ? (
+                      <>
+                        <p className="text-muted-foreground mb-6">
+                          Commencez par ajouter un nouveau terme au
+                          dictionnaire.
+                        </p>
+                        <Button asChild>
+                          <Link to="/submit">
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Ajouter votre premier terme
+                          </Link>
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-muted-foreground mb-6">
+                          Votre demande d'auteur est en attente d'approbation
+                          par un administrateur. Vous ne pourrez pas ajouter ou
+                          modifier des termes tant que votre compte n'est pas
+                          approuvé.
+                        </p>
+                        <Button
+                          disabled
+                          title="En attente d'approbation"
+                          className="opacity-60 cursor-not-allowed"
+                        >
                           <PlusCircle className="h-4 w-4 mr-2" />
                           Ajouter votre premier terme
-                        </Link>
-                      </Button>
-                    </>
+                        </Button>
+                      </>
+                    )
                   ) : (
                     <p className="text-muted-foreground">
                       Devenez auteur pour commencer à contribuer !
