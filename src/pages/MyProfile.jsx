@@ -797,11 +797,11 @@ function MyProfile() {
                       value={formData.presentation}
                       onChange={handleInputChange}
                       rows={4}
-                      placeholder="Vos motivations, vos centres d'intÃ©rÃªt..."
+                      placeholder="Vos motivations, vos centres d'intérêt..."
                     />
                   </div>
                   <div>
-                    <Label htmlFor="role">RÃ´le</Label>
+                    <Label htmlFor="role">Rôle</Label>
                     <div className="flex items-center gap-2 mt-2">
                       <BadgeInfo className="h-5 w-5 text-primary" />
                       <Badge

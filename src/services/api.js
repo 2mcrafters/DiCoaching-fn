@@ -184,12 +184,12 @@ class ApiService {
     return response.data || response;
   }
 
-  // Gestion des modifications proposées
+  // Modifications
   async getModifications() {
     return this.get("/api/modifications");
   }
 
-  async getModification(id, options = {}) {
+  async getModificationById(id, options = {}) {
     return this.get(`/api/modifications/${id}`, options);
   }
 
@@ -203,6 +203,21 @@ class ApiService {
 
   async deleteModification(id) {
     return this.delete(`/api/modifications/${id}`);
+  }
+
+  // Comments
+  async getAuthorComments(authorId) {
+    return this.get(`/api/comments/author/${authorId}`);
+  }
+
+  // Reports on author's terms
+  async getAuthorReports(authorId) {
+    const res = await this.get(`/api/reports/author/${authorId}`);
+    return res?.data ?? res;
+  }
+
+  async deleteComment(commentId) {
+    return this.delete(`/api/comments/${commentId}`);
   }
 
   // Authentification (à implémenter plus tard)

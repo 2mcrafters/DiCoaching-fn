@@ -152,42 +152,67 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
     // ========================================
     
     if (['admin', 'researcher'].includes(userRole)) {
-      // Decisions made by user
-      const [decisionsMade] = await db.query(
-        'SELECT COUNT(*) as count FROM decisions WHERE user_id = ?',
-        [userId]
-      );
-      stats.decisions.made = Number(decisionsMade.count || 0);
+      try {
+        // Decisions made by user
+        const [decisionsMade] = await db.query(
+          "SELECT COUNT(*) as count FROM decisions WHERE user_id = ?",
+          [userId]
+        );
+        stats.decisions.made = Number(decisionsMade.count || 0);
 
-      // Decisions by type
-      const decisionsByType = await db.query(
-        `SELECT decision_type, COUNT(*) as count 
-         FROM decisions 
-         WHERE user_id = ? 
-         GROUP BY decision_type`,
-        [userId]
-      );
-      
-      stats.decisions.byType = {
-        approved: 0,
-        rejected: 0,
-        pending: 0,
-        revision_requested: 0,
-      };
-      
-      decisionsByType.forEach(row => {
-        stats.decisions.byType[row.decision_type] = Number(row.count || 0);
-      });
+        // Decisions by type
+        const decisionsByType = await db.query(
+          `SELECT decision_type, COUNT(*) as count 
+           FROM decisions 
+           WHERE user_id = ? 
+           GROUP BY decision_type`,
+          [userId]
+        );
 
-      // Decisions received on user's terms
-      const [decisionsReceived] = await db.query(
-        `SELECT COUNT(*) as count 
-         FROM decisions d 
-         INNER JOIN termes t ON d.term_id = t.id 
-         WHERE t.author_id = ?`,
-        [userId]
-      );
-      stats.decisions.received = Number(decisionsReceived.count || 0);
+        stats.decisions.byType = {
+          approved: 0,
+          rejected: 0,
+          pending: 0,
+          revision_requested: 0,
+        };
+
+        decisionsByType.forEach((row) => {
+          if (
+            row?.decision_type &&
+            stats.decisions.byType[row.decision_type] != null
+          ) {
+            stats.decisions.byType[row.decision_type] = Number(row.count || 0);
+          }
+        });
+
+        // Decisions received on user's terms
+        const [decisionsReceived] = await db.query(
+          `SELECT COUNT(*) as count 
+           FROM decisions d 
+           INNER JOIN termes t ON d.term_id = t.id 
+           WHERE t.author_id = ?`,
+          [userId]
+        );
+        stats.decisions.received = Number(decisionsReceived.count || 0);
+      } catch (decErr) {
+        // Graceful fallback if decisions table was removed
+        console.warn(
+          "[dashboard] Decisions statistics skipped:",
+          decErr.message
+        );
+        stats.decisions = {
+          made: 0,
+          byType: {
+            approved: 0,
+            rejected: 0,
+            pending: 0,
+            revision_requested: 0,
+          },
+          received: 0,
+          disabled: true,
+          reason: "decisions table missing",
+        };
+      }
     }
 
     // ========================================

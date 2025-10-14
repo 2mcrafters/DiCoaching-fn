@@ -508,15 +508,18 @@ router.get('/:id/stats', async (req, res) => {
         stats = authorStats;
       } catch (errFr) {
         // Fallback to English schema
-        const [authorStats] = await db.query(`
+        const [authorStats] = await db.query(
+          `
           SELECT 
             COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_terms,
             COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_terms,
             COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_terms,
             COUNT(*) as total_terms
-          FROM terms 
+          FROM termes 
           WHERE author_id = ?
-        `, [id]);
+        `,
+          [id]
+        );
         stats = authorStats;
       }
     } 

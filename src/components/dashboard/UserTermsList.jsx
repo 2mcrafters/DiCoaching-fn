@@ -66,15 +66,9 @@ const UserTermsList = ({ userTerms, loading, user }) => {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>
-                {isResearcher
-                  ? "Vos Activités de Recherche"
-                  : "Vos Contributions"}
-              </CardTitle>
+              <CardTitle>Vos Activités de Recherche</CardTitle>
               <CardDescription>
-                {isResearcher
-                  ? "Explorez et interagissez avec le dictionnaire collaboratif."
-                  : "Gérez vos termes soumis et vos brouillons."}
+                Explorez et interagissez avec le dictionnaire collaboratif.
               </CardDescription>
             </div>
 

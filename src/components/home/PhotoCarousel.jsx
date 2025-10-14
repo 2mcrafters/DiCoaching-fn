@@ -7,11 +7,31 @@ const PhotoCarousel = () => {
   const [emblaRef] = useEmblaCarousel({ loop: true });
 
   const photos = [
-    { id: 1, alt: "Personnes en réunion de coaching", description: "Séance de coaching en équipe" },
-    { id: 2, alt: "Coach écrivant sur un tableau blanc", description: "Planification stratégique" },
-    { id: 3, alt: "Deux personnes en discussion", description: "Coaching individuel" },
-    { id: 4, alt: "Groupe de personnes souriantes", description: "Succès d'équipe" },
-    { id: 5, alt: "Personne réfléchissant devant un ordinateur", description: "Développement personnel" },
+    {
+      id: 1,
+      alt: "Personnes en réunion de coaching",
+      description: "Séance de coaching en équipe",
+    },
+    {
+      id: 2,
+      alt: "Coach écrivant sur un tableau blanc",
+      description: "Planification stratégique",
+    },
+    {
+      id: 3,
+      alt: "Deux personnes en conversation",
+      description: "Coaching individuel",
+    },
+    {
+      id: 4,
+      alt: "Groupe de personnes souriantes",
+      description: "Succès d'équipe",
+    },
+    {
+      id: 5,
+      alt: "Personne réfléchissant devant un ordinateur",
+      description: "Développement personnel",
+    },
   ];
 
   return (

@@ -17,6 +17,16 @@ import {
   AlertTriangle,
   X,
   Trash2,
+  MessageSquare,
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  Info,
+  Shield,
+  Copy,
+  ExternalLink,
+  ArrowRight,
 } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import UserTermsList from "@/components/dashboard/UserTermsList";
@@ -34,6 +44,7 @@ import {
 } from "@/features/modifications/modificationsSlice";
 import { sanitizeModificationChanges } from "@/lib/modifications";
 import { useToast } from "@/components/ui/use-toast";
+import apiService from "@/services/api";
 
 const Dashboard = () => {
   const { user, hasAuthorPermissions } = useAuth();
@@ -72,15 +83,23 @@ const Dashboard = () => {
     }
   }, [dispatch, isResearcher, user?.id]);
 
-  const [activeTab, setActiveTab] = useState(isResearcher ? "liked" : null);
+  const [activeTab, setActiveTab] = useState(
+    isResearcher
+      ? "liked"
+      : isAuthor || user?.role === "admin"
+      ? "comments"
+      : null
+  );
 
   useEffect(() => {
     if (isResearcher) {
       setActiveTab((prev) => prev || "liked");
+    } else if (isAuthor || user?.role === "admin") {
+      setActiveTab((prev) => prev || "comments");
     } else {
       setActiveTab(null);
     }
-  }, [isResearcher]);
+  }, [isResearcher, isAuthor, user?.role]);
 
   const userTerms = useMemo(() => {
     return (allTerms || []).filter(
@@ -262,6 +281,13 @@ const Dashboard = () => {
   const [likedTermsLoading, setLikedTermsLoading] = useState(false);
   const [userReports, setUserReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
+  const [receivedReports, setReceivedReports] = useState([]);
+  const [receivedReportsLoading, setReceivedReportsLoading] = useState(false);
+  const [reportDetails, setReportDetails] = useState(null);
+  const [updatingReportStatus, setUpdatingReportStatus] = useState(false);
+  const [userComments, setUserComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newCommentsCount, setNewCommentsCount] = useState(0);
   const [editingReport, setEditingReport] = useState(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingModification, setEditingModification] = useState(null);
@@ -540,6 +566,73 @@ const Dashboard = () => {
     fetchUserReports();
   }, [user?.id, isResearcher, user?.role]);
 
+  // Fetch comments on author's terms (for authors and admins)
+  useEffect(() => {
+    const fetchUserComments = async () => {
+      if (!user?.id) return;
+
+      // Only fetch for authors and admins
+      const shouldFetch = isAuthor || user?.role === "admin";
+      if (!shouldFetch) return;
+
+      setCommentsLoading(true);
+      try {
+        const data = await apiService.getAuthorComments(user.id);
+        console.log("💬 Comments on Author Terms:", data);
+
+        const comments = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+          ? data
+          : [];
+        setUserComments(comments);
+
+        // Calculate new comments (last 24 hours)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const newComments = comments.filter((comment) => {
+          const commentDate = new Date(comment.createdAt);
+          return commentDate > oneDayAgo;
+        });
+        setNewCommentsCount(newComments.length);
+      } catch (error) {
+        console.error("❌ Error fetching comments:", error);
+        setUserComments([]);
+        setNewCommentsCount(0);
+      } finally {
+        setCommentsLoading(false);
+      }
+    };
+
+    fetchUserComments();
+  }, [user?.id, isAuthor, user?.role]);
+
+  // Fetch reports received on user's own terms (authors/admin)
+  useEffect(() => {
+    const fetchReceivedReports = async () => {
+      if (!user?.id) return;
+      const shouldFetch = isAuthor || user?.role === "admin";
+      if (!shouldFetch) return;
+      setReceivedReportsLoading(true);
+      try {
+        const data = await apiService.getAuthorReports(user.id);
+        console.log("🚩 Reports Received On My Terms:", data);
+        setReceivedReports(
+          Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data)
+            ? data
+            : []
+        );
+      } catch (error) {
+        console.error("❌ Error fetching reports on author terms:", error);
+        setReceivedReports([]);
+      } finally {
+        setReceivedReportsLoading(false);
+      }
+    };
+    fetchReceivedReports();
+  }, [user?.id, isAuthor, user?.role]);
+
   // Handler for editing a report
   const handleEditReport = useCallback((report) => {
     setEditingReport(report);
@@ -577,6 +670,43 @@ const Dashboard = () => {
     },
     [user?.id, dispatch]
   );
+
+  // (Legacy) handler kept for compatibility, delegates to new system
+  const handleResolveOrIgnoreReport = useCallback(async (reportId, action) => {
+    const statusMap = { resolved: "resolved", ignored: "ignored" };
+    const targetStatus = statusMap[action] || "pending";
+    try {
+      const apiService = await import("@/services/api");
+      await apiService.default.updateReport(reportId, { status: targetStatus });
+      setReceivedReports((prev) =>
+        prev.map((r) =>
+          r.id === reportId ? { ...r, status: targetStatus } : r
+        )
+      );
+    } catch (e) {
+      console.error("❌ Error updating report status (legacy):", e);
+    }
+  }, []);
+
+  const handleUpdateReportStatus = useCallback(async (reportId, newStatus) => {
+    if (!reportId || !newStatus) return;
+    setUpdatingReportStatus(true);
+    try {
+      const apiService = await import("@/services/api");
+      await apiService.default.updateReport(reportId, { status: newStatus });
+      setReceivedReports((prev) =>
+        prev.map((r) => (r.id === reportId ? { ...r, status: newStatus } : r))
+      );
+      setReportDetails((r) =>
+        r && r.id === reportId ? { ...r, status: newStatus } : r
+      );
+    } catch (e) {
+      console.error("❌ Error updating report status:", e);
+      alert("Erreur lors de la mise à jour du statut.");
+    } finally {
+      setUpdatingReportStatus(false);
+    }
+  }, []);
 
   // Handler for saving edited report
   const handleSaveReport = useCallback(
@@ -660,30 +790,39 @@ const Dashboard = () => {
             (statsData.published / Math.max(statsData.total, 1)) *
             100
           ).toFixed(0)}% de vos termes`,
+          tabKey: "terms",
+        },
+        {
+          title: "Commentaires",
+          value: userComments.length,
+          icon: MessageSquare,
+          color: "from-blue-500 to-blue-400",
+          delay: 0.2,
+          description:
+            newCommentsCount > 0
+              ? `${newCommentsCount} nouveau${
+                  newCommentsCount > 1 ? "x" : ""
+                } commentaire${newCommentsCount > 1 ? "s" : ""}`
+              : "Commentaires sur vos termes",
+          tabKey: "comments",
+          badge: newCommentsCount > 0 ? newCommentsCount : null,
         },
         {
           title: "Termes Aimés",
           value: likedTerms.length,
           icon: Heart,
           color: "from-pink-500 to-pink-400",
-          delay: 0.2,
+          delay: 0.3,
           description: `Termes que vous avez aimés`,
+          tabKey: "liked",
         },
         {
           title: "Activités Totales",
           value: statsData.totalActivities,
           icon: BarChart2,
-          color: "from-blue-500 to-blue-400",
-          delay: 0.3,
-          description: `${statsData.total} termes créés`,
-        },
-        {
-          title: "Termes Signalés",
-          value: statsData.reportsReceived,
-          icon: AlertTriangle,
-          color: "from-orange-500 to-orange-400",
+          color: "from-purple-500 to-purple-400",
           delay: 0.4,
-          description: "Signalements résolus sur vos termes",
+          description: `${statsData.total} termes créés`,
         },
       ];
 
@@ -702,6 +841,20 @@ const Dashboard = () => {
       { key: "activities", label: "Activités totales" },
     ],
     []
+  );
+
+  const authorTabs = useMemo(
+    () => [
+      {
+        key: "comments",
+        label: "Commentaires",
+        badge: newCommentsCount > 0 ? newCommentsCount : null,
+      },
+      { key: "liked", label: "Termes aimés" },
+      { key: "terms", label: "Mes termes" },
+      { key: "reports-received", label: "Signalements" },
+    ],
+    [newCommentsCount]
   );
 
   const documentsCount = statsData.documents || 0;
@@ -882,6 +1035,180 @@ const Dashboard = () => {
           <div className="text-muted-foreground text-sm">
             Vous n'avez pas encore signalé de terme. Visitez une fiche pour
             signaler un problème.
+          </div>
+        );
+
+      case "reports-received":
+        if (receivedReportsLoading) {
+          return (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Chargement des signalements sur vos termes...
+            </div>
+          );
+        }
+        return receivedReports.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                <tr>
+                  <th className="px-4 py-3 text-left">Terme</th>
+                  <th className="px-4 py-3 text-left">Raison</th>
+                  <th className="px-4 py-3 text-left">Statut</th>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {receivedReports.map((report) => (
+                  <tr key={report.id} className="hover:bg-muted/40">
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      <Link
+                        to={
+                          report.term_slug ? `/fiche/${report.term_slug}` : "#"
+                        }
+                        className={
+                          report.term_slug
+                            ? "text-primary hover:underline"
+                            : "text-foreground"
+                        }
+                      >
+                        {report.term_title || report.termTitle || "Terme"}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {report.reason || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          report.status === "resolved"
+                            ? "bg-green-100 text-green-800"
+                            : report.status === "reviewed"
+                            ? "bg-blue-100 text-blue-800"
+                            : report.status === "ignored"
+                            ? "bg-gray-100 text-gray-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {report.status === "resolved"
+                          ? "Résolu"
+                          : report.status === "reviewed"
+                          ? "Revu"
+                          : report.status === "ignored"
+                          ? "Ignoré"
+                          : "En attente"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(report.created_at || report.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setReportDetails(report)}
+                        className="text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+                      >
+                        Détails
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-muted-foreground text-sm">
+            Aucun signalement sur vos termes.
+          </div>
+        );
+
+      case "comments":
+        if (commentsLoading) {
+          return (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Chargement des commentaires...
+            </div>
+          );
+        }
+
+        return userComments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                <tr>
+                  <th className="px-4 py-3 text-left">Terme</th>
+                  <th className="px-4 py-3 text-left">Auteur</th>
+                  <th className="px-4 py-3 text-left">Commentaire</th>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {userComments.map((comment) => {
+                  const isNew =
+                    new Date(comment.createdAt) >
+                    new Date(Date.now() - 24 * 60 * 60 * 1000);
+                  const commentLink = comment.termSlug
+                    ? `/fiche/${comment.termSlug}#comment-${comment.id}`
+                    : "#";
+                  return (
+                    <tr
+                      key={comment.id}
+                      className={`group hover:bg-muted/40 hover:shadow-sm transition-all ${
+                        isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        <Link
+                          to={commentLink}
+                          className={
+                            comment.termSlug
+                              ? "text-primary hover:underline inline-flex items-center gap-1"
+                              : "text-foreground"
+                          }
+                        >
+                          {comment.termTitle || "Terme"}
+                          {comment.termSlug && (
+                            <ExternalLink className="h-3 w-3" />
+                          )}
+                          {isNew && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                              Nouveau
+                            </span>
+                          )}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {comment.authorName || "Anonyme"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-md">
+                        <div className="line-clamp-2">{comment.content}</div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDate(comment.createdAt)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {comment.termSlug && (
+                          <Link
+                            to={commentLink}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-md transition-colors"
+                          >
+                            Voir plus
+                            <ArrowRight className="h-3 w-3" />
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-muted-foreground text-sm">
+            Aucun commentaire sur vos termes pour le moment.
           </div>
         );
 
@@ -1097,6 +1424,74 @@ const Dashboard = () => {
             fiche pour suggerer une amelioration.
           </div>
         );
+
+      case "terms":
+        return userTerms.length > 0 ? (
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground mb-4">
+              Gérez vos termes soumis et vos brouillons.
+            </div>
+            {userTerms.map((term) => (
+              <div
+                key={term.id}
+                className="flex items-center justify-between p-4 border rounded-lg bg-background/50 hover:bg-muted/40 transition-colors"
+              >
+                <div>
+                  <Link
+                    to={`/fiche/${term.slug}`}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    {term.term}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">
+                    {term.category}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full ${
+                      term.status === "published"
+                        ? "bg-green-100 text-green-800"
+                        : term.status === "review"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {term.status === "published"
+                      ? "Publié"
+                      : term.status === "review"
+                      ? "En révision"
+                      : "Brouillon"}
+                  </span>
+                  <Link
+                    to={`/edit/${term.slug}`}
+                    className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                    title="Éditer le terme"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-10">
+            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">
+              Aucune contribution pour le moment
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              Commencez par ajouter un nouveau terme au dictionnaire.
+            </p>
+            <Link to="/submit">
+              <button className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                <Plus className="h-4 w-4" />
+                Ajouter votre premier terme
+              </button>
+            </Link>
+          </div>
+        );
+
       case "score":
         return (
           <div className="overflow-x-auto">
@@ -1145,6 +1540,8 @@ const Dashboard = () => {
     statsData,
     handleDeleteModification,
     handleEditModification,
+    userComments,
+    commentsLoading,
   ]);
 
   const EditModificationDialog = () => {
@@ -1242,6 +1639,236 @@ const Dashboard = () => {
     );
   };
 
+  // Report Details Modal
+  const ReportDetailsDialog = () => {
+    if (!reportDetails) return null;
+    const current = reportDetails;
+
+    const allStatuses = [
+      { value: "pending", label: "En attente" },
+      { value: "reviewed", label: "Examiné" },
+      { value: "resolved", label: "Résolu" },
+      { value: "ignored", label: "Ignoré" },
+      { value: "accepted", label: "Accepté" },
+    ];
+
+    const copyToClipboard = (text, label) => {
+      navigator.clipboard.writeText(text);
+      toast({
+        title: "Copié !",
+        description: `${label} copié dans le presse-papiers`,
+        duration: 2000,
+      });
+    };
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        onClick={(e) => e.target === e.currentTarget && setReportDetails(null)}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-background rounded-xl shadow-xl w-full max-w-2xl overflow-hidden border"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/30">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              <div>
+                <h3 className="text-lg font-semibold">
+                  Détails du signalement
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Rapport #{current.id}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReportDetails(null)}
+              className="p-1.5 rounded-lg hover:bg-background transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
+            {/* Term */}
+            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <div className="flex items-center gap-2 mb-1">
+                <BookOpen className="h-4 w-4 text-primary" />
+                <div className="text-xs text-muted-foreground">
+                  Terme signalé
+                </div>
+              </div>
+              <div className="font-semibold">
+                {current.term_title || current.termTitle || "Terme"}
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div className="p-3 rounded-lg border">
+              <div className="text-xs text-muted-foreground mb-1">Raison</div>
+              <div className="font-medium">{current.reason || "—"}</div>
+            </div>
+
+            {/* Reporter Info */}
+            <div className="p-4 rounded-lg border bg-muted/20">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <h4 className="font-semibold text-sm">
+                  Informations du rapporteur
+                </h4>
+              </div>
+              <div className="space-y-2.5">
+                {/* Name */}
+                <div className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-20">
+                      Nom:
+                    </span>
+                    <span className="font-medium">
+                      {current.reporter_name ||
+                        `${current.firstname || ""} ${
+                          current.lastname || ""
+                        }`.trim() ||
+                        "—"}
+                    </span>
+                  </div>
+                  {current.reporter_name && (
+                    <button
+                      onClick={() =>
+                        copyToClipboard(current.reporter_name, "Nom")
+                      }
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted transition-all"
+                      title="Copier"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    <a
+                      href={`mailto:${current.reporter_email}`}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {current.reporter_email || "—"}
+                    </a>
+                  </div>
+                  {current.reporter_email && (
+                    <button
+                      onClick={() =>
+                        copyToClipboard(current.reporter_email, "Email")
+                      }
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted transition-all"
+                      title="Copier"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Phone */}
+                <div className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    <a
+                      href={`tel:${current.reporter_phone}`}
+                      className="text-sm hover:text-primary transition-colors"
+                    >
+                      {current.reporter_phone || "—"}
+                    </a>
+                  </div>
+                  {current.reporter_phone && (
+                    <button
+                      onClick={() =>
+                        copyToClipboard(current.reporter_phone, "Téléphone")
+                      }
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted transition-all"
+                      title="Copier"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Details */}
+            {current.details && (
+              <div className="p-3 rounded-lg border">
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-xs text-muted-foreground">Détails</div>
+                </div>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed max-h-32 overflow-y-auto">
+                  {current.details}
+                </div>
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1.5">
+                  Statut actuel
+                </div>
+                <span className="inline-flex items-center text-xs px-3 py-1.5 rounded-full bg-muted font-medium">
+                  {current.status}
+                </span>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">
+                  Changer le statut
+                </label>
+                <select
+                  className="w-full border rounded-lg px-3 py-1.5 bg-background text-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                  disabled={updatingReportStatus}
+                  value={(current.status || "").toLowerCase()}
+                  onChange={(e) =>
+                    handleUpdateReportStatus(current.id, e.target.value)
+                  }
+                >
+                  {allStatuses.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Metadata */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground pt-2 border-t">
+              <span>
+                Créé: {formatDate(current.created_at || current.createdAt)}
+              </span>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t px-5 py-3 flex justify-end gap-2">
+            <button
+              type="button"
+              className="px-4 py-2 rounded-lg border hover:bg-muted text-sm transition-colors"
+              onClick={() => setReportDetails(null)}
+            >
+              Fermer
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
+  // Include dialogs in render
+
   // Edit Report Dialog Component
   const EditReportDialog = () => {
     const [reason, setReason] = useState(editingReport?.reason || "");
@@ -1326,6 +1953,7 @@ const Dashboard = () => {
     <>
       <EditReportDialog />
       <EditModificationDialog />
+      <ReportDetailsDialog />
       <Helmet>
         <title>Tableau de bord - Dictionnaire Collaboratif</title>
         <meta
@@ -1345,10 +1973,7 @@ const Dashboard = () => {
               <div>
                 <h1 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
                   Bonjour,{" "}
-                  <span className="creative-gradient-text">
-                    {isResearcher ? fullName : user.name}
-                  </span>{" "}
-                  !
+                  <span className="creative-gradient-text">{fullName}</span> !
                 </h1>
                 <p className="text-muted-foreground text-lg">
                   {isResearcher
@@ -1390,17 +2015,21 @@ const Dashboard = () => {
                   key={stat.title}
                   {...stat}
                   onClick={
-                    isResearcher && stat.tabKey
+                    (isResearcher || isAuthor || user?.role === "admin") &&
+                    stat.tabKey
                       ? () => setActiveTab(stat.tabKey)
                       : undefined
                   }
-                  active={isResearcher && stat.tabKey === activeTab}
+                  active={
+                    (isResearcher || isAuthor || user?.role === "admin") &&
+                    stat.tabKey === activeTab
+                  }
                 />
               ))}
             </div>
           )}
 
-          {(isResearcher || user?.role === "admin") && (
+          {(isResearcher || isAuthor || user?.role === "admin") && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1409,18 +2038,23 @@ const Dashboard = () => {
             >
               <div className="rounded-3xl border border-border/60 bg-background/70 backdrop-blur-md shadow-xl overflow-hidden">
                 <div className="flex flex-wrap gap-2 p-6 pb-4">
-                  {researcherTabs.map((tab) => (
+                  {(isResearcher ? researcherTabs : authorTabs).map((tab) => (
                     <button
                       key={tab.key}
                       type="button"
                       onClick={() => setActiveTab(tab.key)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                         activeTab === tab.key
                           ? "bg-primary text-white shadow"
                           : "bg-muted text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       {tab.label}
+                      {tab.badge && tab.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
+                          {tab.badge}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -1489,7 +2123,13 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          <UserTermsList userTerms={userTerms} loading={loading} user={user} />
+          {isResearcher && (
+            <UserTermsList
+              userTerms={userTerms}
+              loading={loading}
+              user={user}
+            />
+          )}
         </div>
       </div>
     </>

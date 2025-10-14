@@ -10,7 +10,8 @@ const StatCard = ({
   delay,
   description,
   onClick,
-  active = false,
+  active,
+  badge,
 }) => {
   const isInteractive = typeof onClick === "function";
 
@@ -33,10 +34,21 @@ const StatCard = ({
         tabIndex={isInteractive ? 0 : undefined}
         onClick={onClick}
         onKeyDown={handleKeyDown}
-        className={`bg-gradient-to-br ${color} text-white border-none shadow-lg transition-shadow duration-300 ${
-          isInteractive ? "cursor-pointer hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/20" : ""
-        } ${active ? "ring-2 ring-white/80 ring-offset-2 ring-offset-black/30" : ""}`}
+        className={`relative bg-gradient-to-br ${color} text-white border-none shadow-lg transition-shadow duration-300 ${
+          isInteractive
+            ? "cursor-pointer hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/20"
+            : ""
+        } ${
+          active
+            ? "ring-2 ring-white/80 ring-offset-2 ring-offset-black/30"
+            : ""
+        }`}
       >
+        {badge && badge > 0 && (
+          <span className="absolute -top-2 -right-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.5rem] shadow-lg z-10">
+            {badge}
+          </span>
+        )}
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
           <Icon className="h-5 w-5 text-white/80" />

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Admin Profile Picture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .profile-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .avatar-container {
+            position: relative;
+        }
+        
+        .avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 5px solid #667eea;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            object-fit: cover;
+        }
+        
+        .avatar.loading {
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .badge {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #CD7F32 0%, #D4A574 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .info {
+            text-align: center;
+        }
+        
+        .name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .role {
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .email {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .status {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .status-label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .status-value {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .status-value.success {
+            color: #28a745;
+        }
+        
+        .status-value.error {
+            color: #dc3545;
+        }
+        
+        .url-test {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        
+        .url-label {
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 5px;
+        }
+        
+        .url-value {
+            color: #333;
+        }
+        
+        .actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading-indicator {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <h1>🖼️ Admin Profile Picture Test</h1>
+            <p>Vérification de la photo de profil de Mohamed Rachid Belhadj</p>
+        </div>
+        
+        <div class="profile-section">
+            <div class="avatar-container">
+                <img 
+                    id="profilePicture" 
+                    class="avatar loading-indicator" 
+                    src="http://localhost:5000/uploads/profiles/profilePicture-1760207005095-981716927.jpg"
+                    alt="Mohamed Rachid Belhadj"
+                    onerror="handleImageError()"
+                    onload="handleImageLoad()"
+                >
+                <div class="badge">
+                    🛡️ Bronze
+                </div>
+            </div>
+            
+            <div class="info">
+                <div class="name">Mohamed Rachid Belhadj</div>
+                <div class="role">👑 Administrateur</div>
+                <div class="email">admin@dictionnaire.fr</div>
+            </div>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">
+                <span class="status-label">Status de l'image:</span>
+                <span id="imageStatus" class="status-value">Chargement...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Serveur backend:</span>
+                <span id="serverStatus" class="status-value">Vérification...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Fichier:</span>
+                <span class="status-value">profilePicture-1760207005095-981716927.jpg</span>
+            </div>
+        </div>
+        
+        <div class="url-test">
+            <div class="url-label">📍 URL de la photo:</div>
+            <div class="url-value">http://localhost:5000/uploads/profiles/profilePicture-1760207005095-981716927.jpg</div>
+        </div>
+        
+        <div class="actions">
+            <button class="btn btn-primary" onclick="testImageLoad()">🔄 Recharger</button>
+            <button class="btn btn-secondary" onclick="openInNewTab()">🔗 Ouvrir l'URL</button>
+        </div>
+    </div>
+    
+    <script>
+        let imageLoaded = false;
+        
+        function handleImageLoad() {
+            imageLoaded = true;
+            document.getElementById('imageStatus').textContent = 'Chargée ✅';
+            document.getElementById('imageStatus').className = 'status-value success';
+            document.getElementById('serverStatus').textContent = 'Opérationnel ✅';
+            document.getElementById('serverStatus').className = 'status-value success';
+            
+            const img = document.getElementById('profilePicture');
+            img.classList.remove('loading-indicator');
+        }
+        
+        function handleImageError() {
+            imageLoaded = false;
+            document.getElementById('imageStatus').textContent = 'Erreur ❌';
+            document.getElementById('imageStatus').className = 'status-value error';
+            document.getElementById('serverStatus').textContent = 'Non disponible ❌';
+            document.getElementById('serverStatus').className = 'status-value error';
+            
+            const img = document.getElementById('profilePicture');
+            img.classList.remove('loading-indicator');
+            img.style.display = 'none';
+            
+            // Show fallback with initial
+            const fallback = document.createElement('div');
+            fallback.className = 'avatar loading';
+            fallback.textContent = 'M';
+            img.parentNode.insertBefore(fallback, img);
+        }
+        
+        function testImageLoad() {
+            location.reload();
+        }
+        
+        function openInNewTab() {
+            window.open('http://localhost:5000/uploads/profiles/profilePicture-1760207005095-981716927.jpg', '_blank');
+        }
+        
+        // Check server status
+        fetch('http://localhost:5000/api/auth/test')
+            .then(response => {
+                if (!response.ok) throw new Error('Server not responding');
+                return response.json();
+            })
+            .then(data => {
+                if (!imageLoaded) {
+                    document.getElementById('serverStatus').textContent = 'Opérationnel ✅';
+                    document.getElementById('serverStatus').className = 'status-value success';
+                }
+            })
+            .catch(error => {
+                if (!imageLoaded) {
+                    document.getElementById('serverStatus').textContent = 'Non disponible ❌';
+                    document.getElementById('serverStatus').className = 'status-value error';
+                }
+            });
+    </script>
+</body>
+</html>

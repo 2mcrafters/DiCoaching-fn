@@ -226,7 +226,7 @@ const Fiche = () => {
         "ne",
         "pas",
         "tres",
-        "trÃÆÃÂ¨s",
+        "très",
         "bien",
         "afin",
         "car",
@@ -288,7 +288,7 @@ const Fiche = () => {
         setSimilarTermsTitle("Termes Similaires");
         setSimilarTerms(relatedTerms.slice(0, 5));
       } else if (terms.length > 1) {
-        setSimilarTermsTitle("DÃÆÃÂ©couvrez aussi");
+        setSimilarTermsTitle("Découvrez aussi");
         const defaultTerms = terms
           .filter((t) => t.id !== currentTerm.id)
           .sort(() => 0.5 - Math.random())
@@ -385,7 +385,7 @@ const Fiche = () => {
     if (!user) {
       toast({
         title: "Connexion requise",
-        description: "Vous devez ÃÆÃÂªtre connectÃÆÃÂ© pour aimer un terme.",
+        description: "Vous devez être connecté pour aimer un terme.",
         variant: "destructive",
       });
       return;
@@ -397,16 +397,16 @@ const Fiche = () => {
       setIsLiked(data.liked || false);
 
       toast({
-        title: data.liked ? "Terme aimÃÆÃÂ©" : "Like retirÃÆÃÂ©",
+        title: data.liked ? "Terme aimé" : "Like retiré",
         description: data.liked
-          ? "Vous avez aimÃÆÃÂ© ce terme ÃÂ¢ÃÂÃÂ¤ÃÂ¯ÃÂ¸ÃÂ"
+          ? "Vous avez aimé ce terme ❤️"
           : "Vous n'aimez plus ce terme",
       });
     } catch (error) {
       console.error("Error toggling like:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de modifier le like. RÃÆÃÂ©essayez plus tard.",
+        description: "Impossible de modifier le like. Réessayez plus tard.",
         variant: "destructive",
       });
     }
@@ -443,7 +443,7 @@ const Fiche = () => {
       await apiService.addComment(term.id, content);
       await loadData();
       toast({
-        title: "Commentaire publiÃÂ© !",
+        title: "Commentaire publié !",
         description: "Merci pour votre contribution.",
       });
     } catch (e) {
@@ -459,7 +459,7 @@ const Fiche = () => {
     if (!user) {
       toast({
         title: "Connexion requise",
-        description: "Vous devez ÃÆÃÂªtre connectÃÆÃÂ© pour signaler un terme.",
+        description: "Vous devez être connecté pour signaler un terme.",
         variant: "destructive",
       });
       return;
@@ -476,15 +476,15 @@ const Fiche = () => {
 
       setIsReportOpen(false);
       toast({
-        title: "Signalement envoyÃÆÃÂ©",
-        description: "Merci, les modÃÆÃÂ©rateurs vont examiner ce terme.",
+        title: "Signalement envoyé",
+        description: "Merci, les modérateurs vont examiner ce terme.",
       });
     } catch (error) {
       console.error("Erreur lors de l'envoi du signalement:", error);
       toast({
         title: "Erreur",
         description:
-          "Impossible d'envoyer le signalement pour le moment. Veuillez rÃÆÃÂ©essayer.",
+          "Impossible d'envoyer le signalement pour le moment. Veuillez réessayer.",
         variant: "destructive",
       });
     }
@@ -542,12 +542,12 @@ const Fiche = () => {
   if (!term) {
     return (
       <div className="text-center py-20">
-        <h1 className="text-4xl font-bold">404 - Terme non trouvÃÆÃÂ©</h1>
+        <h1 className="text-4xl font-bold">404 - Terme non trouvé</h1>
         <p className="text-muted-foreground mt-4">
-          DÃÆÃÂ©solÃÆÃÂ©, le terme que vous cherchez n'existe pas.
+          Désolé, le terme que vous cherchez n'existe pas.
         </p>
         <Link to="/">
-          <Button className="mt-8">Retour ÃÆÃÂ  l'accueil</Button>
+          <Button className="mt-8">Retour à l'accueil</Button>
         </Link>
       </div>
     );
@@ -681,8 +681,7 @@ const Fiche = () => {
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  CrÃÆÃÂ©ÃÆÃÂ© le{" "}
-                  {new Date(term.createdAt).toLocaleDateString("fr-FR")}
+                  Créé le {new Date(term.createdAt).toLocaleDateString("fr-FR")}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -704,7 +703,7 @@ const Fiche = () => {
             <Card className="shadow-lg border-t-4 border-primary bg-card">
               <CardHeader>
                 <CardTitle className="text-2xl font-bold text-primary">
-                  DÃÆÃÂ©finition
+                  Définition
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -777,9 +776,8 @@ const Fiche = () => {
                     Voir aussi
                   </CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Cliquez sur les termes soulignÃÆÃÂ©s pour dÃÆÃÂ©couvrir les
-                    concepts liÃÆÃÂ©s, ou sur les liens pour accÃÆÃÂ©der aux
-                    ressources externes
+                    Cliquez sur les termes soulignés pour découvrir les concepts
+                    liés, ou sur les liens pour accéder aux ressources externes
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
