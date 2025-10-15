@@ -16,6 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Send, Info, Trash2, Reply } from "lucide-react";
 import { getProfilePictureUrl } from "@/lib/avatarUtils";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import LoginRequiredPopup from "@/components/ui/LoginRequiredPopup";
+import useLoginRequired from "@/hooks/useLoginRequired";
 
 const FicheComments = ({
   comments,
@@ -27,6 +29,8 @@ const FicheComments = ({
   const { user, hasAuthorPermissions } = useAuth();
   const { toast } = useToast();
   const { confirmDelete, ConfirmDialog } = useConfirmDialog();
+  const { requireAuth, isPopupOpen, closePopup, popupConfig } =
+    useLoginRequired();
   const [newComment, setNewComment] = useState("");
   const [replyOpen, setReplyOpen] = useState({}); // { [commentId]: boolean }
   const [replyText, setReplyText] = useState({}); // { [commentId]: string }
@@ -50,12 +54,13 @@ const FicheComments = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!user) {
-      toast({
+    if (
+      !requireAuth({
+        action: "comment",
         title: "Connexion requise",
         description: "Vous devez être connecté pour commenter.",
-        variant: "destructive",
-      });
+      })
+    ) {
       return;
     }
     if (!newComment.trim()) {
@@ -93,12 +98,13 @@ const FicheComments = ({
   };
 
   const handleReplySend = async (parentId) => {
-    if (!user) {
-      toast({
+    if (
+      !requireAuth({
+        action: "reply",
         title: "Connexion requise",
         description: "Vous devez être connecté pour répondre.",
-        variant: "destructive",
-      });
+      })
+    ) {
       return;
     }
     const text = (replyText[parentId] || "").trim();
@@ -208,12 +214,11 @@ const FicheComments = ({
                   ? resolvedName.charAt(0).toUpperCase()
                   : "U";
 
+                // User can delete their own comments, admin can delete any comment
                 const canDelete =
                   user &&
                   (String(comment.authorId) === String(user.id) ||
-                    user.role === "admin" ||
-                    (typeof hasAuthorPermissions === "function" &&
-                      hasAuthorPermissions()));
+                    user.role === "admin");
 
                 const handleDelete = async () => {
                   if (!onDeleteComment) return;
@@ -346,12 +351,11 @@ const FicheComments = ({
                           const rInitial = rName
                             ? rName.charAt(0).toUpperCase()
                             : "U";
+                          // User can delete their own replies, admin can delete any reply
                           const canDeleteReply =
                             user &&
                             (String(rep.authorId) === String(user.id) ||
-                              user.role === "admin" ||
-                              (typeof hasAuthorPermissions === "function" &&
-                                hasAuthorPermissions()));
+                              user.role === "admin");
 
                           return (
                             <div
@@ -418,6 +422,13 @@ const FicheComments = ({
         </CardContent>
       </Card>
       {ConfirmDialog}
+      <LoginRequiredPopup
+        isOpen={isPopupOpen}
+        onOpenChange={closePopup}
+        action={popupConfig.action}
+        title={popupConfig.title}
+        description={popupConfig.description}
+      />
     </motion.div>
   );
 };

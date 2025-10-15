@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Before & After Comparison</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f1f5f9;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #1e293b;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 40px;
+            font-size: 18px;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .badge-before {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .badge-after {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .panel-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        /* Before - Old Toast */
+        .old-toast {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .old-toast-icon {
+            width: 20px;
+            height: 20px;
+            background: #dc2626;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .old-toast-content h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #991b1b;
+            margin-bottom: 4px;
+        }
+
+        .old-toast-content p {
+            font-size: 13px;
+            color: #991b1b;
+        }
+
+        /* After - New Popup */
+        .new-popup {
+            background: white;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .popup-blob-1 {
+            position: absolute;
+            top: -30px;
+            right: -30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 50%;
+            filter: blur(50px);
+        }
+
+        .popup-blob-2 {
+            position: absolute;
+            bottom: -30px;
+            left: -30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 50%;
+            filter: blur(50px);
+        }
+
+        .popup-icon-wrapper {
+            display: inline-block;
+            position: relative;
+            z-index: 10;
+            margin-bottom: 20px;
+        }
+
+        .popup-icon-circle {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #8b5cf6 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+
+        .new-popup h3 {
+            font-size: 22px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .new-popup p {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .popup-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .popup-btn {
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .popup-btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .popup-btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .comparison-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .comparison-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .comparison-list li:last-child {
+            border-bottom: none;
+        }
+
+        .icon-check {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+        .icon-cross {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .features {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .features h2 {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #1e293b;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 20px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .feature-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Before & After Comparison</h1>
+        <p class="subtitle">From boring toast to creative popup</p>
+
+        <div class="comparison">
+            <!-- BEFORE -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="badge badge-before">Before</span>
+                    <h2 class="panel-title">Old Toast Notification</h2>
+                </div>
+
+                <div class="old-toast">
+                    <div class="old-toast-icon">✕</div>
+                    <div class="old-toast-content">
+                        <h3>Connexion requise</h3>
+                        <p>Vous devez être connecté pour aimer un terme.</p>
+                    </div>
+                </div>
+
+                <ul class="comparison-list">
+                    <li><span class="icon-cross">✕</span> Small and easy to miss</li>
+                    <li><span class="icon-cross">✕</span> Generic red error styling</li>
+                    <li><span class="icon-cross">✕</span> No clear call-to-action</li>
+                    <li><span class="icon-cross">✕</span> Disappears after 5 seconds</li>
+                    <li><span class="icon-cross">✕</span> Not engaging</li>
+                    <li><span class="icon-cross">✕</span> Destructive variant</li>
+                    <li><span class="icon-cross">✕</span> Corner placement</li>
+                    <li><span class="icon-cross">✕</span> No animations</li>
+                </ul>
+            </div>
+
+            <!-- AFTER -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="badge badge-after">After</span>
+                    <h2 class="panel-title">Creative Popup</h2>
+                </div>
+
+                <div class="new-popup">
+                    <div class="popup-blob-1"></div>
+                    <div class="popup-blob-2"></div>
+                    
+                    <div class="popup-icon-wrapper">
+                        <div class="popup-icon-circle">❤️</div>
+                    </div>
+                    
+                    <h3>Connexion requise</h3>
+                    <p>Vous devez être connecté pour aimer un terme.</p>
+                    
+                    <div class="popup-buttons">
+                        <button class="popup-btn popup-btn-primary">🔑 Se connecter</button>
+                        <button class="popup-btn popup-btn-secondary">✍️ Créer un compte</button>
+                    </div>
+                </div>
+
+                <ul class="comparison-list">
+                    <li><span class="icon-check">✓</span> Full dialog, impossible to miss</li>
+                    <li><span class="icon-check">✓</span> Beautiful branded design</li>
+                    <li><span class="icon-check">✓</span> Clear login/register buttons</li>
+                    <li><span class="icon-check">✓</span> Stays until user acts</li>
+                    <li><span class="icon-check">✓</span> Highly engaging</li>
+                    <li><span class="icon-check">✓</span> Positive styling</li>
+                    <li><span class="icon-check">✓</span> Centered placement</li>
+                    <li><span class="icon-check">✓</span> Beautiful animations</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="features">
+            <h2>✨ New Features & Animations</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎭</div>
+                    <div class="feature-title">Context-Aware Icons</div>
+                    <div class="feature-desc">Different icons for like, comment, reply, report actions</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✨</div>
+                    <div class="feature-title">Sparkle Effects</div>
+                    <div class="feature-desc">Animated sparkles that float outward from the icon</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌊</div>
+                    <div class="feature-title">Floating Blobs</div>
+                    <div class="feature-desc">Animated gradient backgrounds for depth</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎬</div>
+                    <div class="feature-title">Smooth Transitions</div>
+                    <div class="feature-desc">Everything animates in with staggered timing</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💫</div>
+                    <div class="feature-title">Shimmer Button</div>
+                    <div class="feature-desc">Login button has moving highlight effect</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <div class="feature-title">Fully Responsive</div>
+                    <div class="feature-desc">Perfect on mobile, tablet, and desktop</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

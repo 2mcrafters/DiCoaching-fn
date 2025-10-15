@@ -29,14 +29,8 @@ export const AuthProvider = ({ children }) => {
           // Vérifier que le token est toujours valide
           const profileResult = await authService.getProfile();
           if (profileResult.success) {
-            const normalized = {
-              ...profileResult.data,
-              role:
-                (profileResult.data?.role || "").toLowerCase() === "auteur"
-                  ? "author"
-                  : profileResult.data?.role,
-            };
-            setUser(normalized);
+            // Keep role as-is from backend (no normalization)
+            setUser(profileResult.data);
           } else {
             // Token invalide, déconnexion
             authService.logout();
@@ -59,14 +53,8 @@ export const AuthProvider = ({ children }) => {
       const result = await authService.login(email, password);
 
       if (result.success) {
-        const normalized = {
-          ...result.data.user,
-          role:
-            (result.data.user?.role || "").toLowerCase() === "auteur"
-              ? "author"
-              : result.data.user?.role,
-        };
-        setUser(normalized);
+        // Keep role as-is from backend (no normalization)
+        setUser(result.data.user);
         return { success: true };
       } else {
         setError(result.error);
@@ -88,14 +76,8 @@ export const AuthProvider = ({ children }) => {
       const result = await authService.register(userData);
 
       if (result.success) {
-        const normalized = {
-          ...result.data.user,
-          role:
-            (result.data.user?.role || "").toLowerCase() === "auteur"
-              ? "author"
-              : result.data.user?.role,
-        };
-        setUser(normalized);
+        // Keep role as-is from backend (no normalization)
+        setUser(result.data.user);
         return { success: true };
       } else {
         // result.error may be an object { message, fields }
@@ -138,16 +120,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUser = (userData) => {
-    const normalized = {
-      ...userData,
-      role:
-        (userData?.role || "").toLowerCase() === "auteur"
-          ? "author"
-          : userData?.role,
-    };
-    setUser(normalized);
+    // Keep role as-is from backend (no normalization)
+    setUser(userData);
     // Also update localStorage to persist the changes
-    localStorage.setItem("user", JSON.stringify(normalized));
+    localStorage.setItem("user", JSON.stringify(userData));
   };
 
   const value = {

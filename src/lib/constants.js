@@ -3,11 +3,11 @@
  * Centralized configuration values for the DiCoaching application
  */
 
-// User Roles
+// User Roles - ONLY 3 ROLES IN THE SYSTEM
 export const ROLES = {
-  ADMIN: 'admin',
-  AUTHOR: 'author',
-  RESEARCHER: 'chercheur',
+  ADMIN: 'admin',        // Full access, can do everything
+  AUTHOR: 'author',      // Can create/edit own terms, validate modifications on own terms
+  CHERCHEUR: 'chercheur' // Can view, like, comment, propose modifications
 };
 
 // User Status

@@ -54,7 +54,7 @@ const UserTermsList = ({ userTerms, loading, user }) => {
   // Authors may have the role but still be awaiting admin approval; use hasAuthorPermissions
   const canAuthor = isAdmin || (isAuthorRole && hasAuthorPermissions());
   const isAuthor = isAuthorRole;
-  const isResearcher = user.role === "chercheur" || user.role === "researcher";
+  const isResearcher = user.role === "chercheur"; // Only "chercheur" role exists
 
   return (
     <motion.div

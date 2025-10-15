@@ -379,7 +379,6 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="user">Utilisateur</SelectItem>
                       <SelectItem value="chercheur">Chercheur</SelectItem>
                       <SelectItem value="author">Auteur</SelectItem>
                       <SelectItem value="admin">Administrateur</SelectItem>
@@ -523,7 +522,6 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="user">Utilisateur</SelectItem>
                         <SelectItem value="chercheur">Chercheur</SelectItem>
                         <SelectItem value="author">Auteur</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>

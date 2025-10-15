@@ -20,6 +20,8 @@ import SharePopover from "@/components/SharePopover";
 import LinkedContent from "@/components/shared/LinkedContent";
 import LinkedContentWithUrls from "@/components/shared/LinkedContentWithUrls";
 import { getAuthorBadge } from "@/lib/badges";
+import LoginRequiredPopup from "@/components/ui/LoginRequiredPopup";
+import useLoginRequired from "@/hooks/useLoginRequired";
 import {
   User,
   Calendar,
@@ -44,6 +46,8 @@ const Fiche = () => {
   const usersLoading = useSelector((state) => state.users.loading);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { requireAuth, isPopupOpen, closePopup, popupConfig } =
+    useLoginRequired();
   const [term, setTerm] = useState(null);
   const [author, setAuthor] = useState(null);
   const [similarTerms, setSimilarTerms] = useState([]);
@@ -382,12 +386,13 @@ const Fiche = () => {
   }, [term, user]);
 
   const handleLike = async () => {
-    if (!user) {
-      toast({
+    if (
+      !requireAuth({
+        action: "like",
         title: "Connexion requise",
         description: "Vous devez être connecté pour aimer un terme.",
-        variant: "destructive",
-      });
+      })
+    ) {
       return;
     }
 
@@ -466,12 +471,13 @@ const Fiche = () => {
   };
 
   const handleReportSubmit = async (reason, details) => {
-    if (!user) {
-      toast({
+    if (
+      !requireAuth({
+        action: "report",
         title: "Connexion requise",
         description: "Vous devez être connecté pour signaler un terme.",
-        variant: "destructive",
-      });
+      })
+    ) {
       return;
     }
 
@@ -572,14 +578,14 @@ const Fiche = () => {
       : user.role === "author");
   const isOwner = user && String(term?.authorId) === String(user.id);
   const canEditDirectly = isAdmin || (isAuthor && isOwner);
-  // Only users with confirmed author permissions (or admins) can propose modifications.
-  const canProposeModification =
-    user &&
-    !canEditDirectly &&
-    (typeof hasAuthorPermissions === "function"
-      ? hasAuthorPermissions()
-      : user.role === "author");
-  const authorBadge = author ? getAuthorBadge(author.termsCount || 0) : null;
+  // Only logged-in users who cannot edit directly can propose modifications
+  // This includes chercheur and authors viewing other author's terms
+  const canProposeModification = user && !canEditDirectly;
+  // Admin and authors get badges (admin is treated as author for badge purposes)
+  const authorBadge =
+    author && (author.role === "author" || author.role === "admin")
+      ? getAuthorBadge(author.termsCount || 0)
+      : null;
 
   return (
     <>
@@ -925,6 +931,13 @@ const Fiche = () => {
           isOpen={isReportOpen}
           onOpenChange={setIsReportOpen}
           onSubmit={handleReportSubmit}
+        />
+        <LoginRequiredPopup
+          isOpen={isPopupOpen}
+          onOpenChange={closePopup}
+          action={popupConfig.action}
+          title={popupConfig.title}
+          description={popupConfig.description}
         />
       </div>
     </>
