@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Flow & Notification System - Visual Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            color: #1e293b;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 36px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+        
+        .section {
+            margin-bottom: 50px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            color: #1e293b;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .user-column {
+            flex: 1;
+            min-width: 280px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .user-header {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        .chercheur-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .author-header {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+        
+        .action-step {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .action-step:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 10px;
+            font-weight: 600;
+        }
+        
+        .notification-box {
+            background: #fef3c7;
+            border: 2px solid #fbbf24;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .notification-icon {
+            font-size: 24px;
+        }
+        
+        .badge-demo {
+            display: inline-block;
+            background: #ef4444;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+            margin: 30px 0;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #667eea;
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -32px;
+            top: 5px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px #667eea;
+        }
+        
+        .timeline-content {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .timeline-time {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .api-endpoint {
+            background: #1e293b;
+            color: #10b981;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        .method {
+            color: #fbbf24;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        
+        .permission-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .permission-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .permission-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .permission-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .permission-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1e293b;
+        }
+        
+        .permission-desc {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        
+        .check-mark {
+            color: #10b981;
+            font-weight: 600;
+        }
+        
+        .cross-mark {
+            color: #ef4444;
+            font-weight: 600;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .comparison-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .comparison-table tr:hover {
+            background: #f8fafc;
+        }
+        
+        .data-flow-diagram {
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        
+        .flow-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 2px solid #e2e8f0;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .flow-arrow {
+            text-align: center;
+            font-size: 24px;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        
+        .highlight-box h3 {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 User Flow & Notification System</h1>
+        <p class="subtitle">Complete Visual Guide - DiCoaching Platform</p>
+        
+        <!-- Section 1: User Action Flows -->
+        <div class="section">
+            <h2 class="section-title">1️⃣ User Action Flows by Role</h2>
+            
+            <div class="flow-diagram">
+                <!-- Chercheur Column -->
+                <div class="user-column">
+                    <div class="user-header chercheur-header">
+                        👨‍🔬 CHERCHEUR
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">1</span>
+                        <strong>Like a Term</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Dashboard badge: "Termes appréciés" <span class="badge-demo">1</span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">2</span>
+                        <strong>Comment on Term</strong>
+                        <p style="font-size: 13px; color: #64748b; margin-top: 8px;">
+                            ❌ No dashboard notification (only authors see comments)
+                        </p>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">3</span>
+                        <strong>Propose Modification</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Dashboard badge: "Modifications" <span class="badge-demo">1</span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">4</span>
+                        <strong>Report Term</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Dashboard badge: "Signalements" <span class="badge-demo">1</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Author Column -->
+                <div class="user-column">
+                    <div class="user-header author-header">
+                        ✍️ AUTHOR
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">1</span>
+                        <strong>Receive Comment</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Dashboard badge: "Commentaires" <span class="badge-demo">1</span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">2</span>
+                        <strong>Create New Term</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Dashboard badge: "Mes termes" <span class="badge-demo">1</span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">3</span>
+                        <strong>Receive Report</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Dashboard badge: "Signalements" <span class="badge-demo">1</span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">4</span>
+                        <strong>Validate Modification</strong>
+                        <p style="font-size: 13px; color: #64748b; margin-top: 8px;">
+                            ✅ Can validate on own terms (not own proposals)
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Admin Column -->
+                <div class="user-column">
+                    <div class="user-header admin-header">
+                        👑 ADMIN
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">1</span>
+                        <strong>All Author Features</strong>
+                        <p style="font-size: 13px; color: #64748b; margin-top: 8px;">
+                            ✅ Same dashboard notifications as authors
+                        </p>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">2</span>
+                        <strong>Admin Panel Access</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Pending Authors, Modifications, Reports</span>
+                        </div>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">3</span>
+                        <strong>Edit Any Term</strong>
+                        <p style="font-size: 13px; color: #64748b; margin-top: 8px;">
+                            ✅ No ownership restriction
+                        </p>
+                    </div>
+                    
+                    <div class="action-step">
+                        <span class="step-number">4</span>
+                        <strong>Delete Any Comment</strong>
+                        <p style="font-size: 13px; color: #64748b; margin-top: 8px;">
+                            ✅ Full moderation powers
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 2: Comment Reply Flow -->
+        <div class="section">
+            <h2 class="section-title">2️⃣ Comment Reply Notification Flow</h2>
+            
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-time">T + 0s</div>
+                        <strong>Chercheur comments on Author's term</strong>
+                        <div class="api-endpoint">
+                            <span class="method">POST</span>/api/terms/5/comments
+                        </div>
+                        <p>Backend stores: {term_id: 5, user_id: 12, content: "Great!", created_at: NOW()}</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-time">T + 5s</div>
+                        <strong>Author refreshes dashboard</strong>
+                        <div class="api-endpoint">
+                            <span class="method">GET</span>/api/comments/author/3
+                        </div>
+                        <p>Backend returns: Comments WHERE term.author_id = 3</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-time">T + 5.5s</div>
+                        <strong>Dashboard calculates badge</strong>
+                        <p style="color: #10b981; font-family: monospace; margin-top: 10px;">
+                            newComments = comments.filter(c => new Date(c.createdAt) > oneDayAgo)
+                            <br>setNewCommentsCount(newComments.length) // 1
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-time">T + 6s</div>
+                        <strong>Author sees notification</strong>
+                        <div class="notification-box">
+                            <span class="notification-icon">🔔</span>
+                            <span>Red badge appears: "Commentaires" <span class="badge-demo">1</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-time">T + 30s</div>
+                        <strong>Author clicks "Commentaires" tab</strong>
+                        <p style="color: #667eea; font-family: monospace; margin-top: 10px;">
+                            handleTabClick("comments")
+                            <br>setNewCommentsCount(0) // Badge disappears
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-time">T + 60s</div>
+                        <strong>Author clicks "Voir plus" link</strong>
+                        <p style="margin-top: 10px;">
+                            Navigate to: <code>/fiche/coaching#comment-123</code>
+                            <br>Page scrolls to comment, highlights it with ring effect
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 3: Data Flow Diagram -->
+        <div class="section">
+            <h2 class="section-title">3️⃣ Backend → Frontend Data Flow</h2>
+            
+            <div class="data-flow-diagram">
+                <div class="flow-box" style="background: #3b82f6; color: white;">
+                    👤 USER ACTION
+                    <div style="font-size: 14px; margin-top: 5px;">Like, Comment, Report, etc.</div>
+                </div>
+                
+                <div class="flow-arrow">⬇️</div>
+                
+                <div class="flow-box" style="background: #8b5cf6; color: white;">
+                    🔐 AUTHENTICATION
+                    <div style="font-size: 14px; margin-top: 5px;">JWT Token verified by authenticateToken()</div>
+                </div>
+                
+                <div class="flow-arrow">⬇️</div>
+                
+                <div class="flow-box" style="background: #10b981; color: white;">
+                    ✅ PERMISSION CHECK
+                    <div style="font-size: 14px; margin-top: 5px;">Role-based authorization (chercheur/author/admin)</div>
+                </div>
+                
+                <div class="flow-arrow">⬇️</div>
+                
+                <div class="flow-box" style="background: #f59e0b; color: white;">
+                    💾 DATABASE UPDATE
+                    <div style="font-size: 14px; margin-top: 5px;">INSERT INTO comments/likes/reports/modifications</div>
+                </div>
+                
+                <div class="flow-arrow">⬇️</div>
+                
+                <div class="flow-box" style="background: #06b6d4; color: white;">
+                    📊 DASHBOARD FETCH
+                    <div style="font-size: 14px; margin-top: 5px;">GET /api/comments/author/:id or /api/user/liked-terms</div>
+                </div>
+                
+                <div class="flow-arrow">⬇️</div>
+                
+                <div class="flow-box" style="background: #ec4899; color: white;">
+                    🔢 BADGE CALCULATION
+                    <div style="font-size: 14px; margin-top: 5px;">Filter items by created_at > (NOW - 24h)</div>
+                </div>
+                
+                <div class="flow-arrow">⬇️</div>
+                
+                <div class="flow-box" style="background: #ef4444; color: white;">
+                    🔔 NOTIFICATION DISPLAYED
+                    <div style="font-size: 14px; margin-top: 5px;">Red badge with count appears on tab</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 4: Permission Matrix -->
+        <div class="section">
+            <h2 class="section-title">4️⃣ Permission Matrix</h2>
+            
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Chercheur</th>
+                        <th>Author</th>
+                        <th>Admin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>View published terms</strong></td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Like terms</strong></td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Comment on terms</strong></td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>See "Commentaires" tab</strong></td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Create new terms</strong></td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Edit own terms</strong></td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Edit any term</strong></td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Propose modifications</strong></td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Validate modifications</strong></td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="check-mark">✅ Own terms only</td>
+                        <td class="check-mark">✅ Any</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Delete own comments</strong></td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Delete any comment</strong></td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="check-mark">✅ On own terms</td>
+                        <td class="check-mark">✅ Any</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Access admin panel</strong></td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="cross-mark">❌ No</td>
+                        <td class="check-mark">✅ Yes</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Section 5: API Endpoints -->
+        <div class="section">
+            <h2 class="section-title">5️⃣ Key API Endpoints</h2>
+            
+            <div class="permission-grid">
+                <div class="permission-card">
+                    <div class="permission-icon">💬</div>
+                    <div class="permission-title">Comments</div>
+                    <div class="permission-desc">
+                        <div class="api-endpoint" style="margin: 10px 0;">
+                            <span class="method">GET</span>/api/comments/author/:id
+                        </div>
+                        <strong>Auth:</strong> Token required<br>
+                        <strong>Permission:</strong> Author/Admin<br>
+                        <strong>Returns:</strong> Comments on author's terms
+                    </div>
+                </div>
+                
+                <div class="permission-card">
+                    <div class="permission-icon">❤️</div>
+                    <div class="permission-title">Likes</div>
+                    <div class="permission-desc">
+                        <div class="api-endpoint" style="margin: 10px 0;">
+                            <span class="method">POST</span>/api/terms/:id/likes/toggle
+                        </div>
+                        <strong>Auth:</strong> Token required<br>
+                        <strong>Permission:</strong> Any user<br>
+                        <strong>Returns:</strong> {liked, count}
+                    </div>
+                </div>
+                
+                <div class="permission-card">
+                    <div class="permission-icon">🚩</div>
+                    <div class="permission-title">Reports</div>
+                    <div class="permission-desc">
+                        <div class="api-endpoint" style="margin: 10px 0;">
+                            <span class="method">GET</span>/api/reports/author/:id
+                        </div>
+                        <strong>Auth:</strong> Token required<br>
+                        <strong>Permission:</strong> Author/Admin<br>
+                        <strong>Returns:</strong> Reports on author's terms
+                    </div>
+                </div>
+                
+                <div class="permission-card">
+                    <div class="permission-icon">✏️</div>
+                    <div class="permission-title">Modifications</div>
+                    <div class="permission-desc">
+                        <div class="api-endpoint" style="margin: 10px 0;">
+                            <span class="method">GET</span>/api/modifications
+                        </div>
+                        <strong>Auth:</strong> Token required<br>
+                        <strong>Permission:</strong> Any user<br>
+                        <strong>Returns:</strong> Filtered by role
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 6: Notification Behavior -->
+        <div class="section">
+            <h2 class="section-title">6️⃣ Notification Badge Behavior</h2>
+            
+            <div class="highlight-box">
+                <h3>⏰ 24-Hour Window Rule</h3>
+                <p style="margin-top: 10px; line-height: 1.8;">
+                    Badges show items created in the <strong>last 24 hours only</strong>. This prevents overwhelming users with notifications for old content.
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                <div style="background: #f0fdf4; border: 2px solid #10b981; border-radius: 12px; padding: 20px;">
+                    <h3 style="color: #10b981; margin-bottom: 10px;">✅ Badge Appears When:</h3>
+                    <ul style="list-style: none; padding: 0; line-height: 2;">
+                        <li>• New action performed</li>
+                        <li>• Item created < 24h ago</li>
+                        <li>• User hasn't clicked tab yet</li>
+                        <li>• Page loads/refreshes</li>
+                    </ul>
+                </div>
+                
+                <div style="background: #fef2f2; border: 2px solid #ef4444; border-radius: 12px; padding: 20px;">
+                    <h3 style="color: #ef4444; margin-bottom: 10px;">❌ Badge Disappears When:</h3>
+                    <ul style="list-style: none; padding: 0; line-height: 2;">
+                        <li>• User clicks the tab</li>
+                        <li>• Item > 24h old (ages out)</li>
+                        <li>• No new items exist</li>
+                        <li>• User navigates away</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px; background: #eff6ff; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px;">
+                <h3 style="color: #3b82f6; margin-bottom: 15px;">🔄 Badge Lifecycle Example</h3>
+                <div style="font-family: monospace; font-size: 14px; line-height: 2; color: #1e293b;">
+                    T+0h:   Action performed → Badge = 1 <span class="badge-demo">1</span><br>
+                    T+5min: User clicks tab → Badge = 0 (cleared)<br>
+                    T+10min: User refreshes page → Badge = 1 <span class="badge-demo">1</span> (item still < 24h)<br>
+                    T+24h:  Item ages out → Badge = 0 (permanently)
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 7: Security -->
+        <div class="section">
+            <h2 class="section-title">7️⃣ Security Implementation</h2>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 25px; border-radius: 15px;">
+                    <h3 style="margin-bottom: 15px;">🔒 Authentication</h3>
+                    <ul style="list-style: none; padding: 0; line-height: 2;">
+                        <li>✓ JWT token validation</li>
+                        <li>✓ Token expiration handling</li>
+                        <li>✓ Automatic logout on 401</li>
+                        <li>✓ Secure token storage</li>
+                    </ul>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 25px; border-radius: 15px;">
+                    <h3 style="margin-bottom: 15px;">🛡️ Authorization</h3>
+                    <ul style="list-style: none; padding: 0; line-height: 2;">
+                        <li>✓ Role-based access control</li>
+                        <li>✓ Ownership verification</li>
+                        <li>✓ Permission middleware</li>
+                        <li>✓ Frontend + Backend checks</li>
+                    </ul>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 25px; border-radius: 15px;">
+                    <h3 style="margin-bottom: 15px;">🔐 Data Protection</h3>
+                    <ul style="list-style: none; padding: 0; line-height: 2;">
+                        <li>✓ SQL injection prevention</li>
+                        <li>✓ XSS protection (React)</li>
+                        <li>✓ CORS configuration</li>
+                        <li>✓ Parameterized queries</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 50px; padding-top: 30px; border-top: 2px solid #e2e8f0; color: #64748b;">
+            <p style="font-size: 14px;">
+                📄 <strong>Document:</strong> User Flow & Notification System Visual Guide<br>
+                📅 <strong>Generated:</strong> October 15, 2025<br>
+                ✅ <strong>Status:</strong> Complete & Verified
+            </p>
+        </div>
+    </div>
+</body>
+</html>
