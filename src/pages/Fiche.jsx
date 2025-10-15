@@ -414,10 +414,6 @@ const Fiche = () => {
 
   const handleDeleteComment = async (commentId) => {
     if (!commentId) return;
-    const confirmed = window.confirm(
-      "Voulez-vous vraiment supprimer ce commentaire ?"
-    );
-    if (!confirmed) return;
 
     try {
       await apiService.deleteComment(commentId);
@@ -438,9 +434,9 @@ const Fiche = () => {
     }
   };
 
-  const handleCommentSubmit = async (content) => {
+  const handleCommentSubmit = async (contentOrPayload) => {
     try {
-      await apiService.addComment(term.id, content);
+      await apiService.addComment(term.id, contentOrPayload);
       await loadData();
       toast({
         title: "Commentaire publié !",
@@ -450,6 +446,20 @@ const Fiche = () => {
       toast({
         title: "Erreur",
         description: "Impossible d'ajouter le commentaire.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReplySubmit = async (parentId, content) => {
+    try {
+      await apiService.addReply(term.id, parentId, content);
+      await loadData();
+      toast({ title: "Réponse publiée !" });
+    } catch (e) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ajouter la réponse.",
         variant: "destructive",
       });
     }
@@ -835,6 +845,7 @@ const Fiche = () => {
             <FicheComments
               comments={comments}
               onCommentSubmit={handleCommentSubmit}
+              onReplySubmit={handleReplySubmit}
               onDeleteComment={handleDeleteComment}
               getAuthorName={getAuthorName}
             />

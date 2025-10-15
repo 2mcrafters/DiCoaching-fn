@@ -5,7 +5,7 @@ import { authenticateToken } from './auth.js';
 const router = express.Router();
 
 // GET /api/dashboard/stats - Get comprehensive dashboard statistics for current user
-router.get('/dashboard/stats', authenticateToken, async (req, res) => {
+router.get("/dashboard/stats", authenticateToken, async (req, res) => {
   try {
     const userId = req.user && req.user.id;
     const userRole = req.user && req.user.role;
@@ -26,10 +26,10 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
     // ========================================
     // USER'S TERMS STATISTICS
     // ========================================
-    
+
     // Total terms created by user
     const [termsCount] = await db.query(
-      'SELECT COUNT(*) as count FROM termes WHERE author_id = ?',
+      "SELECT COUNT(*) as count FROM termes WHERE author_id = ?",
       [userId]
     );
     stats.terms.total = Number(termsCount.count || 0);
@@ -42,27 +42,28 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
        GROUP BY status`,
       [userId]
     );
-    
+
     stats.terms.byStatus = {
       published: 0,
       draft: 0,
       pending: 0,
       rejected: 0,
     };
-    
-    termsStatus.forEach(row => {
+
+    termsStatus.forEach((row) => {
       stats.terms.byStatus[row.status] = Number(row.count || 0);
     });
 
     // Calculate percentage of published terms
-    stats.terms.publishedPercentage = stats.terms.total > 0
-      ? Math.round((stats.terms.byStatus.published / stats.terms.total) * 100)
-      : 0;
+    stats.terms.publishedPercentage =
+      stats.terms.total > 0
+        ? Math.round((stats.terms.byStatus.published / stats.terms.total) * 100)
+        : 0;
 
     // ========================================
     // LIKES STATISTICS
     // ========================================
-    
+
     // Total likes received on user's terms
     const [likesReceived] = await db.query(
       `SELECT COUNT(*) as count 
@@ -75,7 +76,7 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
 
     // Total likes given by user
     const [likesGiven] = await db.query(
-      'SELECT COUNT(*) as count FROM likes WHERE user_id = ?',
+      "SELECT COUNT(*) as count FROM likes WHERE user_id = ?",
       [userId]
     );
     stats.likes.given = Number(likesGiven.count || 0);
@@ -91,38 +92,67 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
        LIMIT 1`,
       [userId]
     );
-    
-    stats.likes.mostLikedTerm = mostLikedTerm ? {
-      id: mostLikedTerm.id,
-      name: mostLikedTerm.terme,
-      count: Number(mostLikedTerm.likeCount || 0),
-    } : null;
+
+    stats.likes.mostLikedTerm = mostLikedTerm
+      ? {
+          id: mostLikedTerm.id,
+          name: mostLikedTerm.terme,
+          count: Number(mostLikedTerm.likeCount || 0),
+        }
+      : null;
 
     // ========================================
     // COMMENTS STATISTICS
     // ========================================
-    
-    // Comments made by user
-    const [commentsMade] = await db.query(
-      'SELECT COUNT(*) as count FROM comments WHERE user_id = ?',
-      [userId]
-    );
-    stats.comments.made = Number(commentsMade.count || 0);
 
-    // Comments received on user's terms
-    const [commentsReceived] = await db.query(
-      `SELECT COUNT(*) as count 
-       FROM comments c 
-       INNER JOIN termes t ON c.term_id = t.id 
-       WHERE t.author_id = ? AND c.user_id != ?`,
-      [userId, userId]
-    );
-    stats.comments.received = Number(commentsReceived.count || 0);
+    // Comments made by user (EN + FR tables)
+    let madeEN = 0,
+      madeFR = 0;
+    try {
+      const [row] = await db.query(
+        "SELECT COUNT(*) as count FROM comments WHERE user_id = ?",
+        [userId]
+      );
+      madeEN = Number(row.count || 0);
+    } catch (_) {}
+    try {
+      const [row] = await db.query(
+        "SELECT COUNT(*) as count FROM commentaires WHERE author_id = ?",
+        [userId]
+      );
+      madeFR = Number(row.count || 0);
+    } catch (_) {}
+    stats.comments.made = madeEN + madeFR;
+
+    // Comments received on user's terms (EN + FR)
+    let recvEN = 0,
+      recvFR = 0;
+    try {
+      const [row] = await db.query(
+        `SELECT COUNT(*) as count 
+         FROM comments c 
+         INNER JOIN termes t ON c.term_id = t.id 
+         WHERE t.author_id = ? AND c.user_id != ?`,
+        [userId, userId]
+      );
+      recvEN = Number(row.count || 0);
+    } catch (_) {}
+    try {
+      const [row] = await db.query(
+        `SELECT COUNT(*) as count 
+         FROM commentaires c 
+         INNER JOIN termes t ON c.term_id = t.id 
+         WHERE t.author_id = ? AND c.author_id != ?`,
+        [userId, userId]
+      );
+      recvFR = Number(row.count || 0);
+    } catch (_) {}
+    stats.comments.received = recvEN + recvFR;
 
     // ========================================
     // REPORTS STATISTICS
     // ========================================
-    
+
     // Reports received on user's terms (status = resolved)
     // Note: reports table may reference 'terms' but we use 'termes' table name
     const [reportsReceived] = await db.query(
@@ -133,7 +163,7 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
        ) AND r.status = 'resolved'`,
       [userId]
     );
-    
+
     // Reports created by user (for researchers/chercheurs)
     const [reportsCreated] = await db.query(
       `SELECT COUNT(*) as count 
@@ -141,7 +171,7 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
        WHERE reporter_id = ?`,
       [userId]
     );
-    
+
     stats.reports = {
       received: Number(reportsReceived.count || 0),
       created: Number(reportsCreated.count || 0),
@@ -150,8 +180,8 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
     // ========================================
     // DECISIONS STATISTICS (for admins/researchers)
     // ========================================
-    
-    if (['admin', 'researcher'].includes(userRole)) {
+
+    if (["admin", "researcher"].includes(userRole)) {
       try {
         // Decisions made by user
         const [decisionsMade] = await db.query(
@@ -218,32 +248,36 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
     // ========================================
     // ACTIVITY TIMELINE
     // ========================================
-    
+
     // Recent activities would require created_at column in termes table
     // Since termes table doesn't have created_at, we'll skip timeline stats
     stats.activities.recentTerms = [];
 
     // Total activity count (terms + comments + likes)
-    stats.activities.total = 
-      stats.terms.total + 
-      stats.comments.made + 
-      stats.likes.given;
+    stats.activities.total =
+      stats.terms.total + stats.comments.made + stats.likes.given;
 
     // ========================================
     // GLOBAL STATISTICS (for context)
     // ========================================
-    
-    if (userRole === 'admin') {
+
+    if (userRole === "admin") {
       // Total users
-      const [totalUsers] = await db.query('SELECT COUNT(*) as count FROM users');
+      const [totalUsers] = await db.query(
+        "SELECT COUNT(*) as count FROM users"
+      );
       stats.global.totalUsers = Number(totalUsers.count || 0);
 
       // Total terms in system
-      const [totalTerms] = await db.query('SELECT COUNT(*) as count FROM termes');
+      const [totalTerms] = await db.query(
+        "SELECT COUNT(*) as count FROM termes"
+      );
       stats.global.totalTerms = Number(totalTerms.count || 0);
 
       // Total categories
-      const [totalCategories] = await db.query('SELECT COUNT(*) as count FROM categories');
+      const [totalCategories] = await db.query(
+        "SELECT COUNT(*) as count FROM categories"
+      );
       stats.global.totalCategories = Number(totalCategories.count || 0);
 
       // Pending terms for review
@@ -253,19 +287,32 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
       stats.global.pendingTerms = Number(pendingTerms.count || 0);
 
       // Total likes in system
-      const [totalLikes] = await db.query('SELECT COUNT(*) as count FROM likes');
+      const [totalLikes] = await db.query(
+        "SELECT COUNT(*) as count FROM likes"
+      );
       stats.global.totalLikes = Number(totalLikes.count || 0);
 
-      // Total comments in system
-      const [totalComments] = await db.query('SELECT COUNT(*) as count FROM comments');
-      stats.global.totalComments = Number(totalComments.count || 0);
+      // Total comments in system (EN + FR)
+      let totalEN = 0,
+        totalFR = 0;
+      try {
+        const [row] = await db.query("SELECT COUNT(*) as count FROM comments");
+        totalEN = Number(row.count || 0);
+      } catch (_) {}
+      try {
+        const [row] = await db.query(
+          "SELECT COUNT(*) as count FROM commentaires"
+        );
+        totalFR = Number(row.count || 0);
+      } catch (_) {}
+      stats.global.totalComments = totalEN + totalFR;
     }
 
     // ========================================
     // RANKING/POSITION (for authors)
     // ========================================
-    
-    if (['author', 'researcher'].includes(userRole)) {
+
+    if (["author", "researcher"].includes(userRole)) {
       // User's rank by published terms
       const rankings = await db.query(
         `SELECT author_id, COUNT(*) as termCount 
@@ -274,49 +321,51 @@ router.get('/dashboard/stats', authenticateToken, async (req, res) => {
          GROUP BY author_id 
          ORDER BY termCount DESC`
       );
-      
-      const userRankIndex = rankings.findIndex(r => r.author_id === userId);
+
+      const userRankIndex = rankings.findIndex((r) => r.author_id === userId);
       stats.ranking = {
         position: userRankIndex >= 0 ? userRankIndex + 1 : null,
         totalAuthors: rankings.length,
-        percentile: rankings.length > 0 
-          ? Math.round(((rankings.length - userRankIndex) / rankings.length) * 100)
-          : 0,
+        percentile:
+          rankings.length > 0
+            ? Math.round(
+                ((rankings.length - userRankIndex) / rankings.length) * 100
+              )
+            : 0,
       };
     }
 
     // ========================================
     // CONTRIBUTION SCORE
     // ========================================
-    
+
     // Calculate contribution score
     // Formula: (published terms * 10) + (likes received * 2) + (comments made * 1)
-    stats.contributionScore = 
-      (stats.terms.byStatus.published * 10) + 
-      (stats.likes.received * 2) + 
-      (stats.comments.made * 1);
+    stats.contributionScore =
+      stats.terms.byStatus.published * 10 +
+      stats.likes.received * 2 +
+      stats.comments.made * 1;
 
-    res.json({ 
-      status: 'success', 
+    res.json({
+      status: "success",
       data: stats,
       timestamp: new Date().toISOString(),
     });
-
   } catch (err) {
-    console.error('Error fetching dashboard stats:', err.message);
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'Erreur lors du chargement des statistiques',
-      error: err.message 
+    console.error("Error fetching dashboard stats:", err.message);
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors du chargement des statistiques",
+      error: err.message,
     });
   }
 });
 
 // GET /api/dashboard/chart-data - Get data for dashboard charts
-router.get('/dashboard/chart-data', authenticateToken, async (req, res) => {
+router.get("/dashboard/chart-data", authenticateToken, async (req, res) => {
   try {
     const userId = req.user && req.user.id;
-    const { period = '30' } = req.query; // days
+    const { period = "30" } = req.query; // days
 
     // Terms created over time - disabled since termes table doesn't have created_at
     const termsOverTime = [];
@@ -332,8 +381,8 @@ router.get('/dashboard/chart-data', authenticateToken, async (req, res) => {
       [userId, parseInt(period)]
     );
 
-    // Comments received over time (comments table has created_at)
-    const commentsOverTime = await db.query(
+    // Comments received over time (EN + FR)
+    const commentsOverTimeEN = await db.query(
       `SELECT DATE(c.created_at) as date, COUNT(*) as count 
        FROM comments c 
        INNER JOIN termes t ON c.term_id = t.id 
@@ -342,28 +391,50 @@ router.get('/dashboard/chart-data', authenticateToken, async (req, res) => {
        ORDER BY date ASC`,
       [userId, parseInt(period)]
     );
+    let commentsOverTimeFR = [];
+    try {
+      commentsOverTimeFR = await db.query(
+        `SELECT DATE(c.created_at) as date, COUNT(*) as count 
+         FROM commentaires c 
+         INNER JOIN termes t ON c.term_id = t.id 
+         WHERE t.author_id = ? AND c.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+         GROUP BY DATE(c.created_at)
+         ORDER BY date ASC`,
+        [userId, parseInt(period)]
+      );
+    } catch (_) {}
+    const commentsOverTimeMap = new Map();
+    for (const row of commentsOverTimeEN) {
+      commentsOverTimeMap.set(String(row.date), Number(row.count || 0));
+    }
+    for (const row of commentsOverTimeFR) {
+      const key = String(row.date);
+      commentsOverTimeMap.set(
+        key,
+        (commentsOverTimeMap.get(key) || 0) + Number(row.count || 0)
+      );
+    }
+    const commentsOverTime = Array.from(commentsOverTimeMap.entries())
+      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+      .map(([date, count]) => ({ date, count }));
 
     res.json({
-      status: 'success',
+      status: "success",
       data: {
         termsOverTime: [], // Disabled until created_at added to termes table
-        likesOverTime: likesOverTime.map(row => ({
+        likesOverTime: likesOverTime.map((row) => ({
           date: row.date,
           count: Number(row.count || 0),
         })),
-        commentsOverTime: commentsOverTime.map(row => ({
-          date: row.date,
-          count: Number(row.count || 0),
-        })),
+        commentsOverTime,
       },
     });
-
   } catch (err) {
-    console.error('Error fetching chart data:', err.message);
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'Erreur lors du chargement des données graphiques',
-      error: err.message 
+    console.error("Error fetching chart data:", err.message);
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors du chargement des données graphiques",
+      error: err.message,
     });
   }
 });

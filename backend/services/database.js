@@ -8,16 +8,21 @@ class DatabaseService {
 
   async connect() {
     try {
-      const host = process.env.DB_HOST || 'localhost';
-      const user = process.env.DB_USER || 'root';
-      const password = process.env.DB_PASSWORD || '';
-      const database = process.env.DB_NAME || 'dict';
+      const host = process.env.DB_HOST || "localhost";
+      const user = process.env.DB_USER || "root";
+      const password = process.env.DB_PASSWORD || "";
+      // Align default with server.js (dictionnaire_ch)
+      const database = process.env.DB_NAME || "dictionnaire_ch";
 
       // Try the configured port first, then common defaults 3306 and 3307
-      const configuredPort = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : null;
+      const configuredPort = process.env.DB_PORT
+        ? parseInt(process.env.DB_PORT, 10)
+        : null;
       const portsToTry = [];
       if (configuredPort) portsToTry.push(configuredPort);
-      [3306, 3307].forEach(p => { if (!portsToTry.includes(p)) portsToTry.push(p); });
+      [3306, 3307].forEach((p) => {
+        if (!portsToTry.includes(p)) portsToTry.push(p);
+      });
 
       let lastError = null;
       for (const port of portsToTry) {
@@ -39,7 +44,7 @@ class DatabaseService {
           // Test de connexion
           const connection = await this.pool.getConnection();
           console.log(
-            `✅ Connexion à la base de données MySQL réussie (port ${port})`
+            `✅ Connexion MySQL réussie: db=${database} host=${host} port=${port}`
           );
           connection.release();
           this.isConnected = true;

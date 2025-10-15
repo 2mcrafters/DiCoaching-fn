@@ -265,8 +265,20 @@ class ApiService {
     return res?.data ?? res;
   }
 
-  async addComment(termId, content) {
-    const res = await this.post(`/api/terms/${termId}/comments`, { content });
+  async addComment(termId, contentOrPayload) {
+    const payload =
+      contentOrPayload && typeof contentOrPayload === "object"
+        ? contentOrPayload
+        : { content: contentOrPayload };
+    const res = await this.post(`/api/terms/${termId}/comments`, payload);
+    return res?.data ?? res;
+  }
+
+  async addReply(termId, parentId, content) {
+    const res = await this.post(`/api/terms/${termId}/comments`, {
+      content,
+      parentId,
+    });
     return res?.data ?? res;
   }
 
