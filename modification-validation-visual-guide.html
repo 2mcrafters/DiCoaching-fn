@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modification Validation System - Visual Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 42px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .section-title {
+            font-size: 28px;
+            color: #667eea;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-icon {
+            font-size: 32px;
+        }
+
+        .flow-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .flow-box {
+            flex: 1;
+            min-width: 280px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .flow-box.allowed {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .flow-box.blocked {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+
+        .flow-box h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .flow-box p {
+            font-size: 15px;
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+
+        .step-flow {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            flex: 1;
+            min-width: 200px;
+            border-left: 4px solid #667eea;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .step h4 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .step p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .arrow {
+            font-size: 24px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .rule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .rule-table th, .rule-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .rule-table th {
+            background: #f8f9fa;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .rule-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-badge.allowed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.blocked {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .code-block {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .code-block .comment {
+            color: #5c6370;
+        }
+
+        .code-block .keyword {
+            color: #c678dd;
+        }
+
+        .code-block .string {
+            color: #98c379;
+        }
+
+        .code-block .function {
+            color: #61afef;
+        }
+
+        .highlight-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .highlight-box strong {
+            color: #856404;
+        }
+
+        .screenshot-placeholder {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            color: #6c757d;
+            margin: 20px 0;
+        }
+
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .icon-item {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+
+        .icon-item .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .icon-item h4 {
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .icon-item p {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Modification Validation System</h1>
+        <p class="subtitle">Visual Guide to Author Validation Rules</p>
+
+        <!-- Business Rules Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">📋</span>
+                Business Rules
+            </h2>
+            
+            <div class="flow-container">
+                <div class="flow-box allowed">
+                    <h3>✅ Authors CAN Validate</h3>
+                    <p><strong>Modifications on THEIR OWN terms</strong> (proposed by other users)</p>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li>Term owner: Author A</li>
+                        <li>Proposer: User B, C, or D</li>
+                        <li>Author A can approve/reject</li>
+                    </ul>
+                </div>
+
+                <div class="flow-box blocked">
+                    <h3>❌ Authors CANNOT Validate</h3>
+                    <p><strong>Their OWN modification proposals</strong> (prevents self-approval)</p>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li>Term owner: Author B</li>
+                        <li>Proposer: Author A (themselves)</li>
+                        <li>Author A CANNOT approve/reject</li>
+                    </ul>
+                </div>
+
+                <div class="flow-box blocked">
+                    <h3>❌ Authors CANNOT Validate</h3>
+                    <p><strong>Modifications on OTHER authors' terms</strong></p>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li>Term owner: Author B</li>
+                        <li>Proposer: User C</li>
+                        <li>Author A CANNOT validate</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Validation Flow Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">🔄</span>
+                Validation Flow
+            </h2>
+
+            <div class="step-flow">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <h4>User B Proposes</h4>
+                    <p>User B creates a modification proposal on Author A's term</p>
+                </div>
+                <span class="arrow">→</span>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <h4>Backend Stores</h4>
+                    <p>Modification saved to database with status "pending"</p>
+                </div>
+                <span class="arrow">→</span>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <h4>Author A Views</h4>
+                    <p>Author A opens dashboard and sees "À valider" tab with badge</p>
+                </div>
+            </div>
+
+            <div class="step-flow">
+                <div class="step">
+                    <span class="step-number">4</span>
+                    <h4>API Fetches</h4>
+                    <p>GET /api/modifications/pending-validation returns User B's proposal</p>
+                </div>
+                <span class="arrow">→</span>
+                <div class="step">
+                    <span class="step-number">5</span>
+                    <h4>Author Validates</h4>
+                    <p>Author A clicks "Approuver" or "Rejeter"</p>
+                </div>
+                <span class="arrow">→</span>
+                <div class="step">
+                    <span class="step-number">6</span>
+                    <h4>Backend Updates</h4>
+                    <p>Modification status changed to "approved" or "rejected"</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Permission Matrix Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">🔑</span>
+                Permission Matrix
+            </h2>
+
+            <table class="rule-table">
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Chercheur</th>
+                        <th>Author (Own Term)</th>
+                        <th>Author (Other Term)</th>
+                        <th>Admin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Propose modification</strong></td>
+                        <td><span class="status-badge allowed">✅ Allowed</span></td>
+                        <td><span class="status-badge allowed">✅ Allowed</span></td>
+                        <td><span class="status-badge allowed">✅ Allowed</span></td>
+                        <td><span class="status-badge allowed">✅ Allowed</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Validate on own term</strong></td>
+                        <td><span class="status-badge blocked">❌ Blocked</span></td>
+                        <td><span class="status-badge allowed">✅ Allowed*</span></td>
+                        <td><span class="status-badge blocked">❌ Blocked</span></td>
+                        <td><span class="status-badge allowed">✅ Allowed</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Validate on other's term</strong></td>
+                        <td><span class="status-badge blocked">❌ Blocked</span></td>
+                        <td><span class="status-badge blocked">❌ Blocked</span></td>
+                        <td><span class="status-badge blocked">❌ Blocked</span></td>
+                        <td><span class="status-badge allowed">✅ Allowed</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Validate OWN proposal</strong></td>
+                        <td><span class="status-badge blocked">❌ Blocked</span></td>
+                        <td><span class="status-badge blocked">❌ Blocked**</span></td>
+                        <td><span class="status-badge blocked">❌ Blocked**</span></td>
+                        <td><span class="status-badge allowed">✅ Allowed</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="highlight-box">
+                <strong>* Only other users' proposals</strong> - Authors can validate modifications on their terms, but NOT their own proposals<br>
+                <strong>** Critical Security Rule</strong> - This prevents self-approval and maintains content integrity
+            </div>
+        </div>
+
+        <!-- Dashboard UI Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">📊</span>
+                Dashboard "À valider" Tab
+            </h2>
+
+            <div class="icon-grid">
+                <div class="icon-item">
+                    <div class="icon">📝</div>
+                    <h4>Modification List</h4>
+                    <p>Shows pending modifications on author's terms</p>
+                </div>
+                <div class="icon-item">
+                    <div class="icon">🔔</div>
+                    <h4>Notification Badge</h4>
+                    <p>Blue badge shows count of new modifications (< 24h)</p>
+                </div>
+                <div class="icon-item">
+                    <div class="icon">✅</div>
+                    <h4>Approve Button</h4>
+                    <p>Green button to approve modification</p>
+                </div>
+                <div class="icon-item">
+                    <div class="icon">❌</div>
+                    <h4>Reject Button</h4>
+                    <p>Red button to reject modification</p>
+                </div>
+                <div class="icon-item">
+                    <div class="icon">🆕</div>
+                    <h4>"Nouveau" Badge</h4>
+                    <p>Highlights recent modifications</p>
+                </div>
+                <div class="icon-item">
+                    <div class="icon">📄</div>
+                    <h4>Pagination</h4>
+                    <p>5 modifications per page</p>
+                </div>
+            </div>
+
+            <div class="screenshot-placeholder">
+                <div style="font-size: 48px; margin-bottom: 10px;">🖼️</div>
+                <p><strong>Dashboard "À valider" Tab Screenshot</strong></p>
+                <p style="margin-top: 10px;">Shows modification table with term names, proposer names, dates, and action buttons</p>
+            </div>
+        </div>
+
+        <!-- Security Implementation Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">🔐</span>
+                Security Implementation
+            </h2>
+
+            <h3 style="color: #667eea; margin-top: 20px;">Backend Validation (PUT /api/modifications/:id)</h3>
+            <div class="code-block">
+<span class="comment">// Check if user is the proposer (self-approval prevention)</span>
+<span class="keyword">if</span> (isOwner) {
+  <span class="keyword">return</span> res.status(<span class="string">403</span>).json({
+    status: <span class="string">'error'</span>,
+    message: <span class="string">'Vous ne pouvez pas valider votre propre proposition'</span>
+  });
+}
+
+<span class="comment">// Check if user owns the term</span>
+<span class="keyword">if</span> (!isTermAuthor && role === <span class="string">'author'</span>) {
+  <span class="keyword">return</span> res.status(<span class="string">403</span>).json({
+    status: <span class="string">'error'</span>,
+    message: <span class="string">'Vous ne pouvez valider que vos propres termes'</span>
+  });
+}
+            </div>
+
+            <h3 style="color: #667eea; margin-top: 20px;">Pending Validation Query</h3>
+            <div class="code-block">
+<span class="comment">-- For authors: Get modifications on their terms, excluding own proposals</span>
+<span class="keyword">SELECT</span> m.*, t.term_title, t.author_id
+<span class="keyword">FROM</span> proposed_modifications m
+<span class="keyword">LEFT JOIN</span> terms t <span class="keyword">ON</span> m.term_id = t.id
+<span class="keyword">WHERE</span> m.status = <span class="string">'pending'</span>
+  <span class="keyword">AND</span> t.author_id = <span class="string">:userId</span>
+  <span class="keyword">AND</span> m.proposer_id != <span class="string">:userId</span>  <span class="comment">-- Critical: Excludes own proposals</span>
+<span class="keyword">ORDER BY</span> m.created_at <span class="keyword">DESC</span>;
+            </div>
+        </div>
+
+        <!-- Testing Scenarios Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">🧪</span>
+                Testing Scenarios
+            </h2>
+
+            <div class="flow-container">
+                <div class="flow-box allowed">
+                    <h3>✅ Test 1: Valid Validation</h3>
+                    <p><strong>Setup:</strong></p>
+                    <ul style="margin-top: 10px; padding-left: 20px; font-size: 14px;">
+                        <li>Author A owns "Coaching" term</li>
+                        <li>User B proposes modification</li>
+                        <li>Author A validates</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Result:</strong> ✅ Success - Modification approved</p>
+                </div>
+
+                <div class="flow-box blocked">
+                    <h3>❌ Test 2: Self-Approval Attempt</h3>
+                    <p><strong>Setup:</strong></p>
+                    <ul style="margin-top: 10px; padding-left: 20px; font-size: 14px;">
+                        <li>Author A proposes modification on Term X</li>
+                        <li>Author A tries to validate own proposal</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Result:</strong> ❌ 403 Forbidden - "Cannot validate own proposal"</p>
+                </div>
+
+                <div class="flow-box blocked">
+                    <h3>❌ Test 3: Cross-Term Validation</h3>
+                    <p><strong>Setup:</strong></p>
+                    <ul style="margin-top: 10px; padding-left: 20px; font-size: 14px;">
+                        <li>Author A tries to validate modification on Author B's term</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Result:</strong> ❌ 403 Forbidden - "Can only validate own terms"</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="section-icon">🎉</span>
+                Implementation Summary
+            </h2>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 15px;">✅ What Was Built</h3>
+                <ul style="line-height: 2; color: #333;">
+                    <li>✅ Backend endpoint: <code>GET /api/modifications/pending-validation</code></li>
+                    <li>✅ Backend validation: Prevents self-approval (403 error)</li>
+                    <li>✅ Backend validation: Enforces term ownership</li>
+                    <li>✅ Dashboard tab: "À valider" with notification badges</li>
+                    <li>✅ Validation UI: Approve/Reject buttons with confirmation</li>
+                    <li>✅ Pagination: 5 modifications per page</li>
+                    <li>✅ Visual indicators: "Nouveau" badge for recent modifications</li>
+                    <li>✅ Security: All validation enforced on backend</li>
+                    <li>✅ User experience: Clear feedback with toast notifications</li>
+                    <li>✅ Documentation: Complete guides and testing scenarios</li>
+                </ul>
+            </div>
+
+            <div class="highlight-box" style="margin-top: 20px;">
+                <strong>🔐 KEY SECURITY FEATURE:</strong> Authors cannot validate their own modification proposals. This prevents self-approval and maintains content integrity. All validation happens on the backend and cannot be bypassed.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

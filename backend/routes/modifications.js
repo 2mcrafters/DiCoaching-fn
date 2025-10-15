@@ -6,7 +6,7 @@ import slugify from 'slugify';
 const router = express.Router();
 
 const selectEnglish = `
-  SELECT m.*, t.term as term_title, t.slug as term_slug,
+  SELECT m.*, t.term as term_title, t.slug as term_slug, t.author_id as term_author_id,
          u.firstname as proposer_firstname, u.lastname as proposer_lastname, u.email as proposer_email,
          r.firstname as reviewer_firstname, r.lastname as reviewer_lastname
   FROM proposed_modifications m
@@ -16,7 +16,7 @@ const selectEnglish = `
 `;
 
 const selectFrench = `
-  SELECT m.*, t.terme as term_title, NULL as term_slug,
+  SELECT m.*, t.terme as term_title, NULL as term_slug, t.author_id as term_author_id,
          u.firstname as proposer_firstname, u.lastname as proposer_lastname, u.email as proposer_email,
          r.firstname as reviewer_firstname, r.lastname as reviewer_lastname
   FROM proposed_modifications m
@@ -26,12 +26,12 @@ const selectFrench = `
 `;
 
 const queryModifications = async ({
-  whereClause = '',
+  whereClause = "",
   params = [],
-  orderClause = 'ORDER BY m.created_at DESC',
+  orderClause = "ORDER BY m.created_at DESC",
 } = {}) => {
-  const suffix = `${whereClause ? ` ${whereClause}` : ''}${
-    orderClause ? ` ${orderClause}` : ''
+  const suffix = `${whereClause ? ` ${whereClause}` : ""}${
+    orderClause ? ` ${orderClause}` : ""
   }`;
   try {
     return await db.query(`${selectEnglish} ${suffix}`, params);
@@ -43,7 +43,7 @@ const queryModifications = async ({
 const normalizeModificationRow = (row) => {
   if (!row) return row;
   let parsedChanges = row.changes;
-  if (typeof parsedChanges === 'string') {
+  if (typeof parsedChanges === "string") {
     try {
       parsedChanges = JSON.parse(parsedChanges);
     } catch (_) {
@@ -70,154 +70,195 @@ const normalizeModificationRow = (row) => {
 };
 
 // GET /api/modifications - Récupérer toutes les modifications proposées
-router.get('/', authenticateToken, async (req, res) => {
+router.get("/", authenticateToken, async (req, res) => {
   try {
     const modifications = await queryModifications();
 
     res.json({
-      status: 'success',
+      status: "success",
       data: modifications.map(normalizeModificationRow),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("❌ Erreur lors de la récupération des modifications:", error);
+    console.error(
+      "❌ Erreur lors de la récupération des modifications:",
+      error
+    );
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la récupération des modifications',
+      status: "error",
+      message: "Erreur lors de la récupération des modifications",
       error: error.message,
     });
   }
 });
 
 // GET /api/modifications/:id - Récupérer une modification proposée
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const rows = await queryModifications({
-      whereClause: 'WHERE m.id = ?',
+      whereClause: "WHERE m.id = ?",
       params: [id],
-      orderClause: '',
+      orderClause: "",
     });
 
     if (!rows || rows.length === 0) {
       return res.status(404).json({
-        status: 'error',
-        message: 'Modification non trouvée',
+        status: "error",
+        message: "Modification non trouvée",
       });
     }
 
     res.json({
-      status: 'success',
+      status: "success",
       data: normalizeModificationRow(rows[0]),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("�?O Erreur lors de la récupération de la modification:", error);
+    console.error(
+      "�?O Erreur lors de la récupération de la modification:",
+      error
+    );
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la récupération de la modification',
+      status: "error",
+      message: "Erreur lors de la récupération de la modification",
       error: error.message,
     });
   }
 });
 
 // POST /api/modifications - Créer une nouvelle modification proposée
-router.post('/', authenticateToken, async (req, res) => {
+router.post("/", authenticateToken, async (req, res) => {
   try {
     const { term_id, changes, comment } = req.body;
     const proposer_id = req.user.id;
 
     if (!term_id || !changes) {
       return res.status(400).json({
-        status: 'error',
-        message: 'L\'ID du terme et les modifications sont requis',
+        status: "error",
+        message: "L'ID du terme et les modifications sont requis",
       });
     }
 
-    const result = await db.query(`
+    const result = await db.query(
+      `
       INSERT INTO proposed_modifications (term_id, proposer_id, changes, comment, status, created_at)
       VALUES (?, ?, ?, ?, 'pending', NOW())
-    `, [term_id, proposer_id, JSON.stringify(changes), comment || null]);
+    `,
+      [term_id, proposer_id, JSON.stringify(changes), comment || null]
+    );
 
     const newRows = await queryModifications({
-      whereClause: 'WHERE m.id = ?',
+      whereClause: "WHERE m.id = ?",
       params: [result.insertId],
-      orderClause: '',
+      orderClause: "",
     });
 
     res.status(201).json({
-      status: 'success',
-      message: 'Modification proposée avec succès',
+      status: "success",
+      message: "Modification proposée avec succès",
       data: normalizeModificationRow(newRows[0]),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error("❌ Erreur lors de la création de la modification:", error);
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la création de la modification',
+      status: "error",
+      message: "Erreur lors de la création de la modification",
       error: error.message,
     });
   }
 });
 
 // PUT /api/modifications/:id - Mettre a jour une modification proposee
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, admin_comment, comment, changes } = req.body;
 
     const existingRows = await db.query(
-      'SELECT * FROM proposed_modifications WHERE id = ?',
+      "SELECT * FROM proposed_modifications WHERE id = ?",
       [id]
     );
 
     if (!existingRows || existingRows.length === 0) {
       return res.status(404).json({
-        status: 'error',
-        message: 'Modification non trouvee',
+        status: "error",
+        message: "Modification non trouvee",
       });
     }
 
     const existing = existingRows[0];
-    const role = (req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin';
+    const role = (req.user.role || "").toLowerCase();
+    const isAdmin = role === "admin";
     const isOwner = Number(existing.proposer_id) === Number(req.user.id);
 
-    const wantsAdminUpdate = typeof status !== 'undefined';
+    const wantsAdminUpdate = typeof status !== "undefined";
     const wantsOwnerUpdate =
-      typeof comment !== 'undefined' || typeof changes !== 'undefined';
+      typeof comment !== "undefined" || typeof changes !== "undefined";
 
     if (!wantsAdminUpdate && !wantsOwnerUpdate) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Aucun champ valide a mettre a jour',
+        status: "error",
+        message: "Aucun champ valide a mettre a jour",
       });
     }
 
     if (wantsAdminUpdate && !isAdmin) {
       return res.status(403).json({
-        status: 'error',
-        message: 'Action reservee aux administrateurs',
+        status: "error",
+        message: "Action reservee aux administrateurs",
       });
+    }
+
+    // CRITICAL: Prevent authors from validating their own proposals
+    if (wantsAdminUpdate && !isAdmin) {
+      // Get term to check if user is the term author
+      const termRows = await db.query(
+        "SELECT author_id FROM terms WHERE id = ?",
+        [existing.term_id]
+      );
+
+      if (termRows && termRows.length > 0) {
+        const termAuthorId = Number(termRows[0].author_id);
+        const isTermAuthor = termAuthorId === Number(req.user.id);
+
+        // Author can validate modifications on their terms BUT NOT their own proposals
+        if (isOwner) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "Vous ne pouvez pas valider votre propre proposition de modification",
+          });
+        }
+
+        // Non-admin, non-term-author cannot validate
+        if (!isTermAuthor && role === "author") {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "Vous ne pouvez valider que les modifications sur vos propres termes",
+          });
+        }
+      }
     }
 
     if (wantsOwnerUpdate && !isOwner) {
       return res.status(403).json({
-        status: 'error',
-        message: 'Vous ne pouvez modifier que vos propres propositions',
+        status: "error",
+        message: "Vous ne pouvez modifier que vos propres propositions",
       });
     }
 
     if (
       wantsOwnerUpdate &&
       existing.status &&
-      existing.status.toLowerCase() !== 'pending'
+      existing.status.toLowerCase() !== "pending"
     ) {
       return res.status(400).json({
-        status: 'error',
+        status: "error",
         message:
-          'Cette proposition a deja ete traitee et ne peut plus etre modifiee',
+          "Cette proposition a deja ete traitee et ne peut plus etre modifiee",
       });
     }
 
@@ -236,71 +277,116 @@ router.put('/:id', authenticateToken, async (req, res) => {
       const updateFields = [];
       const params = [];
 
-      if (typeof comment !== 'undefined') {
+      if (typeof comment !== "undefined") {
         const cleanedComment =
-          typeof comment === 'string' && comment.trim().length > 0
+          typeof comment === "string" && comment.trim().length > 0
             ? comment.trim()
             : null;
-        updateFields.push('comment = ?');
+        updateFields.push("comment = ?");
         params.push(cleanedComment);
       }
 
-      if (typeof changes !== 'undefined') {
+      if (typeof changes !== "undefined") {
         let normalizedChanges = {};
 
-        if (changes && typeof changes === 'object') {
+        if (changes && typeof changes === "object") {
           normalizedChanges = changes;
-        } else if (typeof changes === 'string') {
+        } else if (typeof changes === "string") {
           const trimmed = changes.trim();
           if (trimmed.length > 0) {
             try {
               normalizedChanges = JSON.parse(trimmed);
             } catch (error) {
               return res.status(400).json({
-                status: 'error',
-                message: 'Le format des modifications est invalide (JSON attendu)',
+                status: "error",
+                message:
+                  "Le format des modifications est invalide (JSON attendu)",
               });
             }
           }
         }
 
-        updateFields.push('changes = ?');
+        updateFields.push("changes = ?");
         params.push(JSON.stringify(normalizedChanges || {}));
       }
 
       if (updateFields.length > 0) {
         params.push(id);
         await db.query(
-          `UPDATE proposed_modifications SET ${updateFields.join(', ')} WHERE id = ?`,
+          `UPDATE proposed_modifications SET ${updateFields.join(
+            ", "
+          )} WHERE id = ?`,
           params
         );
       }
     }
 
     const updatedModification = await queryModifications({
-      whereClause: 'WHERE m.id = ?',
+      whereClause: "WHERE m.id = ?",
       params: [id],
-      orderClause: '',
+      orderClause: "",
     });
 
     if (!updatedModification || updatedModification.length === 0) {
       return res.status(404).json({
-        status: 'error',
-        message: 'Modification non trouvee',
+        status: "error",
+        message: "Modification non trouvee",
       });
     }
 
     res.json({
-      status: 'success',
-      message: 'Modification mise a jour avec succes',
+      status: "success",
+      message: "Modification mise a jour avec succes",
       data: normalizeModificationRow(updatedModification[0]),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Erreur lors de la mise a jour de la modification:', error);
+    console.error("Erreur lors de la mise a jour de la modification:", error);
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la mise a jour de la modification',
+      status: "error",
+      message: "Erreur lors de la mise a jour de la modification",
+      error: error.message,
+    });
+  }
+});
+
+// GET /api/modifications/pending-validation - Get modifications pending validation by author
+router.get("/pending-validation", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const role = (req.user.role || "").toLowerCase();
+
+    // Only authors and admins can validate modifications
+    if (role !== "author" && role !== "admin") {
+      return res.status(403).json({
+        status: "error",
+        message: "Accès réservé aux auteurs et administrateurs",
+      });
+    }
+
+    // Get pending modifications on user's terms (excluding their own proposals)
+    const modifications = await queryModifications({
+      whereClause:
+        role === "admin"
+          ? "WHERE m.status = ?"
+          : "WHERE m.status = ? AND t.author_id = ? AND m.proposer_id != ?",
+      params: role === "admin" ? ["pending"] : ["pending", userId, userId],
+      orderClause: "ORDER BY m.created_at DESC",
+    });
+
+    res.json({
+      status: "success",
+      data: modifications.map(normalizeModificationRow),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(
+      "❌ Erreur lors de la récupération des modifications en attente:",
+      error
+    );
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors de la récupération des modifications en attente",
       error: error.message,
     });
   }

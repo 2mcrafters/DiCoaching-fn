@@ -27,6 +27,7 @@ import {
   Copy,
   ExternalLink,
   ArrowRight,
+  Check,
 } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import UserTermsList from "@/components/dashboard/UserTermsList";
@@ -310,6 +311,12 @@ const Dashboard = () => {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newCommentsCount, setNewCommentsCount] = useState(0);
 
+  // Pending validation modifications for authors
+  const [pendingValidationMods, setPendingValidationMods] = useState([]);
+  const [pendingValidationLoading, setPendingValidationLoading] =
+    useState(false);
+  const [newPendingValidationCount, setNewPendingValidationCount] = useState(0);
+
   // New item counts for notifications (items within 24 hours)
   const [newReceivedReportsCount, setNewReceivedReportsCount] = useState(0);
   const [newLikedTermsCount, setNewLikedTermsCount] = useState(0);
@@ -348,6 +355,9 @@ const Dashboard = () => {
       case "modifications":
         setNewModificationsCount(0);
         break;
+      case "pending-validation":
+        setNewPendingValidationCount(0);
+        break;
       default:
         break;
     }
@@ -358,6 +368,7 @@ const Dashboard = () => {
   const [likedTermsPage, setLikedTermsPage] = useState(1);
   const [userTermsPage, setUserTermsPage] = useState(1);
   const [reportsPage, setReportsPage] = useState(1);
+  const [pendingValidationPage, setPendingValidationPage] = useState(1);
   const itemsPerPage = 5;
 
   const [editingReport, setEditingReport] = useState(null);
@@ -744,6 +755,46 @@ const Dashboard = () => {
     fetchReceivedReports();
   }, [user?.id, isAuthor, user?.role]);
 
+  // Fetch pending validation modifications for authors (modifications on their terms that they need to validate)
+  useEffect(() => {
+    if (!isAuthor && user?.role !== "admin") return;
+
+    const fetchPendingValidation = async () => {
+      setPendingValidationLoading(true);
+      try {
+        const apiService = await import("@/services/api");
+        const data =
+          await apiService.default.getPendingValidationModifications();
+        console.log("✅ Pending Validation Mods:", data);
+
+        const modifications = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+          ? data
+          : [];
+        setPendingValidationMods(modifications);
+
+        // Calculate new pending validations (last 24 hours)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const newMods = modifications.filter((mod) => {
+          const modDate = new Date(mod.created_at || mod.createdAt);
+          return modDate > oneDayAgo;
+        });
+        setNewPendingValidationCount(newMods.length);
+      } catch (error) {
+        console.error(
+          "❌ Error fetching pending validation modifications:",
+          error
+        );
+        setPendingValidationMods([]);
+        setNewPendingValidationCount(0);
+      } finally {
+        setPendingValidationLoading(false);
+      }
+    };
+    fetchPendingValidation();
+  }, [user?.id, isAuthor, user?.role]);
+
   // Handler for editing a report
   const handleEditReport = useCallback((report) => {
     setEditingReport(report);
@@ -786,6 +837,65 @@ const Dashboard = () => {
       }
     },
     [user?.id, dispatch]
+  );
+
+  // Handler for validating or rejecting modifications (author validation)
+  const handleModificationValidation = useCallback(
+    async (modificationId, action) => {
+      const isApprove = action === "approve";
+      const confirmed = await confirmDelete({
+        title: isApprove
+          ? "Approuver cette modification ?"
+          : "Rejeter cette modification ?",
+        description: isApprove
+          ? "Cette modification sera appliquée au terme."
+          : "Cette modification sera rejetée et ne sera pas appliquée.",
+        confirmText: isApprove ? "Approuver" : "Rejeter",
+        cancelText: "Annuler",
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        const apiService = await import("@/services/api");
+        await apiService.default.validateModification(
+          modificationId,
+          isApprove ? "approved" : "rejected"
+        );
+
+        // Remove from pending validation list
+        setPendingValidationMods((prev) =>
+          prev.filter((mod) => mod.id !== modificationId)
+        );
+
+        // Refresh stats
+        if (user?.id) {
+          dispatch(fetchUserStats(user.id));
+        }
+
+        toast({
+          title: isApprove ? "Modification approuvée" : "Modification rejetée",
+          description: isApprove
+            ? "La modification a été appliquée avec succès."
+            : "La modification a été rejetée.",
+        });
+
+        console.log(
+          `✅ Modification ${isApprove ? "approved" : "rejected"} successfully`
+        );
+      } catch (error) {
+        console.error("❌ Error validating modification:", error);
+        toast({
+          title: "Erreur",
+          description:
+            "Erreur lors de la validation de la modification. Veuillez réessayer.",
+          variant: "destructive",
+        });
+      }
+    },
+    [user?.id, dispatch, confirmDelete, toast]
   );
 
   // (Legacy) handler kept for compatibility, delegates to new system
@@ -898,48 +1008,83 @@ const Dashboard = () => {
     : [
         // Author/Admin stat cards with comprehensive metrics
         {
-          title: "Termes Publiés",
-          value: statsData.published,
+          title: "Mes Termes",
+          value: statsData.total || userTerms.length,
           icon: FileText,
           color: "from-green-500 to-green-400",
           delay: 0.1,
-          description: `${(
-            (statsData.published / Math.max(statsData.total, 1)) *
-            100
-          ).toFixed(0)}% de vos termes`,
+          description: `${statsData.published || 0} publiés sur ${
+            statsData.total || userTerms.length
+          }`,
           tabKey: "terms",
         },
         {
-          title: "Commentaires",
+          title: "Commentaires Reçus",
           value: userComments.length,
           icon: MessageSquare,
           color: "from-blue-500 to-blue-400",
           delay: 0.2,
           description:
             newCommentsCount > 0
-              ? `${newCommentsCount} nouveau${
-                  newCommentsCount > 1 ? "x" : ""
-                } commentaire${newCommentsCount > 1 ? "s" : ""}`
-              : "Commentaires sur vos termes",
+              ? `${newCommentsCount} nouveau${newCommentsCount > 1 ? "x" : ""}`
+              : "Sur vos termes",
           tabKey: "comments",
           badge: newCommentsCount > 0 ? newCommentsCount : null,
+        },
+        {
+          title: "À Valider",
+          value: pendingValidationMods.length,
+          icon: CheckCircle,
+          color: "from-orange-500 to-orange-400",
+          delay: 0.3,
+          description:
+            newPendingValidationCount > 0
+              ? `${newPendingValidationCount} nouvelle${
+                  newPendingValidationCount > 1 ? "s" : ""
+                }`
+              : "Modifications à valider",
+          tabKey: "pending-validation",
+          badge:
+            newPendingValidationCount > 0 ? newPendingValidationCount : null,
         },
         {
           title: "Termes Aimés",
           value: likedTerms.length,
           icon: Heart,
           color: "from-pink-500 to-pink-400",
-          delay: 0.3,
-          description: `Termes que vous avez aimés`,
+          delay: 0.4,
+          description:
+            newLikedTermsCount > 0
+              ? `${newLikedTermsCount} nouveau${
+                  newLikedTermsCount > 1 ? "x" : ""
+                }`
+              : "Que vous avez aimés",
           tabKey: "liked",
+          badge: newLikedTermsCount > 0 ? newLikedTermsCount : null,
         },
         {
-          title: "Activités Totales",
-          value: statsData.totalActivities,
-          icon: BarChart2,
-          color: "from-purple-500 to-purple-400",
-          delay: 0.4,
-          description: `${statsData.total} termes créés`,
+          title: "Signalements Reçus",
+          value: receivedReports.length,
+          icon: AlertTriangle,
+          color: "from-red-500 to-red-400",
+          delay: 0.5,
+          description:
+            newReceivedReportsCount > 0
+              ? `${newReceivedReportsCount} nouveau${
+                  newReceivedReportsCount > 1 ? "x" : ""
+                }`
+              : "Sur vos termes",
+          tabKey: "reports-received",
+          badge: newReceivedReportsCount > 0 ? newReceivedReportsCount : null,
+        },
+        {
+          title: "Likes Reçus",
+          value: statsData.likes || 0,
+          icon: Star,
+          color: "from-yellow-500 to-yellow-400",
+          delay: 0.6,
+          description: "Sur vos termes",
+          tabKey: "liked",
         },
       ];
 
@@ -990,6 +1135,11 @@ const Dashboard = () => {
         badge: newCommentsCount > 0 ? newCommentsCount : null,
       },
       {
+        key: "pending-validation",
+        label: "À valider",
+        badge: newPendingValidationCount > 0 ? newPendingValidationCount : null,
+      },
+      {
         key: "liked",
         label: "Termes aimés",
         badge: newLikedTermsCount > 0 ? newLikedTermsCount : null,
@@ -1007,6 +1157,7 @@ const Dashboard = () => {
     ],
     [
       newCommentsCount,
+      newPendingValidationCount,
       newLikedTermsCount,
       newUserTermsCount,
       newReceivedReportsCount,
@@ -1051,6 +1202,11 @@ const Dashboard = () => {
   const paginatedReports = useMemo(
     () => getPaginatedItems(userReports, reportsPage),
     [userReports, reportsPage, getPaginatedItems]
+  );
+
+  const paginatedPendingValidation = useMemo(
+    () => getPaginatedItems(pendingValidationMods, pendingValidationPage),
+    [pendingValidationMods, pendingValidationPage, getPaginatedItems]
   );
 
   const scoreBreakdown = useMemo(
@@ -1712,6 +1868,199 @@ const Dashboard = () => {
             >
               Gérer mes documents
             </Link>
+          </div>
+        );
+
+      case "pending-validation":
+        if (pendingValidationLoading) {
+          return (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Chargement des modifications en attente...
+            </div>
+          );
+        }
+
+        return pendingValidationMods.length > 0 ? (
+          <div className="overflow-x-auto">
+            <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 rounded-r">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>
+                  Validez les modifications proposées par d'autres utilisateurs
+                  sur vos termes.
+                </strong>{" "}
+                Vous ne pouvez pas valider vos propres propositions.
+              </p>
+            </div>
+            <table className="min-w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                <tr>
+                  <th className="px-4 py-3 text-left">Terme</th>
+                  <th className="px-4 py-3 text-left">Proposée par</th>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {paginatedPendingValidation.map((modification) => {
+                  const proposerName =
+                    [
+                      modification.proposer_firstname,
+                      modification.proposer_lastname,
+                    ]
+                      .filter(Boolean)
+                      .join(" ") ||
+                    modification.proposer_email ||
+                    "Utilisateur inconnu";
+
+                  const isNew =
+                    new Date(
+                      modification.created_at || modification.createdAt
+                    ) > new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+                  return (
+                    <tr
+                      key={modification.id}
+                      className={`group hover:bg-muted/40 hover:shadow-sm transition-all ${
+                        isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        <Link
+                          to={
+                            modification.term_slug
+                              ? `/fiche/${modification.term_slug}`
+                              : "#"
+                          }
+                          className={
+                            modification.term_slug
+                              ? "text-primary hover:underline inline-flex items-center gap-1"
+                              : "text-foreground"
+                          }
+                        >
+                          {modification.term_title || "Terme inconnu"}
+                          {modification.term_slug && (
+                            <ExternalLink className="h-3 w-3" />
+                          )}
+                          {isNew && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                              Nouveau
+                            </span>
+                          )}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {proposerName}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDate(
+                          modification.created_at || modification.createdAt
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleModificationValidation(
+                                modification.id,
+                                "approve"
+                              )
+                            }
+                            className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors inline-flex items-center gap-1"
+                            title="Approuver la modification"
+                          >
+                            <Check className="h-3 w-3" /> Approuver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleModificationValidation(
+                                modification.id,
+                                "reject"
+                              )
+                            }
+                            className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors inline-flex items-center gap-1"
+                            title="Rejeter la modification"
+                          >
+                            <X className="h-3 w-3" /> Rejeter
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {/* Pagination for Pending Validation */}
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() =>
+                      setPendingValidationPage((p) => Math.max(1, p - 1))
+                    }
+                    className={
+                      pendingValidationPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from(
+                  { length: getTotalPages(pendingValidationMods) },
+                  (_, i) => i + 1
+                ).map((page) => {
+                  const totalPages = getTotalPages(pendingValidationMods);
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - pendingValidationPage) <= 1
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setPendingValidationPage(page)}
+                          isActive={pendingValidationPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === pendingValidationPage - 2 ||
+                    page === pendingValidationPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                })}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setPendingValidationPage((p) =>
+                        Math.min(getTotalPages(pendingValidationMods), p + 1)
+                      )
+                    }
+                    className={
+                      pendingValidationPage ===
+                      getTotalPages(pendingValidationMods)
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        ) : (
+          <div className="text-muted-foreground text-sm">
+            Aucune modification en attente de validation pour le moment.
           </div>
         );
 
@@ -2454,7 +2803,7 @@ const Dashboard = () => {
               </span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {statCards.map((stat) => {
                 // Destructure to exclude badge from being passed to StatCard
                 const { badge, ...statWithoutBadge } = stat;

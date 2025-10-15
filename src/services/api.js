@@ -77,7 +77,8 @@ class ApiService {
       // Handle network errors (offline, DNS failure, timeout, etc.)
       if (
         error instanceof TypeError &&
-        (error.message === "Failed to fetch" || error.message.includes("NetworkError"))
+        (error.message === "Failed to fetch" ||
+          error.message.includes("NetworkError"))
       ) {
         console.error("Network Error:", error);
         // Only redirect to network error page if we're not already there
@@ -221,6 +222,10 @@ class ApiService {
     return this.get("/api/modifications");
   }
 
+  async getPendingValidationModifications() {
+    return this.get("/api/modifications/pending-validation");
+  }
+
   async getModificationById(id, options = {}) {
     return this.get(`/api/modifications/${id}`, options);
   }
@@ -235,6 +240,13 @@ class ApiService {
 
   async deleteModification(id) {
     return this.delete(`/api/modifications/${id}`);
+  }
+
+  async validateModification(id, status, comment = null) {
+    return this.put(`/api/modifications/${id}`, {
+      status,
+      admin_comment: comment,
+    });
   }
 
   // Comments
