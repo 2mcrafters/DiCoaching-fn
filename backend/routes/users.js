@@ -63,7 +63,8 @@ const normalizeNullableString = (value) => {
 router.get('/', async (req, res) => {
   try {
     const users = await db.query(`
-      SELECT id, email, firstname, lastname, role, status, created_at, updated_at, professional_status, other_status, biography, profile_picture, sex FROM users 
+      SELECT id, email, firstname, lastname, name, role, status, created_at, updated_at, professional_status, other_status, biography, profile_picture, sex, phone, socials 
+      FROM users 
       ORDER BY created_at DESC
     `);
 
