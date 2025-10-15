@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ProtectedRoute = ({ children, requireAdmin = false }) => {
+const ProtectedRoute = ({ children, requireAdmin = false, roles = [] }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -13,12 +13,19 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     );
   }
 
+  // Not authenticated - redirect to login
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requireAdmin && user.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+  // Check admin requirement
+  if (requireAdmin && user.role !== "admin") {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Check specific role requirements
+  if (roles.length > 0 && !roles.includes(user.role)) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   return children;

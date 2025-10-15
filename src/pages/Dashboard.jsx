@@ -45,9 +45,20 @@ import {
 import { sanitizeModificationChanges } from "@/lib/modifications";
 import { useToast } from "@/components/ui/use-toast";
 import apiService from "@/services/api";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/Pagination";
 
 const Dashboard = () => {
   const { user, hasAuthorPermissions } = useAuth();
+  const { confirmDelete, ConfirmDialog } = useConfirmDialog();
   const { toast } = useToast();
   const dispatch = useDispatch();
   const allTerms = useSelector(selectAllTerms);
@@ -106,6 +117,16 @@ const Dashboard = () => {
       (t) => String(t.authorId) === String(user.id)
     );
   }, [allTerms, user?.id]);
+
+  // Calculate new user terms (created in last 24 hours)
+  useEffect(() => {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const newTerms = userTerms.filter((term) => {
+      const createdDate = new Date(term.created_at || term.createdAt);
+      return createdDate > oneDayAgo;
+    });
+    setNewUserTermsCount(newTerms.length);
+  }, [userTerms]);
 
   // Fetch comprehensive dashboard statistics from database
   const [dashboardStats, setDashboardStats] = useState(null);
@@ -288,6 +309,57 @@ const Dashboard = () => {
   const [userComments, setUserComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newCommentsCount, setNewCommentsCount] = useState(0);
+
+  // New item counts for notifications (items within 24 hours)
+  const [newReceivedReportsCount, setNewReceivedReportsCount] = useState(0);
+  const [newLikedTermsCount, setNewLikedTermsCount] = useState(0);
+  const [newUserTermsCount, setNewUserTermsCount] = useState(0);
+  const [newUserReportsCount, setNewUserReportsCount] = useState(0);
+  const [newModificationsCount, setNewModificationsCount] = useState(0);
+
+  // Track which tabs have been viewed (to hide notifications)
+  const [viewedTabs, setViewedTabs] = useState(new Set());
+
+  // Handler to clear notification when tab is clicked
+  const handleTabClick = useCallback((tabKey) => {
+    setActiveTab(tabKey);
+
+    // Mark tab as viewed
+    setViewedTabs((prev) => new Set([...prev, tabKey]));
+
+    // Clear the notification for this tab
+    switch (tabKey) {
+      case "comments":
+        setNewCommentsCount(0);
+        break;
+      case "liked":
+      case "termes-apprecies":
+        setNewLikedTermsCount(0);
+        break;
+      case "terms":
+        setNewUserTermsCount(0);
+        break;
+      case "reports-received":
+        setNewReceivedReportsCount(0);
+        break;
+      case "reports":
+        setNewUserReportsCount(0);
+        break;
+      case "modifications":
+        setNewModificationsCount(0);
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  // Pagination state for each tab (5 items per page)
+  const [commentsPage, setCommentsPage] = useState(1);
+  const [likedTermsPage, setLikedTermsPage] = useState(1);
+  const [userTermsPage, setUserTermsPage] = useState(1);
+  const [reportsPage, setReportsPage] = useState(1);
+  const itemsPerPage = 5;
+
   const [editingReport, setEditingReport] = useState(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingModification, setEditingModification] = useState(null);
@@ -397,11 +469,15 @@ const Dashboard = () => {
 
   const handleDeleteModification = useCallback(
     async (modificationId) => {
-      if (
-        !window.confirm(
-          "Etes-vous sur de vouloir supprimer cette modification ?"
-        )
-      ) {
+      const confirmed = await confirmDelete({
+        title: "Supprimer cette modification ?",
+        description:
+          "Cette proposition de modification sera définitivement supprimée. Cette action est irréversible.",
+        confirmText: "Supprimer",
+        cancelText: "Annuler",
+      });
+
+      if (!confirmed) {
         return;
       }
 
@@ -410,11 +486,19 @@ const Dashboard = () => {
         await apiService.default.deleteModification(modificationId);
         dispatch(fetchModifications());
         console.log("[Dashboard] Modification deleted");
+        toast({
+          title: "Modification supprimée",
+          description:
+            "La proposition de modification a été supprimée avec succès.",
+        });
       } catch (error) {
         console.error("Error deleting modification:", error);
-        alert(
-          "Erreur lors de la suppression de la modification. Veuillez reessayer."
-        );
+        toast({
+          title: "Erreur",
+          description:
+            "Erreur lors de la suppression de la modification. Veuillez réessayer.",
+          variant: "destructive",
+        });
       }
     },
     [dispatch]
@@ -509,10 +593,20 @@ const Dashboard = () => {
         const apiService = await import("@/services/api");
         const data = await apiService.default.getUserLikedTerms();
         console.log("❤️ Liked Terms Received:", data);
-        setLikedTerms(Array.isArray(data) ? data : []);
+        const likedTermsData = Array.isArray(data) ? data : [];
+        setLikedTerms(likedTermsData);
+
+        // Calculate new liked terms (last 24 hours)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const newLiked = likedTermsData.filter((term) => {
+          const likedDate = new Date(term.likedAt || term.liked_at);
+          return likedDate > oneDayAgo;
+        });
+        setNewLikedTermsCount(newLiked.length);
       } catch (error) {
         console.error("❌ Error fetching liked terms:", error);
         setLikedTerms([]);
+        setNewLikedTermsCount(0);
       } finally {
         setLikedTermsLoading(false);
       }
@@ -555,9 +649,18 @@ const Dashboard = () => {
 
         console.log("✅ Filtered User Reports:", myReports);
         setUserReports(myReports);
+
+        // Calculate new user reports (last 24 hours)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const newReports = myReports.filter((report) => {
+          const reportDate = new Date(report.created_at || report.createdAt);
+          return reportDate > oneDayAgo;
+        });
+        setNewUserReportsCount(newReports.length);
       } catch (error) {
         console.error("❌ Error fetching user reports:", error);
         setUserReports([]);
+        setNewUserReportsCount(0);
       } finally {
         setReportsLoading(false);
       }
@@ -616,16 +719,24 @@ const Dashboard = () => {
       try {
         const data = await apiService.getAuthorReports(user.id);
         console.log("🚩 Reports Received On My Terms:", data);
-        setReceivedReports(
-          Array.isArray(data?.data)
-            ? data.data
-            : Array.isArray(data)
-            ? data
-            : []
-        );
+        const reports = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+          ? data
+          : [];
+        setReceivedReports(reports);
+
+        // Calculate new reports (last 24 hours)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const newReports = reports.filter((report) => {
+          const reportDate = new Date(report.created_at || report.createdAt);
+          return reportDate > oneDayAgo;
+        });
+        setNewReceivedReportsCount(newReports.length);
       } catch (error) {
         console.error("❌ Error fetching reports on author terms:", error);
         setReceivedReports([]);
+        setNewReceivedReportsCount(0);
       } finally {
         setReceivedReportsLoading(false);
       }
@@ -642,9 +753,15 @@ const Dashboard = () => {
   // Handler for deleting a report
   const handleDeleteReport = useCallback(
     async (reportId) => {
-      if (
-        !window.confirm("Êtes-vous sûr de vouloir supprimer ce signalement ?")
-      ) {
+      const confirmed = await confirmDelete({
+        title: "Supprimer ce signalement ?",
+        description:
+          "Ce signalement sera définitivement supprimé. Cette action est irréversible.",
+        confirmText: "Supprimer",
+        cancelText: "Annuler",
+      });
+
+      if (!confirmed) {
         return;
       }
 
@@ -833,14 +950,36 @@ const Dashboard = () => {
     );
   }, [allModifications, isResearcher, user?.id]);
 
+  // Calculate new modifications (created in last 24 hours)
+  useEffect(() => {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const newMods = researcherModifications.filter((mod) => {
+      const createdDate = new Date(mod.created_at || mod.createdAt);
+      return createdDate > oneDayAgo;
+    });
+    setNewModificationsCount(newMods.length);
+  }, [researcherModifications]);
+
   const researcherTabs = useMemo(
     () => [
-      { key: "liked", label: "Termes appréciés" },
-      { key: "modifications", label: "Modifications proposées" },
-      { key: "reports", label: "Signalements effectués" },
+      {
+        key: "liked",
+        label: "Termes appréciés",
+        badge: newLikedTermsCount > 0 ? newLikedTermsCount : null,
+      },
+      {
+        key: "modifications",
+        label: "Modifications proposées",
+        badge: newModificationsCount > 0 ? newModificationsCount : null,
+      },
+      {
+        key: "reports",
+        label: "Signalements effectués",
+        badge: newUserReportsCount > 0 ? newUserReportsCount : null,
+      },
       { key: "activities", label: "Activités totales" },
     ],
-    []
+    [newLikedTermsCount, newModificationsCount, newUserReportsCount]
   );
 
   const authorTabs = useMemo(
@@ -850,14 +989,69 @@ const Dashboard = () => {
         label: "Commentaires",
         badge: newCommentsCount > 0 ? newCommentsCount : null,
       },
-      { key: "liked", label: "Termes aimés" },
-      { key: "terms", label: "Mes termes" },
-      { key: "reports-received", label: "Signalements" },
+      {
+        key: "liked",
+        label: "Termes aimés",
+        badge: newLikedTermsCount > 0 ? newLikedTermsCount : null,
+      },
+      {
+        key: "terms",
+        label: "Mes termes",
+        badge: newUserTermsCount > 0 ? newUserTermsCount : null,
+      },
+      {
+        key: "reports-received",
+        label: "Signalements",
+        badge: newReceivedReportsCount > 0 ? newReceivedReportsCount : null,
+      },
     ],
-    [newCommentsCount]
+    [
+      newCommentsCount,
+      newLikedTermsCount,
+      newUserTermsCount,
+      newReceivedReportsCount,
+    ]
   );
 
   const documentsCount = statsData.documents || 0;
+
+  // Pagination helpers
+  const getPaginatedItems = useCallback(
+    (items, page) => {
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return items.slice(startIndex, endIndex);
+    },
+    [itemsPerPage]
+  );
+
+  const getTotalPages = useCallback(
+    (items) => {
+      return Math.max(1, Math.ceil(items.length / itemsPerPage));
+    },
+    [itemsPerPage]
+  );
+
+  // Paginated data
+  const paginatedComments = useMemo(
+    () => getPaginatedItems(userComments, commentsPage),
+    [userComments, commentsPage, getPaginatedItems]
+  );
+
+  const paginatedLikedTerms = useMemo(
+    () => getPaginatedItems(likedTerms, likedTermsPage),
+    [likedTerms, likedTermsPage, getPaginatedItems]
+  );
+
+  const paginatedUserTerms = useMemo(
+    () => getPaginatedItems(userTerms, userTermsPage),
+    [userTerms, userTermsPage, getPaginatedItems]
+  );
+
+  const paginatedReports = useMemo(
+    () => getPaginatedItems(userReports, reportsPage),
+    [userReports, reportsPage, getPaginatedItems]
+  );
 
   const scoreBreakdown = useMemo(
     () => [
@@ -908,7 +1102,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {likedTerms.map((term) => (
+                {paginatedLikedTerms.map((term) => (
                   <tr key={term.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 font-medium text-foreground">
                       <div>
@@ -932,6 +1126,68 @@ const Dashboard = () => {
                 ))}
               </tbody>
             </table>
+            {/* Pagination for Liked Terms */}
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setLikedTermsPage((p) => Math.max(1, p - 1))}
+                    className={
+                      likedTermsPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from(
+                  { length: getTotalPages(likedTerms) },
+                  (_, i) => i + 1
+                ).map((page) => {
+                  const totalPages = getTotalPages(likedTerms);
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - likedTermsPage) <= 1
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setLikedTermsPage(page)}
+                          isActive={likedTermsPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === likedTermsPage - 2 ||
+                    page === likedTermsPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                })}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setLikedTermsPage((p) =>
+                        Math.min(getTotalPages(likedTerms), p + 1)
+                      )
+                    }
+                    className={
+                      likedTermsPage === getTotalPages(likedTerms)
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         ) : (
           <div className="text-muted-foreground text-sm">
@@ -963,7 +1219,7 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {userReports.map((report) => (
+                {paginatedReports.map((report) => (
                   <tr key={report.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3 font-medium text-foreground">
                       <Link
@@ -1030,6 +1286,68 @@ const Dashboard = () => {
                 ))}
               </tbody>
             </table>
+            {/* Pagination for Reports */}
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setReportsPage((p) => Math.max(1, p - 1))}
+                    className={
+                      reportsPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from(
+                  { length: getTotalPages(userReports) },
+                  (_, i) => i + 1
+                ).map((page) => {
+                  const totalPages = getTotalPages(userReports);
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - reportsPage) <= 1
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setReportsPage(page)}
+                          isActive={reportsPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === reportsPage - 2 ||
+                    page === reportsPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                })}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setReportsPage((p) =>
+                        Math.min(getTotalPages(userReports), p + 1)
+                      )
+                    }
+                    className={
+                      reportsPage === getTotalPages(userReports)
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         ) : (
           <div className="text-muted-foreground text-sm">
@@ -1146,12 +1464,16 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {userComments.map((comment) => {
+                {paginatedComments.map((comment) => {
                   const isNew =
                     new Date(comment.createdAt) >
                     new Date(Date.now() - 24 * 60 * 60 * 1000);
-                  const commentLink = comment.termSlug
-                    ? `/fiche/${comment.termSlug}#comment-${comment.id}`
+                  // Use nested term object from backend response
+                  const termSlug = comment.term?.slug || comment.termSlug;
+                  const termTitle =
+                    comment.term?.title || comment.termTitle || "Terme";
+                  const commentLink = termSlug
+                    ? `/fiche/${termSlug}#comment-${comment.id}`
                     : "#";
                   return (
                     <tr
@@ -1164,15 +1486,13 @@ const Dashboard = () => {
                         <Link
                           to={commentLink}
                           className={
-                            comment.termSlug
+                            termSlug
                               ? "text-primary hover:underline inline-flex items-center gap-1"
                               : "text-foreground"
                           }
                         >
-                          {comment.termTitle || "Terme"}
-                          {comment.termSlug && (
-                            <ExternalLink className="h-3 w-3" />
-                          )}
+                          {termTitle}
+                          {termSlug && <ExternalLink className="h-3 w-3" />}
                           {isNew && (
                             <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                               Nouveau
@@ -1190,7 +1510,7 @@ const Dashboard = () => {
                         {formatDate(comment.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {comment.termSlug && (
+                        {termSlug && (
                           <Link
                             to={commentLink}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-md transition-colors"
@@ -1205,6 +1525,69 @@ const Dashboard = () => {
                 })}
               </tbody>
             </table>
+            {/* Pagination for Comments */}
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCommentsPage((p) => Math.max(1, p - 1))}
+                    className={
+                      commentsPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from(
+                  { length: getTotalPages(userComments) },
+                  (_, i) => i + 1
+                ).map((page) => {
+                  const totalPages = getTotalPages(userComments);
+                  // Show first, last, current, and neighbors
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - commentsPage) <= 1
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCommentsPage(page)}
+                          isActive={commentsPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === commentsPage - 2 ||
+                    page === commentsPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                })}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setCommentsPage((p) =>
+                        Math.min(getTotalPages(userComments), p + 1)
+                      )
+                    }
+                    className={
+                      commentsPage === getTotalPages(userComments)
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         ) : (
           <div className="text-muted-foreground text-sm">
@@ -1431,7 +1814,7 @@ const Dashboard = () => {
             <div className="text-sm text-muted-foreground mb-4">
               Gérez vos termes soumis et vos brouillons.
             </div>
-            {userTerms.map((term) => (
+            {paginatedUserTerms.map((term) => (
               <div
                 key={term.id}
                 className="flex items-center justify-between p-4 border rounded-lg bg-background/50 hover:bg-muted/40 transition-colors"
@@ -1473,6 +1856,68 @@ const Dashboard = () => {
                 </div>
               </div>
             ))}
+            {/* Pagination for User Terms */}
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setUserTermsPage((p) => Math.max(1, p - 1))}
+                    className={
+                      userTermsPage === 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+                {Array.from(
+                  { length: getTotalPages(userTerms) },
+                  (_, i) => i + 1
+                ).map((page) => {
+                  const totalPages = getTotalPages(userTerms);
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - userTermsPage) <= 1
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setUserTermsPage(page)}
+                          isActive={userTermsPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  } else if (
+                    page === userTermsPage - 2 ||
+                    page === userTermsPage + 2
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                })}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setUserTermsPage((p) =>
+                        Math.min(getTotalPages(userTerms), p + 1)
+                      )
+                    }
+                    className={
+                      userTermsPage === getTotalPages(userTerms)
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         ) : (
           <div className="text-center py-10">
@@ -2010,22 +2455,27 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {statCards.map((stat) => (
-                <StatCard
-                  key={stat.title}
-                  {...stat}
-                  onClick={
-                    (isResearcher || isAuthor || user?.role === "admin") &&
-                    stat.tabKey
-                      ? () => setActiveTab(stat.tabKey)
-                      : undefined
-                  }
-                  active={
-                    (isResearcher || isAuthor || user?.role === "admin") &&
-                    stat.tabKey === activeTab
-                  }
-                />
-              ))}
+              {statCards.map((stat) => {
+                // Destructure to exclude badge from being passed to StatCard
+                const { badge, ...statWithoutBadge } = stat;
+                return (
+                  <StatCard
+                    key={stat.title}
+                    {...statWithoutBadge}
+                    onClick={
+                      (isResearcher || isAuthor || user?.role === "admin") &&
+                      stat.tabKey
+                        ? () => handleTabClick(stat.tabKey)
+                        : undefined
+                    }
+                    active={
+                      (isResearcher || isAuthor || user?.role === "admin") &&
+                      stat.tabKey === activeTab
+                    }
+                    badge={undefined}
+                  />
+                );
+              })}
             </div>
           )}
 
@@ -2042,7 +2492,7 @@ const Dashboard = () => {
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() => setActiveTab(tab.key)}
+                      onClick={() => handleTabClick(tab.key)}
                       className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                         activeTab === tab.key
                           ? "bg-primary text-white shadow"
@@ -2050,11 +2500,13 @@ const Dashboard = () => {
                       }`}
                     >
                       {tab.label}
-                      {tab.badge && tab.badge > 0 && (
-                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
-                          {tab.badge}
-                        </span>
-                      )}
+                      {tab.badge &&
+                        tab.badge > 0 &&
+                        !viewedTabs.has(tab.key) && (
+                          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
+                            {tab.badge}
+                          </span>
+                        )}
                     </button>
                   ))}
                 </div>
@@ -2132,6 +2584,7 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+      {ConfirmDialog}
     </>
   );
 };

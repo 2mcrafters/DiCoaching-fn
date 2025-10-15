@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { DataProvider } from "@/contexts/DataContext";
 import { Toaster } from "@/components/ui/toaster";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/layout/Footer";
 import ScrollToTopButton from "@/components/layout/ScrollToTopButton";
@@ -22,6 +23,9 @@ import Fiche from "@/pages/Fiche";
 import Admin from "@/pages/Admin";
 import Search from "@/pages/Search";
 import NotFound from "@/pages/NotFound";
+import Unauthorized from "@/pages/Unauthorized";
+import NetworkError from "@/pages/NetworkError";
+import ServerError from "@/pages/ServerError";
 import RegistrationComplete from "@/pages/RegistrationComplete";
 import Authors from "@/pages/Authors";
 import AuthorProfile from "@/pages/AuthorProfile";
@@ -37,11 +41,27 @@ import UsersManagement from "@/components/admin/UsersManagement";
 import ApiTest from "@/pages/ApiTest";
 import Introduction from "@/pages/Introduction";
 import ConnectionTest from "@/pages/ConnectionTest";
+import ErrorTest from "@/pages/ErrorTest";
 
 const AppContent = () => {
   const { user, loading } = useAuth();
   const [isNewsletterOpen, setIsNewsletterOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const dispatch = useDispatch();
+
+  // Network status detection
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Fetch Redux data at app start
   useEffect(() => {
@@ -79,6 +99,12 @@ const AppContent = () => {
           <Route path="/api-test" element={<ApiTest />} />
           <Route path="/introduction" element={<Introduction />} />
           <Route path="/connection-test" element={<ConnectionTest />} />
+          <Route path="/error-test" element={<ErrorTest />} />
+
+          {/* Error pages */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="/network-error" element={<NetworkError />} />
+          <Route path="/server-error" element={<ServerError />} />
 
           <Route
             path="/dashboard"
@@ -193,20 +219,22 @@ const AppContent = () => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <DataProvider>
-          <Router
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
-            <AppContent />
-          </Router>
-        </DataProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <DataProvider>
+            <Router
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
+              <AppContent />
+            </Router>
+          </DataProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Send, Info, Trash2, Reply } from "lucide-react";
 import { getProfilePictureUrl } from "@/lib/avatarUtils";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const FicheComments = ({
   comments,
@@ -25,6 +26,7 @@ const FicheComments = ({
 }) => {
   const { user, hasAuthorPermissions } = useAuth();
   const { toast } = useToast();
+  const { confirmDelete, ConfirmDialog } = useConfirmDialog();
   const [newComment, setNewComment] = useState("");
   const [replyOpen, setReplyOpen] = useState({}); // { [commentId]: boolean }
   const [replyText, setReplyText] = useState({}); // { [commentId]: string }
@@ -213,12 +215,16 @@ const FicheComments = ({
                     (typeof hasAuthorPermissions === "function" &&
                       hasAuthorPermissions()));
 
-                const handleDelete = () => {
+                const handleDelete = async () => {
                   if (!onDeleteComment) return;
-                  const ok = window.confirm(
-                    "Voulez-vous vraiment supprimer ce commentaire ?"
-                  );
-                  if (!ok) return;
+                  const confirmed = await confirmDelete({
+                    title: "Supprimer ce commentaire ?",
+                    description:
+                      "Ce commentaire sera définitivement supprimé. Cette action est irréversible.",
+                    confirmText: "Supprimer",
+                    cancelText: "Annuler",
+                  });
+                  if (!confirmed) return;
                   onDeleteComment(comment.id);
                 };
 
@@ -378,12 +384,16 @@ const FicheComments = ({
                                     variant="ghost"
                                     size="icon"
                                     className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                    onClick={() => {
+                                    onClick={async () => {
                                       if (!onDeleteComment) return;
-                                      const ok = window.confirm(
-                                        "Voulez-vous vraiment supprimer cette réponse ?"
-                                      );
-                                      if (!ok) return;
+                                      const confirmed = await confirmDelete({
+                                        title: "Supprimer cette réponse ?",
+                                        description:
+                                          "Cette réponse sera définitivement supprimée. Cette action est irréversible.",
+                                        confirmText: "Supprimer",
+                                        cancelText: "Annuler",
+                                      });
+                                      if (!confirmed) return;
                                       onDeleteComment(rep.id);
                                     }}
                                     title="Supprimer la réponse"
@@ -407,6 +417,7 @@ const FicheComments = ({
           </div>
         </CardContent>
       </Card>
+      {ConfirmDialog}
     </motion.div>
   );
 };

@@ -33,11 +33,29 @@ class ApiService {
     try {
       const response = await fetch(url, config);
 
-      // Gérer l'expiration du token
-      if (response.status === 401 || response.status === 403) {
+      // Handle 401 (unauthorized) - session expired
+      if (response.status === 401) {
         authService.logout();
         window.location.href = "/login";
         throw new Error("Session expirée");
+      }
+
+      // Handle 403 (forbidden) - insufficient permissions
+      if (response.status === 403) {
+        // Don't logout for 403 - user is authenticated but doesn't have permission
+        window.location.href = "/unauthorized";
+        throw new Error("Accès non autorisé");
+      }
+
+      // Handle 404 (not found)
+      if (response.status === 404) {
+        throw new Error("Ressource introuvable");
+      }
+
+      // Handle 500+ (server errors)
+      if (response.status >= 500) {
+        window.location.href = "/server-error";
+        throw new Error("Erreur serveur");
       }
 
       if (!response.ok) {
@@ -55,6 +73,20 @@ class ApiService {
         // Don't log abort errors - they're expected during component unmount or navigation
         throw error;
       }
+
+      // Handle network errors (offline, DNS failure, timeout, etc.)
+      if (
+        error instanceof TypeError &&
+        (error.message === "Failed to fetch" || error.message.includes("NetworkError"))
+      ) {
+        console.error("Network Error:", error);
+        // Only redirect to network error page if we're not already there
+        if (!window.location.pathname.includes("/network-error")) {
+          window.location.href = "/network-error";
+        }
+        throw new Error("Erreur de connexion réseau");
+      }
+
       console.error("API Request Error:", error);
       throw error;
     }

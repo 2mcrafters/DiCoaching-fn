@@ -398,19 +398,19 @@ router.get(
 
       let rows = [];
       try {
+        // Only query tables that exist: comments + commentaires with termes
         rows = await q(
-          `SELECT * FROM (
-           SELECT 
+          `SELECT 
              c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
              CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
              c.created_at AS createdAt,
              CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
              CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
-             CAST(t.slug AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termSlug,
-             CAST(t.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
+             NULL AS termSlug,
+             CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
            FROM comments c
            LEFT JOIN users u ON u.id = c.user_id
-           LEFT JOIN terms t ON t.id = c.term_id
+           LEFT JOIN termes t ON t.id = c.term_id
            WHERE t.author_id = ?
            UNION ALL
            SELECT 
@@ -425,35 +425,42 @@ router.get(
            LEFT JOIN users u ON u.id = c.author_id
            LEFT JOIN termes t ON t.id = c.term_id
            WHERE t.author_id = ?
-         ) allc
          ORDER BY createdAt DESC`,
           [authorId, authorId]
         );
-      } catch {
-        // Fallback without term joins
-        rows = await q(
-          `SELECT * FROM (
-           SELECT 
-             c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             NULL AS firstname, NULL AS lastname,
-             NULL AS termSlug, NULL AS termTitle
-           FROM comments c
-           WHERE c.term_id IN (SELECT id FROM terms WHERE author_id = ?)
-           UNION ALL
-           SELECT 
-             c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             NULL AS firstname, NULL AS lastname,
-             NULL AS termSlug, NULL AS termTitle
-           FROM commentaires c
-           WHERE c.term_id IN (SELECT id FROM termes WHERE author_id = ?)
-         ) allc
-         ORDER BY createdAt DESC`,
-          [authorId, authorId]
-        );
+      } catch (e) {
+        console.error("[comments] author query error:", e.message);
+        // Fallback without user joins
+        try {
+          rows = await q(
+            `SELECT 
+               c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
+               CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
+               c.created_at AS createdAt,
+               NULL AS firstname, NULL AS lastname,
+               NULL AS termSlug,
+               CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
+             FROM comments c
+             LEFT JOIN termes t ON t.id = c.term_id
+             WHERE t.author_id = ?
+             UNION ALL
+             SELECT 
+               c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId,
+               CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
+               c.created_at AS createdAt,
+               NULL AS firstname, NULL AS lastname,
+               NULL AS termSlug,
+               CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
+             FROM commentaires c
+             LEFT JOIN termes t ON t.id = c.term_id
+             WHERE t.author_id = ?
+           ORDER BY createdAt DESC`,
+            [authorId, authorId]
+          );
+        } catch (e2) {
+          console.error("[comments] fallback query error:", e2.message);
+          rows = [];
+        }
       }
 
       const data = rows.map((r) => {
