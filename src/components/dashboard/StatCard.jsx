@@ -28,13 +28,14 @@ const StatCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
+      className="h-full"
     >
       <Card
         role={isInteractive ? "button" : undefined}
         tabIndex={isInteractive ? 0 : undefined}
         onClick={onClick}
         onKeyDown={handleKeyDown}
-        className={`relative bg-gradient-to-br ${color} text-white border-none shadow-lg transition-shadow duration-300 ${
+        className={`relative h-full flex flex-col bg-gradient-to-br ${color} text-white border-none shadow-lg transition-shadow duration-300 ${
           isInteractive
             ? "cursor-pointer hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/20"
             : ""
@@ -53,10 +54,12 @@ const StatCard = ({
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
           <Icon className="h-5 w-5 text-white/80" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-grow flex flex-col justify-center">
           <div className="text-3xl font-bold">{value}</div>
           {description && (
-            <p className="text-white/80 text-xs mt-1">{description}</p>
+            <p className="text-white/80 text-xs mt-1 line-clamp-2">
+              {description}
+            </p>
           )}
         </CardContent>
       </Card>

@@ -213,33 +213,52 @@ router.put("/:id", authenticateToken, async (req, res) => {
 
     // CRITICAL: Prevent authors from validating their own proposals
     if (wantsAdminUpdate && !isAdmin) {
-      // Get term to check if user is the term author
-      const termRows = await db.query(
-        "SELECT author_id FROM terms WHERE id = ?",
-        [existing.term_id]
-      );
-
-      if (termRows && termRows.length > 0) {
-        const termAuthorId = Number(termRows[0].author_id);
-        const isTermAuthor = termAuthorId === Number(req.user.id);
-
-        // Author can validate modifications on their terms BUT NOT their own proposals
-        if (isOwner) {
-          return res.status(403).json({
-            status: "error",
-            message:
-              "Vous ne pouvez pas valider votre propre proposition de modification",
-          });
+      // Get term to check if user is the term author. Try EN `terms` then FR `termes`.
+      let termAuthorId = null;
+      try {
+        const termRows = await db.query(
+          "SELECT author_id FROM terms WHERE id = ?",
+          [existing.term_id]
+        );
+        if (termRows && termRows.length > 0) {
+          termAuthorId = Number(termRows[0].author_id);
         }
-
-        // Non-admin, non-term-author cannot validate
-        if (!isTermAuthor && role === "author") {
-          return res.status(403).json({
-            status: "error",
-            message:
-              "Vous ne pouvez valider que les modifications sur vos propres termes",
-          });
+      } catch (_) {
+        // ignore and fallback to FR table
+      }
+      if (termAuthorId === null) {
+        try {
+          const termRowsFr = await db.query(
+            "SELECT author_id FROM termes WHERE id = ?",
+            [existing.term_id]
+          );
+          if (termRowsFr && termRowsFr.length > 0) {
+            termAuthorId = Number(termRowsFr[0].author_id);
+          }
+        } catch (_) {
+          // ignore
         }
+      }
+
+      const isTermAuthor =
+        termAuthorId !== null && termAuthorId === Number(req.user.id);
+
+      // Author can validate modifications on their terms BUT NOT their own proposals
+      if (isOwner) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Vous ne pouvez pas valider votre propre proposition de modification",
+        });
+      }
+
+      // Non-admin, non-term-author cannot validate
+      if (role === "author" && !isTermAuthor) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Vous ne pouvez valider que les modifications sur vos propres termes",
+        });
       }
     }
 

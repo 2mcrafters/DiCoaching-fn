@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Helmet } from 'react-helmet';
+import { Helmet } from "react-helmet-async";
 import { motion } from 'framer-motion';
 import { addDays } from 'date-fns';
 

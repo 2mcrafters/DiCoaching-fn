@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useCallback } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +28,7 @@ import {
   ExternalLink,
   ArrowRight,
   Check,
+  Activity,
 } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import UserTermsList from "@/components/dashboard/UserTermsList";
@@ -56,6 +57,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/Pagination";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const { user, hasAuthorPermissions } = useAuth();
@@ -73,7 +76,11 @@ const Dashboard = () => {
   useEffect(() => {
     // Fetch user stats from backend for accurate counts
     if (user?.id) {
-      dispatch(fetchUserStats(user.id));
+      try {
+        dispatch(fetchUserStats(user.id));
+      } catch (err) {
+        console.error("Failed to fetch user stats:", err);
+      }
     }
 
     // Fetch terms for the list display if needed
@@ -82,12 +89,15 @@ const Dashboard = () => {
     }
   }, [dispatch, user?.id, allTerms?.length]);
 
-  const isResearcher =
-    user?.role === "chercheur" || user?.role === "researcher";
+  const roleLc = (user?.role || "").toString().trim().toLowerCase();
+  const isResearcher = roleLc === "chercheur" || roleLc === "researcher";
+  // Treat user as author if:
+  // - hasAuthorPermissions() returns true
+  // - role is 'author' or French 'auteur' (case-insensitive)
   const isAuthor =
-    typeof hasAuthorPermissions === "function"
-      ? hasAuthorPermissions()
-      : user?.role === "author";
+    (typeof hasAuthorPermissions === "function" && hasAuthorPermissions()) ||
+    roleLc === "author" ||
+    roleLc === "auteur";
 
   useEffect(() => {
     if (isResearcher && user?.id) {
@@ -95,21 +105,25 @@ const Dashboard = () => {
     }
   }, [dispatch, isResearcher, user?.id]);
 
-  const [activeTab, setActiveTab] = useState(
-    isResearcher
-      ? "liked"
-      : isAuthor || user?.role === "admin"
-      ? "comments"
-      : null
+  // Separate active tab states for each section
+  const [activeContentTab, setActiveContentTab] = useState(
+    isAuthor || user?.role === "admin" ? "terms" : null
   );
+  const [activeActivityTab, setActiveActivityTab] = useState(
+    isAuthor || user?.role === "admin" ? "pending-validation" : null
+  );
+  const [activeTab, setActiveTab] = useState(isResearcher ? "liked" : null);
 
   useEffect(() => {
     if (isResearcher) {
       setActiveTab((prev) => prev || "liked");
     } else if (isAuthor || user?.role === "admin") {
-      setActiveTab((prev) => prev || "comments");
+      setActiveContentTab((prev) => prev || "terms");
+      setActiveActivityTab((prev) => prev || "pending-validation");
     } else {
       setActiveTab(null);
+      setActiveContentTab(null);
+      setActiveActivityTab(null);
     }
   }, [isResearcher, isAuthor, user?.role]);
 
@@ -301,6 +315,8 @@ const Dashboard = () => {
 
   const [likedTerms, setLikedTerms] = useState([]);
   const [likedTermsLoading, setLikedTermsLoading] = useState(false);
+  const [receivedLikes, setReceivedLikes] = useState([]);
+  const [receivedLikesLoading, setReceivedLikesLoading] = useState(false);
   const [userReports, setUserReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [receivedReports, setReceivedReports] = useState([]);
@@ -328,8 +344,15 @@ const Dashboard = () => {
   const [viewedTabs, setViewedTabs] = useState(new Set());
 
   // Handler to clear notification when tab is clicked
-  const handleTabClick = useCallback((tabKey) => {
-    setActiveTab(tabKey);
+  const handleTabClick = useCallback((tabKey, section = null) => {
+    // Update the appropriate active tab state based on section
+    if (section === "content") {
+      setActiveContentTab(tabKey);
+    } else if (section === "activity") {
+      setActiveActivityTab(tabKey);
+    } else {
+      setActiveTab(tabKey);
+    }
 
     // Mark tab as viewed
     setViewedTabs((prev) => new Set([...prev, tabKey]));
@@ -337,9 +360,11 @@ const Dashboard = () => {
     // Clear the notification for this tab
     switch (tabKey) {
       case "comments":
+      case "comments-received":
         setNewCommentsCount(0);
         break;
       case "liked":
+      case "my-likes":
       case "termes-apprecies":
         setNewLikedTermsCount(0);
         break;
@@ -369,6 +394,7 @@ const Dashboard = () => {
   const [userTermsPage, setUserTermsPage] = useState(1);
   const [reportsPage, setReportsPage] = useState(1);
   const [pendingValidationPage, setPendingValidationPage] = useState(1);
+  const [receivedLikesPage, setReceivedLikesPage] = useState(1);
   const itemsPerPage = 5;
 
   const [editingReport, setEditingReport] = useState(null);
@@ -596,6 +622,8 @@ const Dashboard = () => {
 
   // Fetch liked terms from database for all users
   useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchLikedTerms = async () => {
       if (!user?.id) return;
 
@@ -603,28 +631,88 @@ const Dashboard = () => {
       try {
         const apiService = await import("@/services/api");
         const data = await apiService.default.getUserLikedTerms();
-        console.log("❤️ Liked Terms Received:", data);
-        const likedTermsData = Array.isArray(data) ? data : [];
-        setLikedTerms(likedTermsData);
 
-        // Calculate new liked terms (last 24 hours)
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const newLiked = likedTermsData.filter((term) => {
-          const likedDate = new Date(term.likedAt || term.liked_at);
-          return likedDate > oneDayAgo;
-        });
-        setNewLikedTermsCount(newLiked.length);
+        if (!abortController.signal.aborted) {
+          console.log("❤️ Liked Terms Received:", data);
+          const likedTermsData = Array.isArray(data) ? data : [];
+          setLikedTerms(likedTermsData);
+
+          // Calculate new liked terms (last 24 hours)
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const newLiked = likedTermsData.filter((term) => {
+            const likedDate = new Date(term.likedAt || term.liked_at);
+            return likedDate > oneDayAgo;
+          });
+          setNewLikedTermsCount(newLiked.length);
+        }
       } catch (error) {
-        console.error("❌ Error fetching liked terms:", error);
-        setLikedTerms([]);
-        setNewLikedTermsCount(0);
+        if (!abortController.signal.aborted) {
+          console.error("❌ Error fetching liked terms:", error);
+          setLikedTerms([]);
+          setNewLikedTermsCount(0);
+        }
       } finally {
-        setLikedTermsLoading(false);
+        if (!abortController.signal.aborted) {
+          setLikedTermsLoading(false);
+        }
       }
     };
 
     fetchLikedTerms();
+
+    return () => {
+      try {
+        if (abortController.signal && !abortController.signal.aborted) {
+          abortController.abort();
+        }
+      } catch (err) {
+        // Silently ignore abort errors
+      }
+    };
   }, [user?.id]);
+
+  // Fetch received likes (for authors and admins)
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const fetchReceivedLikes = async () => {
+      if (!user?.id || (!isAuthor && user?.role !== "admin")) return;
+
+      setReceivedLikesLoading(true);
+      try {
+        const apiService = await import("@/services/api");
+        const data = await apiService.default.getReceivedLikes();
+
+        if (!abortController.signal.aborted) {
+          console.log("💝 Received Likes Data:", data);
+          const receivedLikesData = Array.isArray(data) ? data : [];
+          setReceivedLikes(receivedLikesData);
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          // Graceful fallback: just clear the list and continue rendering
+          console.warn("Received likes unavailable:", error?.message || error);
+          setReceivedLikes([]);
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setReceivedLikesLoading(false);
+        }
+      }
+    };
+
+    fetchReceivedLikes();
+
+    return () => {
+      try {
+        if (abortController.signal && !abortController.signal.aborted) {
+          abortController.abort();
+        }
+      } catch (err) {
+        // Silently ignore abort errors
+      }
+    };
+  }, [user?.id, isAuthor]);
 
   // Fetch user's reports from database (for researchers)
   useEffect(() => {
@@ -1127,6 +1215,55 @@ const Dashboard = () => {
     [newLikedTermsCount, newModificationsCount, newUserReportsCount]
   );
 
+  // Section 1: My Content (what I created)
+  const authorMyContentTabs = useMemo(
+    () => [
+      {
+        key: "terms",
+        label: "Mes termes",
+        badge: newUserTermsCount > 0 ? newUserTermsCount : null,
+      },
+      {
+        key: "comments-received",
+        label: "Commentaires reçus",
+        badge: newCommentsCount > 0 ? newCommentsCount : null,
+      },
+      {
+        key: "reports-received",
+        label: "Signalements reçus",
+        badge: newReceivedReportsCount > 0 ? newReceivedReportsCount : null,
+      },
+      {
+        key: "likes-received",
+        label: "Likes reçus",
+        badge: null,
+      },
+    ],
+    [newUserTermsCount, newCommentsCount, newReceivedReportsCount]
+  );
+
+  // Section 2: My Activities (my interactions with others' content)
+  const authorMyActivitiesTabs = useMemo(
+    () => [
+      {
+        key: "pending-validation",
+        label: "Modifications à valider",
+        badge: newPendingValidationCount > 0 ? newPendingValidationCount : null,
+      },
+      {
+        key: "my-likes",
+        label: "Mes likes",
+        badge: newLikedTermsCount > 0 ? newLikedTermsCount : null,
+      },
+      {
+        key: "my-comments",
+        label: "Mes commentaires",
+        badge: null,
+      },
+    ],
+    [newPendingValidationCount, newLikedTermsCount]
+  );
+
   const authorTabs = useMemo(
     () => [
       {
@@ -1235,1108 +1372,1314 @@ const Dashboard = () => {
     [statsData.approved, statsData.liked, statsData.pending, statsData.score]
   );
 
-  const renderTabContent = useCallback(() => {
-    switch (activeTab) {
-      case "liked":
-        if (likedTermsLoading) {
-          return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement de vos termes aimés...
-            </div>
+  const renderTabContent = useCallback(
+    (tabKey = activeTab) => {
+      switch (tabKey) {
+        // New tab for likes received
+        case "likes-received":
+          if (receivedLikesLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des likes reçus...
+              </div>
+            );
+          }
+
+          if (!receivedLikes || receivedLikes.length === 0) {
+            return (
+              <div className="text-center py-8 text-muted-foreground">
+                <Heart className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium mb-2">Aucun like reçu</p>
+                <p className="text-sm">
+                  Vos termes n'ont pas encore été aimés par d'autres
+                  utilisateurs.
+                </p>
+              </div>
+            );
+          }
+
+          const totalReceivedLikes = receivedLikes.length;
+          const startIndex = (receivedLikesPage - 1) * itemsPerPage;
+          const endIndex = startIndex + itemsPerPage;
+          const paginatedReceivedLikes = receivedLikes.slice(
+            startIndex,
+            endIndex
           );
-        }
-
-        return likedTerms.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Terme</th>
-                  <th className="px-4 py-3 text-left">Statut</th>
-                  <th className="px-4 py-3 text-left">Aimé le</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {paginatedLikedTerms.map((term) => (
-                  <tr key={term.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      <div>
-                        <div className="text-primary font-semibold">
-                          {term.term || "Terme sans titre"}
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
-                          {term.definition
-                            ? term.definition.substring(0, 100) + "..."
-                            : ""}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatStatus(term.status)}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(term.likedAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {/* Pagination for Liked Terms */}
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setLikedTermsPage((p) => Math.max(1, p - 1))}
-                    className={
-                      likedTermsPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-                {Array.from(
-                  { length: getTotalPages(likedTerms) },
-                  (_, i) => i + 1
-                ).map((page) => {
-                  const totalPages = getTotalPages(likedTerms);
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - likedTermsPage) <= 1
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setLikedTermsPage(page)}
-                          isActive={likedTermsPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === likedTermsPage - 2 ||
-                    page === likedTermsPage + 2
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                })}
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setLikedTermsPage((p) =>
-                        Math.min(getTotalPages(likedTerms), p + 1)
-                      )
-                    }
-                    className={
-                      likedTermsPage === getTotalPages(likedTerms)
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        ) : (
-          <div className="text-muted-foreground text-sm">
-            Vous n'avez pas encore aimé de terme. Explorez le dictionnaire pour
-            commencer votre sélection.
-          </div>
-        );
-
-      case "reports":
-        if (reportsLoading) {
-          return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement de vos signalements...
-            </div>
+          const totalPagesReceivedLikes = Math.ceil(
+            totalReceivedLikes / itemsPerPage
           );
-        }
 
-        return userReports.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Terme signalé</th>
-                  <th className="px-4 py-3 text-left">Raison</th>
-                  <th className="px-4 py-3 text-left">Statut</th>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {paginatedReports.map((report) => (
-                  <tr key={report.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      <Link
-                        to={
-                          report.term_slug ? `/fiche/${report.term_slug}` : "#"
-                        }
-                        className={
-                          report.term_slug
-                            ? "text-primary hover:underline"
-                            : "text-foreground"
-                        }
-                      >
-                        {report.term_title || report.termTitle || "Terme"}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {report.reason || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          report.status === "resolved"
-                            ? "bg-green-100 text-green-800"
-                            : report.status === "reviewed"
-                            ? "bg-blue-100 text-blue-800"
-                            : report.status === "ignored"
-                            ? "bg-gray-100 text-gray-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {report.status === "resolved"
-                          ? "Résolu"
-                          : report.status === "reviewed"
-                          ? "Examiné"
-                          : report.status === "ignored"
-                          ? "Ignoré"
-                          : "En attente"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(report.created_at || report.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEditReport(report)}
-                          className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
-                          title="Éditer le signalement"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteReport(report.id)}
-                          className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                          title="Supprimer le signalement"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {/* Pagination for Reports */}
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setReportsPage((p) => Math.max(1, p - 1))}
-                    className={
-                      reportsPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-                {Array.from(
-                  { length: getTotalPages(userReports) },
-                  (_, i) => i + 1
-                ).map((page) => {
-                  const totalPages = getTotalPages(userReports);
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - reportsPage) <= 1
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setReportsPage(page)}
-                          isActive={reportsPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === reportsPage - 2 ||
-                    page === reportsPage + 2
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                })}
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setReportsPage((p) =>
-                        Math.min(getTotalPages(userReports), p + 1)
-                      )
-                    }
-                    className={
-                      reportsPage === getTotalPages(userReports)
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        ) : (
-          <div className="text-muted-foreground text-sm">
-            Vous n'avez pas encore signalé de terme. Visitez une fiche pour
-            signaler un problème.
-          </div>
-        );
-
-      case "reports-received":
-        if (receivedReportsLoading) {
           return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement des signalements sur vos termes...
-            </div>
-          );
-        }
-        return receivedReports.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Terme</th>
-                  <th className="px-4 py-3 text-left">Raison</th>
-                  <th className="px-4 py-3 text-left">Statut</th>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {receivedReports.map((report) => (
-                  <tr key={report.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      <Link
-                        to={
-                          report.term_slug ? `/fiche/${report.term_slug}` : "#"
-                        }
-                        className={
-                          report.term_slug
-                            ? "text-primary hover:underline"
-                            : "text-foreground"
-                        }
-                      >
-                        {report.term_title || report.termTitle || "Terme"}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {report.reason || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          report.status === "resolved"
-                            ? "bg-green-100 text-green-800"
-                            : report.status === "reviewed"
-                            ? "bg-blue-100 text-blue-800"
-                            : report.status === "ignored"
-                            ? "bg-gray-100 text-gray-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {report.status === "resolved"
-                          ? "Résolu"
-                          : report.status === "reviewed"
-                          ? "Revu"
-                          : report.status === "ignored"
-                          ? "Ignoré"
-                          : "En attente"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(report.created_at || report.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setReportDetails(report)}
-                        className="text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
-                      >
-                        Détails
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-muted-foreground text-sm">
-            Aucun signalement sur vos termes.
-          </div>
-        );
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-muted-foreground">
+                  Total des likes reçus :{" "}
+                  <span className="font-bold text-lg text-primary">
+                    {totalReceivedLikes}
+                  </span>
+                </p>
+              </div>
 
-      case "comments":
-        if (commentsLoading) {
-          return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement des commentaires...
-            </div>
-          );
-        }
-
-        return userComments.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Terme</th>
-                  <th className="px-4 py-3 text-left">Auteur</th>
-                  <th className="px-4 py-3 text-left">Commentaire</th>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {paginatedComments.map((comment) => {
-                  const isNew =
-                    new Date(comment.createdAt) >
-                    new Date(Date.now() - 24 * 60 * 60 * 1000);
-                  // Use nested term object from backend response
-                  const termSlug = comment.term?.slug || comment.termSlug;
-                  const termTitle =
-                    comment.term?.title || comment.termTitle || "Terme";
-                  const commentLink = termSlug
-                    ? `/fiche/${termSlug}#comment-${comment.id}`
-                    : "#";
-                  return (
-                    <tr
-                      key={comment.id}
-                      className={`group hover:bg-muted/40 hover:shadow-sm transition-all ${
-                        isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
-                      }`}
-                    >
-                      <td className="px-4 py-3 font-medium text-foreground">
-                        <Link
-                          to={commentLink}
-                          className={
-                            termSlug
-                              ? "text-primary hover:underline inline-flex items-center gap-1"
-                              : "text-foreground"
-                          }
-                        >
-                          {termTitle}
-                          {termSlug && <ExternalLink className="h-3 w-3" />}
-                          {isNew && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                              Nouveau
-                            </span>
-                          )}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {comment.authorName || "Anonyme"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-md">
-                        <div className="line-clamp-2">{comment.content}</div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(comment.createdAt)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {termSlug && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="text-left p-3 font-semibold text-sm border-b">
+                        Qui a aimé
+                      </th>
+                      <th className="text-left p-3 font-semibold text-sm border-b">
+                        Terme aimé
+                      </th>
+                      <th className="text-left p-3 font-semibold text-sm border-b">
+                        Date
+                      </th>
+                      <th className="text-center p-3 font-semibold text-sm border-b w-16">
+                        <Heart className="h-4 w-4 mx-auto text-pink-500" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedReceivedLikes.map((like) => (
+                      <tr
+                        key={like.id}
+                        className="border-b hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="p-3">
                           <Link
-                            to={commentLink}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-md transition-colors"
+                            to={`/author/${like.user.id}`}
+                            className="flex items-center gap-2 hover:text-primary transition-colors group"
                           >
-                            Voir plus
-                            <ArrowRight className="h-3 w-3" />
+                            <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
+                              <AvatarImage src={like.user.profilePicture} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white">
+                                {(like.user.name || "U")
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                                {like.user.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {like.user.role === "chercheur"
+                                  ? "Chercheur"
+                                  : like.user.role === "author"
+                                  ? "Auteur"
+                                  : like.user.role === "admin"
+                                  ? "Admin"
+                                  : "Utilisateur"}
+                              </span>
+                            </div>
                           </Link>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {/* Pagination for Comments */}
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setCommentsPage((p) => Math.max(1, p - 1))}
-                    className={
-                      commentsPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-                {Array.from(
-                  { length: getTotalPages(userComments) },
-                  (_, i) => i + 1
-                ).map((page) => {
-                  const totalPages = getTotalPages(userComments);
-                  // Show first, last, current, and neighbors
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - commentsPage) <= 1
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCommentsPage(page)}
-                          isActive={commentsPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === commentsPage - 2 ||
-                    page === commentsPage + 2
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                })}
-                <PaginationItem>
-                  <PaginationNext
+                        </td>
+                        <td className="p-3">
+                          <Link
+                            to={`/fiche/${like.term.slug || like.term.id}`}
+                            className="group flex items-center gap-2 hover:text-primary transition-colors"
+                          >
+                            <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="font-medium text-primary hover:underline">
+                                {like.term.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Cliquez pour voir le terme
+                              </span>
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span>
+                              {new Date(like.likedAt).toLocaleDateString(
+                                "fr-FR",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                }
+                              )}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex justify-center">
+                            <Heart className="h-5 w-5 fill-pink-500 text-pink-500 animate-pulse" />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {totalPagesReceivedLikes > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() =>
-                      setCommentsPage((p) =>
-                        Math.min(getTotalPages(userComments), p + 1)
+                      setReceivedLikesPage((p) => Math.max(1, p - 1))
+                    }
+                    disabled={receivedLikesPage === 1}
+                  >
+                    Précédent
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {receivedLikesPage} sur {totalPagesReceivedLikes}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setReceivedLikesPage((p) =>
+                        Math.min(totalPagesReceivedLikes, p + 1)
                       )
                     }
-                    className={
-                      commentsPage === getTotalPages(userComments)
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        ) : (
-          <div className="text-muted-foreground text-sm">
-            Aucun commentaire sur vos termes pour le moment.
-          </div>
-        );
-
-      case "activities":
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 border rounded-lg bg-pink-50 dark:bg-pink-950/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Heart className="h-5 w-5 text-pink-500" />
-                  <h4 className="font-medium">Termes aimés</h4>
+                    disabled={receivedLikesPage === totalPagesReceivedLikes}
+                  >
+                    Suivant
+                  </Button>
                 </div>
-                <p className="text-2xl font-bold text-pink-600">
-                  {statsData.liked}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Termes que vous appréciez
-                </p>
-              </div>
-
-              <div className="p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-950/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Edit className="h-5 w-5 text-yellow-500" />
-                  <h4 className="font-medium">Modifications</h4>
-                </div>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {statsData.modifications}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Propositions de modifications
-                </p>
-              </div>
-
-              <div className="p-4 border rounded-lg bg-orange-50 dark:bg-orange-950/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-5 w-5 text-orange-500" />
-                  <h4 className="font-medium">Signalements</h4>
-                </div>
-                <p className="text-2xl font-bold text-orange-600">
-                  {statsData.reportsCreated}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Termes signalés
-                </p>
-              </div>
+              )}
             </div>
-
-            <div className="p-6 border-2 border-primary/20 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-lg font-semibold text-foreground mb-1">
-                    Total des activités
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    Contribution globale à la plateforme
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-4xl font-bold text-primary">
-                    {statsData.totalActivities}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    activités combinées
-                  </p>
-                </div>
+          ); // Alias for my-likes
+        case "my-likes":
+        case "liked":
+          if (likedTermsLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement de vos termes aimés...
               </div>
-            </div>
-          </div>
-        );
+            );
+          }
 
-      case "score":
-        return (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Indicateur</th>
-                  <th className="px-4 py-3 text-left">Valeur</th>
-                  <th className="px-4 py-3 text-left">Détails</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {scoreBreakdown.map((row) => (
-                  <tr key={row.metric} className="hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {row.metric}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {row.value}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {row.details}
-                    </td>
+          return likedTerms.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Terme</th>
+                    <th className="px-4 py-3 text-left">Statut</th>
+                    <th className="px-4 py-3 text-left">Aimé le</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-
-      case "documents":
-        return (
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              {documentsCount > 0
-                ? `Vous avez actuellement ${documentsCount} document${
-                    documentsCount > 1 ? "s" : ""
-                  } mis à disposition.`
-                : "Vous n'avez pas encore partagé de document de recherche."}
-            </p>
-            <p>
-              Utilisez l'espace Documents de recherche pour ajouter vos études,
-              ressources ou notes personnelles.
-            </p>
-            <Link
-              to="/documents"
-              className="inline-flex items-center text-primary font-medium hover:underline"
-            >
-              Gérer mes documents
-            </Link>
-          </div>
-        );
-
-      case "pending-validation":
-        if (pendingValidationLoading) {
-          return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement des modifications en attente...
-            </div>
-          );
-        }
-
-        return pendingValidationMods.length > 0 ? (
-          <div className="overflow-x-auto">
-            <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 rounded-r">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>
-                  Validez les modifications proposées par d'autres utilisateurs
-                  sur vos termes.
-                </strong>{" "}
-                Vous ne pouvez pas valider vos propres propositions.
-              </p>
-            </div>
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Terme</th>
-                  <th className="px-4 py-3 text-left">Proposée par</th>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {paginatedPendingValidation.map((modification) => {
-                  const proposerName =
-                    [
-                      modification.proposer_firstname,
-                      modification.proposer_lastname,
-                    ]
-                      .filter(Boolean)
-                      .join(" ") ||
-                    modification.proposer_email ||
-                    "Utilisateur inconnu";
-
-                  const isNew =
-                    new Date(
-                      modification.created_at || modification.createdAt
-                    ) > new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-                  return (
-                    <tr
-                      key={modification.id}
-                      className={`group hover:bg-muted/40 hover:shadow-sm transition-all ${
-                        isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
-                      }`}
-                    >
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {paginatedLikedTerms.map((term) => (
+                    <tr key={term.id} className="hover:bg-muted/40">
                       <td className="px-4 py-3 font-medium text-foreground">
-                        <Link
-                          to={
-                            modification.term_slug
-                              ? `/fiche/${modification.term_slug}`
-                              : "#"
-                          }
-                          className={
-                            modification.term_slug
-                              ? "text-primary hover:underline inline-flex items-center gap-1"
-                              : "text-foreground"
-                          }
-                        >
-                          {modification.term_title || "Terme inconnu"}
-                          {modification.term_slug && (
-                            <ExternalLink className="h-3 w-3" />
-                          )}
-                          {isNew && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                              Nouveau
-                            </span>
-                          )}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {proposerName}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(
-                          modification.created_at || modification.createdAt
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleModificationValidation(
-                                modification.id,
-                                "approve"
-                              )
-                            }
-                            className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors inline-flex items-center gap-1"
-                            title="Approuver la modification"
-                          >
-                            <Check className="h-3 w-3" /> Approuver
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleModificationValidation(
-                                modification.id,
-                                "reject"
-                              )
-                            }
-                            className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors inline-flex items-center gap-1"
-                            title="Rejeter la modification"
-                          >
-                            <X className="h-3 w-3" /> Rejeter
-                          </button>
+                        <div>
+                          <div className="text-primary font-semibold">
+                            {term.term || "Terme sans titre"}
+                          </div>
+                          <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                            {term.definition
+                              ? term.definition.substring(0, 100) + "..."
+                              : ""}
+                          </div>
                         </div>
                       </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatStatus(term.status)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDate(term.likedAt)}
+                      </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {/* Pagination for Pending Validation */}
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() =>
-                      setPendingValidationPage((p) => Math.max(1, p - 1))
+                  ))}
+                </tbody>
+              </table>
+              {/* Pagination for Liked Terms */}
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setLikedTermsPage((p) => Math.max(1, p - 1))
+                      }
+                      className={
+                        likedTermsPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from(
+                    { length: getTotalPages(likedTerms) },
+                    (_, i) => i + 1
+                  ).map((page) => {
+                    const totalPages = getTotalPages(likedTerms);
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - likedTermsPage) <= 1
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setLikedTermsPage(page)}
+                            isActive={likedTermsPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === likedTermsPage - 2 ||
+                      page === likedTermsPage + 2
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
                     }
-                    className={
-                      pendingValidationPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-                {Array.from(
-                  { length: getTotalPages(pendingValidationMods) },
-                  (_, i) => i + 1
-                ).map((page) => {
-                  const totalPages = getTotalPages(pendingValidationMods);
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - pendingValidationPage) <= 1
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setPendingValidationPage(page)}
-                          isActive={pendingValidationPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === pendingValidationPage - 2 ||
-                    page === pendingValidationPage + 2
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                })}
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setPendingValidationPage((p) =>
-                        Math.min(getTotalPages(pendingValidationMods), p + 1)
-                      )
-                    }
-                    className={
-                      pendingValidationPage ===
-                      getTotalPages(pendingValidationMods)
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        ) : (
-          <div className="text-muted-foreground text-sm">
-            Aucune modification en attente de validation pour le moment.
-          </div>
-        );
-
-      case "modifications":
-        if (modificationsLoading) {
-          return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement de vos propositions...
+                    return null;
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setLikedTermsPage((p) =>
+                          Math.min(getTotalPages(likedTerms), p + 1)
+                        )
+                      }
+                      className={
+                        likedTermsPage === getTotalPages(likedTerms)
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">
+              Vous n'avez pas encore aimé de terme. Explorez le dictionnaire
+              pour commencer votre sélection.
             </div>
           );
-        }
 
-        return researcherModifications.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Terme</th>
-                  <th className="px-4 py-3 text-left">Statut</th>
-                  <th className="px-4 py-3 text-left">Soumise le</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {researcherModifications.map((modification) => {
-                  const pendingStatus =
-                    (modification.status || "").toLowerCase() === "pending";
-                  return (
-                    <tr key={modification.id} className="hover:bg-muted/40">
+        case "reports":
+          if (reportsLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement de vos signalements...
+              </div>
+            );
+          }
+
+          return userReports.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Terme signalé</th>
+                    <th className="px-4 py-3 text-left">Raison</th>
+                    <th className="px-4 py-3 text-left">Statut</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {paginatedReports.map((report) => (
+                    <tr key={report.id} className="hover:bg-muted/40">
                       <td className="px-4 py-3 font-medium text-foreground">
                         <Link
                           to={
-                            modification.termSlug
-                              ? `/fiche/${modification.termSlug}`
+                            report.term_slug
+                              ? `/fiche/${report.term_slug}`
                               : "#"
                           }
                           className={
-                            modification.termSlug
+                            report.term_slug
                               ? "text-primary hover:underline"
                               : "text-foreground"
                           }
                         >
-                          {modification.termTitle ||
-                            modification.term_title ||
-                            "Terme inconnu"}
+                          {report.term_title || report.termTitle || "Terme"}
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {formatStatus(modification.status)}
+                        {report.reason || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            report.status === "resolved"
+                              ? "bg-green-100 text-green-800"
+                              : report.status === "reviewed"
+                              ? "bg-blue-100 text-blue-800"
+                              : report.status === "ignored"
+                              ? "bg-gray-100 text-gray-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {report.status === "resolved"
+                            ? "Résolu"
+                            : report.status === "reviewed"
+                            ? "Examiné"
+                            : report.status === "ignored"
+                            ? "Ignoré"
+                            : "En attente"}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(
-                          modification.createdAt || modification.created_at
-                        )}
+                        {formatDate(report.created_at || report.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleEditModification(modification)}
-                            disabled={!pendingStatus}
-                            className={`p-1.5 rounded transition-colors ${
-                              pendingStatus
-                                ? "hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                                : "opacity-50 cursor-not-allowed text-muted-foreground"
-                            }`}
-                            title="Editer la modification (uniquement si en attente)"
+                            onClick={() => handleEditReport(report)}
+                            className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                            title="Éditer le signalement"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              handleDeleteModification(modification.id)
-                            }
+                            onClick={() => handleDeleteReport(report.id)}
                             className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                            title="Supprimer la modification"
+                            title="Supprimer le signalement"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-muted-foreground text-sm">
-            Vous n'avez pas encore propose de modification. Rendez-vous sur une
-            fiche pour suggerer une amelioration.
-          </div>
-        );
-
-      case "terms":
-        return userTerms.length > 0 ? (
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground mb-4">
-              Gérez vos termes soumis et vos brouillons.
+                  ))}
+                </tbody>
+              </table>
+              {/* Pagination for Reports */}
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setReportsPage((p) => Math.max(1, p - 1))}
+                      className={
+                        reportsPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from(
+                    { length: getTotalPages(userReports) },
+                    (_, i) => i + 1
+                  ).map((page) => {
+                    const totalPages = getTotalPages(userReports);
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - reportsPage) <= 1
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setReportsPage(page)}
+                            isActive={reportsPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === reportsPage - 2 ||
+                      page === reportsPage + 2
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setReportsPage((p) =>
+                          Math.min(getTotalPages(userReports), p + 1)
+                        )
+                      }
+                      className={
+                        reportsPage === getTotalPages(userReports)
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
-            {paginatedUserTerms.map((term) => (
-              <div
-                key={term.id}
-                className="flex items-center justify-between p-4 border rounded-lg bg-background/50 hover:bg-muted/40 transition-colors"
-              >
-                <div>
-                  <Link
-                    to={`/fiche/${term.slug}`}
-                    className="font-semibold text-primary hover:underline"
-                  >
-                    {term.term}
-                  </Link>
-                  <p className="text-sm text-muted-foreground">
-                    {term.category}
+          ) : (
+            <div className="text-muted-foreground text-sm">
+              Vous n'avez pas encore signalé de terme. Visitez une fiche pour
+              signaler un problème.
+            </div>
+          );
+
+        case "reports-received":
+          if (receivedReportsLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des signalements sur vos termes...
+              </div>
+            );
+          }
+          return receivedReports.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Terme</th>
+                    <th className="px-4 py-3 text-left">Raison</th>
+                    <th className="px-4 py-3 text-left">Statut</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {receivedReports.map((report) => (
+                    <tr key={report.id} className="hover:bg-muted/40">
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        <Link
+                          to={
+                            report.term_slug
+                              ? `/fiche/${report.term_slug}`
+                              : "#"
+                          }
+                          className={
+                            report.term_slug
+                              ? "text-primary hover:underline"
+                              : "text-foreground"
+                          }
+                        >
+                          {report.term_title || report.termTitle || "Terme"}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {report.reason || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            report.status === "resolved"
+                              ? "bg-green-100 text-green-800"
+                              : report.status === "reviewed"
+                              ? "bg-blue-100 text-blue-800"
+                              : report.status === "ignored"
+                              ? "bg-gray-100 text-gray-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {report.status === "resolved"
+                            ? "Résolu"
+                            : report.status === "reviewed"
+                            ? "Revu"
+                            : report.status === "ignored"
+                            ? "Ignoré"
+                            : "En attente"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatDate(report.created_at || report.createdAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setReportDetails(report)}
+                          className="text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+                        >
+                          Détails
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">
+              Aucun signalement sur vos termes.
+            </div>
+          );
+
+        // Alias for comments-received
+        case "comments-received":
+        case "comments":
+          if (commentsLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des commentaires...
+              </div>
+            );
+          }
+
+          return userComments.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Terme</th>
+                    <th className="px-4 py-3 text-left">Auteur</th>
+                    <th className="px-4 py-3 text-left">Commentaire</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {paginatedComments.map((comment) => {
+                    const isNew =
+                      new Date(comment.createdAt) >
+                      new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    // Use nested term object from backend response
+                    const termSlug = comment.term?.slug || comment.termSlug;
+                    const termTitle =
+                      comment.term?.title || comment.termTitle || "Terme";
+                    const commentLink = termSlug
+                      ? `/fiche/${termSlug}#comment-${comment.id}`
+                      : "#";
+                    return (
+                      <tr
+                        key={comment.id}
+                        className={`group hover:bg-muted/40 hover:shadow-sm transition-all ${
+                          isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          <Link
+                            to={commentLink}
+                            className={
+                              termSlug
+                                ? "text-primary hover:underline inline-flex items-center gap-1"
+                                : "text-foreground"
+                            }
+                          >
+                            {termTitle}
+                            {termSlug && <ExternalLink className="h-3 w-3" />}
+                            {isNew && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                Nouveau
+                              </span>
+                            )}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {comment.authorName || "Anonyme"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-md">
+                          <div className="line-clamp-2">{comment.content}</div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatDate(comment.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {termSlug && (
+                            <Link
+                              to={commentLink}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-md transition-colors"
+                            >
+                              Voir plus
+                              <ArrowRight className="h-3 w-3" />
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {/* Pagination for Comments */}
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCommentsPage((p) => Math.max(1, p - 1))}
+                      className={
+                        commentsPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from(
+                    { length: getTotalPages(userComments) },
+                    (_, i) => i + 1
+                  ).map((page) => {
+                    const totalPages = getTotalPages(userComments);
+                    // Show first, last, current, and neighbors
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - commentsPage) <= 1
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCommentsPage(page)}
+                            isActive={commentsPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === commentsPage - 2 ||
+                      page === commentsPage + 2
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setCommentsPage((p) =>
+                          Math.min(getTotalPages(userComments), p + 1)
+                        )
+                      }
+                      className={
+                        commentsPage === getTotalPages(userComments)
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">
+              Aucun commentaire sur vos termes pour le moment.
+            </div>
+          );
+
+        // My comments on other authors' terms
+        case "my-comments":
+          return (
+            <div className="p-6 bg-muted/20 rounded-lg text-center">
+              <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-medium text-muted-foreground mb-2">
+                Vos commentaires
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Cette fonctionnalité affichera tous les commentaires que vous
+                avez laissés sur les termes d'autres auteurs.
+              </p>
+              <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 rounded inline-block">
+                ⚠️ Fonctionnalité à venir prochainement
+              </p>
+            </div>
+          );
+
+        case "activities":
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg bg-pink-50 dark:bg-pink-950/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Heart className="h-5 w-5 text-pink-500" />
+                    <h4 className="font-medium">Termes aimés</h4>
+                  </div>
+                  <p className="text-2xl font-bold text-pink-600">
+                    {statsData.liked}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Termes que vous appréciez
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      term.status === "published"
-                        ? "bg-green-100 text-green-800"
-                        : term.status === "review"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {term.status === "published"
-                      ? "Publié"
-                      : term.status === "review"
-                      ? "En révision"
-                      : "Brouillon"}
-                  </span>
-                  <Link
-                    to={`/edit/${term.slug}`}
-                    className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
-                    title="Éditer le terme"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Link>
+
+                <div className="p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-950/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Edit className="h-5 w-5 text-yellow-500" />
+                    <h4 className="font-medium">Modifications</h4>
+                  </div>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {statsData.modifications}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Propositions de modifications
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-orange-50 dark:bg-orange-950/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-500" />
+                    <h4 className="font-medium">Signalements</h4>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {statsData.reportsCreated}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Termes signalés
+                  </p>
                 </div>
               </div>
-            ))}
-            {/* Pagination for User Terms */}
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setUserTermsPage((p) => Math.max(1, p - 1))}
-                    className={
-                      userTermsPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-                {Array.from(
-                  { length: getTotalPages(userTerms) },
-                  (_, i) => i + 1
-                ).map((page) => {
-                  const totalPages = getTotalPages(userTerms);
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - userTermsPage) <= 1
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setUserTermsPage(page)}
-                          isActive={userTermsPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (
-                    page === userTermsPage - 2 ||
-                    page === userTermsPage + 2
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-                  return null;
-                })}
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setUserTermsPage((p) =>
-                        Math.min(getTotalPages(userTerms), p + 1)
-                      )
-                    }
-                    className={
-                      userTermsPage === getTotalPages(userTerms)
-                        ? "pointer-events-none opacity-50"
-                        : "cursor-pointer"
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        ) : (
-          <div className="text-center py-10">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">
-              Aucune contribution pour le moment
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              Commencez par ajouter un nouveau terme au dictionnaire.
-            </p>
-            <Link to="/submit">
-              <button className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                <Plus className="h-4 w-4" />
-                Ajouter votre premier terme
-              </button>
-            </Link>
-          </div>
-        );
 
-      case "score":
-        return (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">Indicateur</th>
-                  <th className="px-4 py-3 text-left">Valeur</th>
-                  <th className="px-4 py-3 text-left">Détails</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {scoreBreakdown.map((row) => (
-                  <tr key={row.metric} className="hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {row.metric}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {row.value}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {row.details}
-                    </td>
+              <div className="p-6 border-2 border-primary/20 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-semibold text-foreground mb-1">
+                      Total des activités
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      Contribution globale à la plateforme
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-4xl font-bold text-primary">
+                      {statsData.totalActivities}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      activités combinées
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+
+        case "score":
+          return (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Indicateur</th>
+                    <th className="px-4 py-3 text-left">Valeur</th>
+                    <th className="px-4 py-3 text-left">Détails</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {scoreBreakdown.map((row) => (
+                    <tr key={row.metric} className="hover:bg-muted/40">
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {row.metric}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {row.value}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {row.details}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
 
-      default:
-        return null;
-    }
-  }, [
-    activeTab,
-    documentsCount,
-    formatDate,
-    formatStatus,
-    likedTerms,
-    likedTermsLoading,
-    modificationsLoading,
-    researcherModifications,
-    scoreBreakdown,
-    userReports,
-    reportsLoading,
-    statsData,
-    handleDeleteModification,
-    handleEditModification,
-    userComments,
-    commentsLoading,
-  ]);
+        case "documents":
+          return (
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                {documentsCount > 0
+                  ? `Vous avez actuellement ${documentsCount} document${
+                      documentsCount > 1 ? "s" : ""
+                    } mis à disposition.`
+                  : "Vous n'avez pas encore partagé de document de recherche."}
+              </p>
+              <p>
+                Utilisez l'espace Documents de recherche pour ajouter vos
+                études, ressources ou notes personnelles.
+              </p>
+              <Link
+                to="/documents"
+                className="inline-flex items-center text-primary font-medium hover:underline"
+              >
+                Gérer mes documents
+              </Link>
+            </div>
+          );
+
+        case "pending-validation":
+          if (pendingValidationLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement des modifications en attente...
+              </div>
+            );
+          }
+
+          return pendingValidationMods.length > 0 ? (
+            <div className="overflow-x-auto">
+              <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 rounded-r">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>
+                    Validez les modifications proposées par d'autres
+                    utilisateurs sur vos termes.
+                  </strong>{" "}
+                  Vous ne pouvez pas valider vos propres propositions.
+                </p>
+              </div>
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Terme</th>
+                    <th className="px-4 py-3 text-left">Proposée par</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {paginatedPendingValidation.map((modification) => {
+                    const proposerName =
+                      [
+                        modification.proposer_firstname,
+                        modification.proposer_lastname,
+                      ]
+                        .filter(Boolean)
+                        .join(" ") ||
+                      modification.proposer_email ||
+                      "Utilisateur inconnu";
+
+                    const isNew =
+                      new Date(
+                        modification.created_at || modification.createdAt
+                      ) > new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+                    return (
+                      <tr
+                        key={modification.id}
+                        className={`group hover:bg-muted/40 hover:shadow-sm transition-all ${
+                          isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          <Link
+                            to={
+                              modification.term_slug
+                                ? `/fiche/${modification.term_slug}`
+                                : "#"
+                            }
+                            className={
+                              modification.term_slug
+                                ? "text-primary hover:underline inline-flex items-center gap-1"
+                                : "text-foreground"
+                            }
+                          >
+                            {modification.term_title || "Terme inconnu"}
+                            {modification.term_slug && (
+                              <ExternalLink className="h-3 w-3" />
+                            )}
+                            {isNew && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                Nouveau
+                              </span>
+                            )}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {proposerName}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatDate(
+                            modification.created_at || modification.createdAt
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleModificationValidation(
+                                  modification.id,
+                                  "approve"
+                                )
+                              }
+                              className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors inline-flex items-center gap-1"
+                              title="Approuver la modification"
+                            >
+                              <Check className="h-3 w-3" /> Approuver
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleModificationValidation(
+                                  modification.id,
+                                  "reject"
+                                )
+                              }
+                              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors inline-flex items-center gap-1"
+                              title="Rejeter la modification"
+                            >
+                              <X className="h-3 w-3" /> Rejeter
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {/* Pagination for Pending Validation */}
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setPendingValidationPage((p) => Math.max(1, p - 1))
+                      }
+                      className={
+                        pendingValidationPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from(
+                    { length: getTotalPages(pendingValidationMods) },
+                    (_, i) => i + 1
+                  ).map((page) => {
+                    const totalPages = getTotalPages(pendingValidationMods);
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - pendingValidationPage) <= 1
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setPendingValidationPage(page)}
+                            isActive={pendingValidationPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === pendingValidationPage - 2 ||
+                      page === pendingValidationPage + 2
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setPendingValidationPage((p) =>
+                          Math.min(getTotalPages(pendingValidationMods), p + 1)
+                        )
+                      }
+                      className={
+                        pendingValidationPage ===
+                        getTotalPages(pendingValidationMods)
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">
+              Aucune modification en attente de validation pour le moment.
+            </div>
+          );
+
+        case "modifications":
+          if (modificationsLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement de vos propositions...
+              </div>
+            );
+          }
+
+          return researcherModifications.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Terme</th>
+                    <th className="px-4 py-3 text-left">Statut</th>
+                    <th className="px-4 py-3 text-left">Soumise le</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {researcherModifications.map((modification) => {
+                    const pendingStatus =
+                      (modification.status || "").toLowerCase() === "pending";
+                    return (
+                      <tr key={modification.id} className="hover:bg-muted/40">
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          <Link
+                            to={
+                              modification.termSlug
+                                ? `/fiche/${modification.termSlug}`
+                                : "#"
+                            }
+                            className={
+                              modification.termSlug
+                                ? "text-primary hover:underline"
+                                : "text-foreground"
+                            }
+                          >
+                            {modification.termTitle ||
+                              modification.term_title ||
+                              "Terme inconnu"}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatStatus(modification.status)}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatDate(
+                            modification.createdAt || modification.created_at
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleEditModification(modification)
+                              }
+                              disabled={!pendingStatus}
+                              className={`p-1.5 rounded transition-colors ${
+                                pendingStatus
+                                  ? "hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                  : "opacity-50 cursor-not-allowed text-muted-foreground"
+                              }`}
+                              title="Editer la modification (uniquement si en attente)"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteModification(modification.id)
+                              }
+                              className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                              title="Supprimer la modification"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">
+              Vous n'avez pas encore propose de modification. Rendez-vous sur
+              une fiche pour suggerer une amelioration.
+            </div>
+          );
+
+        case "terms":
+          return userTerms.length > 0 ? (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground mb-4">
+                Gérez vos termes soumis et vos brouillons.
+              </div>
+              {paginatedUserTerms.map((term) => (
+                <div
+                  key={term.id}
+                  className="flex items-center justify-between p-4 border rounded-lg bg-background/50 hover:bg-muted/40 transition-colors"
+                >
+                  <div>
+                    <Link
+                      to={`/fiche/${term.slug}`}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      {term.term}
+                    </Link>
+                    <p className="text-sm text-muted-foreground">
+                      {term.category}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        term.status === "published"
+                          ? "bg-green-100 text-green-800"
+                          : term.status === "review"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {term.status === "published"
+                        ? "Publié"
+                        : term.status === "review"
+                        ? "En révision"
+                        : "Brouillon"}
+                    </span>
+                    <Link
+                      to={`/edit/${term.slug}`}
+                      className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                      title="Éditer le terme"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+              {/* Pagination for User Terms */}
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setUserTermsPage((p) => Math.max(1, p - 1))
+                      }
+                      className={
+                        userTermsPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from(
+                    { length: getTotalPages(userTerms) },
+                    (_, i) => i + 1
+                  ).map((page) => {
+                    const totalPages = getTotalPages(userTerms);
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - userTermsPage) <= 1
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setUserTermsPage(page)}
+                            isActive={userTermsPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === userTermsPage - 2 ||
+                      page === userTermsPage + 2
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setUserTermsPage((p) =>
+                          Math.min(getTotalPages(userTerms), p + 1)
+                        )
+                      }
+                      className={
+                        userTermsPage === getTotalPages(userTerms)
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Aucune contribution pour le moment
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                Commencez par ajouter un nouveau terme au dictionnaire.
+              </p>
+              <Link to="/submit">
+                <button className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                  <Plus className="h-4 w-4" />
+                  Ajouter votre premier terme
+                </button>
+              </Link>
+            </div>
+          );
+
+        case "score":
+          return (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Indicateur</th>
+                    <th className="px-4 py-3 text-left">Valeur</th>
+                    <th className="px-4 py-3 text-left">Détails</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {scoreBreakdown.map((row) => (
+                    <tr key={row.metric} className="hover:bg-muted/40">
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {row.metric}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {row.value}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {row.details}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+
+        default:
+          return null;
+      }
+    },
+    [
+      activeTab,
+      documentsCount,
+      formatDate,
+      formatStatus,
+      likedTerms,
+      likedTermsLoading,
+      modificationsLoading,
+      researcherModifications,
+      scoreBreakdown,
+      userReports,
+      reportsLoading,
+      statsData,
+      handleDeleteModification,
+      handleEditModification,
+      userComments,
+      commentsLoading,
+    ]
+  );
 
   const EditModificationDialog = () => {
     if (!isEditModificationDialogOpen || !editingModification) return null;
@@ -2803,10 +3146,43 @@ const Dashboard = () => {
               </span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div
+              className={`grid grid-cols-1 gap-6 mb-8 auto-rows-fr ${
+                isResearcher ? "md:grid-cols-4" : "md:grid-cols-6"
+              }`}
+            >
               {statCards.map((stat) => {
                 // Destructure to exclude badge from being passed to StatCard
                 const { badge, ...statWithoutBadge } = stat;
+
+                // Determine which section this tab belongs to
+                const contentTabs = [
+                  "terms",
+                  "comments",
+                  "comments-received",
+                  "reports-received",
+                  "likes-received",
+                ];
+                const activityTabs = [
+                  "pending-validation",
+                  "liked",
+                  "my-likes",
+                  "my-comments",
+                ];
+                const section = contentTabs.includes(stat.tabKey)
+                  ? "content"
+                  : activityTabs.includes(stat.tabKey)
+                  ? "activity"
+                  : null;
+
+                // Determine which active state to check
+                const isActive =
+                  section === "content"
+                    ? stat.tabKey === activeContentTab
+                    : section === "activity"
+                    ? stat.tabKey === activeActivityTab
+                    : stat.tabKey === activeTab;
+
                 return (
                   <StatCard
                     key={stat.title}
@@ -2814,12 +3190,12 @@ const Dashboard = () => {
                     onClick={
                       (isResearcher || isAuthor || user?.role === "admin") &&
                       stat.tabKey
-                        ? () => handleTabClick(stat.tabKey)
+                        ? () => handleTabClick(stat.tabKey, section)
                         : undefined
                     }
                     active={
                       (isResearcher || isAuthor || user?.role === "admin") &&
-                      stat.tabKey === activeTab
+                      isActive
                     }
                     badge={undefined}
                   />
@@ -2828,7 +3204,8 @@ const Dashboard = () => {
             </div>
           )}
 
-          {(isResearcher || isAuthor || user?.role === "admin") && (
+          {/* Researcher Tabs */}
+          {isResearcher && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2837,7 +3214,7 @@ const Dashboard = () => {
             >
               <div className="rounded-3xl border border-border/60 bg-background/70 backdrop-blur-md shadow-xl overflow-hidden">
                 <div className="flex flex-wrap gap-2 p-6 pb-4">
-                  {(isResearcher ? researcherTabs : authorTabs).map((tab) => (
+                  {researcherTabs.map((tab) => (
                     <button
                       key={tab.key}
                       type="button"
@@ -2860,6 +3237,92 @@ const Dashboard = () => {
                   ))}
                 </div>
                 <div className="px-6 pb-6">{renderTabContent()}</div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Author Tabs - Section 1: My Content */}
+          {(isAuthor || user?.role === "admin") && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="mb-10"
+            >
+              <div className="rounded-3xl border border-border/60 bg-background/70 backdrop-blur-md shadow-xl overflow-hidden">
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Mes Contenus
+                  </h2>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {authorMyContentTabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => handleTabClick(tab.key, "content")}
+                        className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          activeContentTab === tab.key
+                            ? "bg-primary text-white shadow"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.label}
+                        {tab.badge &&
+                          tab.badge > 0 &&
+                          !viewedTabs.has(tab.key) && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
+                              {tab.badge}
+                            </span>
+                          )}
+                      </button>
+                    ))}
+                  </div>
+                  <div>{renderTabContent(activeContentTab)}</div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Author Tabs - Section 2: My Activities */}
+          {(isAuthor || user?.role === "admin") && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mb-10"
+            >
+              <div className="rounded-3xl border border-border/60 bg-background/70 backdrop-blur-md shadow-xl overflow-hidden">
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-primary" />
+                    Mes Activités
+                  </h2>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {authorMyActivitiesTabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => handleTabClick(tab.key, "activity")}
+                        className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          activeActivityTab === tab.key
+                            ? "bg-primary text-white shadow"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.label}
+                        {tab.badge &&
+                          tab.badge > 0 &&
+                          !viewedTabs.has(tab.key) && (
+                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
+                              {tab.badge}
+                            </span>
+                          )}
+                      </button>
+                    ))}
+                  </div>
+                  <div>{renderTabContent(activeActivityTab)}</div>
+                </div>
               </div>
             </motion.div>
           )}

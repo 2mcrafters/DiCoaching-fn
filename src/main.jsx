@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from '@/App';
 import '@/index.css';
 import { initialUsers } from '@/lib/seed';
+import { HelmetProvider } from "react-helmet-async";
 // Dynamic import fallback: allows the app to run even if react-redux isn't installed yet.
 
 import { useState, useEffect } from "react";
@@ -139,8 +140,10 @@ window.addEventListener("unhandledrejection", (event) => {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <ReduxAppLoader>
-      <App />
-    </ReduxAppLoader>
+    <HelmetProvider>
+      <ReduxAppLoader>
+        <App />
+      </ReduxAppLoader>
+    </HelmetProvider>
   </React.StrictMode>
 );

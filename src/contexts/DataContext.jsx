@@ -146,11 +146,19 @@ export const DataProvider = ({ children }) => {
   };
 
   const fetchFromBackend = async (externalSignal) => {
-    // Cancel previous request if any
+    // Cancel any inflight fetch
     if (currentController.current) {
       try {
-        currentController.current.abort();
-      } catch (_) {}
+        // Only abort if the signal is not already aborted
+        if (
+          currentController.current.signal &&
+          !currentController.current.signal.aborted
+        ) {
+          currentController.current.abort();
+        }
+      } catch (_) {
+        // Silently ignore any abort errors
+      }
       currentController.current = null;
     }
 
@@ -180,8 +188,10 @@ export const DataProvider = ({ children }) => {
         : [];
 
       const normalized = rawTerms.map((t, i) => normalizeTerm(t, i));
-      // Don't filter out terms - just normalize them
-      setTerms(normalized);
+      // Only update state if this request is still the active one
+      if (!controller || currentController.current === controller) {
+        setTerms(normalized);
+      }
     } catch (e) {
       // Ignore aborted requests (caused by unmount/strict-mode double render or manual abort)
       if (isAbortError(e)) {
@@ -196,13 +206,14 @@ export const DataProvider = ({ children }) => {
       setError(e.message || String(e));
       setTerms([]); // fallback to empty list to avoid stale localStorage data
     } finally {
-      // Only update loading state if request wasn't aborted
-      if (currentController.current === controller || !controller) {
+      // Only update loading state if this is still the active controller
+      if (!controller || currentController.current === controller) {
         setLoading(false);
       }
       // clear controller if it was ours
-      if (currentController.current === controller)
+      if (controller && currentController.current === controller) {
         currentController.current = null;
+      }
     }
   };
 
@@ -218,10 +229,9 @@ export const DataProvider = ({ children }) => {
     });
 
     return () => {
+      // Cleanup: don't abort to avoid AbortError noise; just drop reference
+      // Guards elsewhere prevent stale requests from updating state.
       if (currentController.current) {
-        try {
-          currentController.current.abort();
-        } catch (_) {}
         currentController.current = null;
       }
     };

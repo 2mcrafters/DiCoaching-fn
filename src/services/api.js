@@ -53,9 +53,9 @@ class ApiService {
       }
 
       // Handle 500+ (server errors)
+      // Do NOT hard-redirect; let callers decide how to display errors.
       if (response.status >= 500) {
-        window.location.href = "/server-error";
-        throw new Error("Erreur serveur");
+        throw new Error("Erreur serveur (" + response.status + ")");
       }
 
       if (!response.ok) {
@@ -68,7 +68,11 @@ class ApiService {
       // Silently re-throw AbortError without logging (expected during navigation/unmount)
       if (
         error &&
-        (error.name === "AbortError" || error.code === "ABORT_ERR")
+        (error.name === "AbortError" ||
+          error.code === "ABORT_ERR" ||
+          (typeof error.message === "string" &&
+            (error.message.includes("aborted") ||
+              error.message.includes("AbortError"))))
       ) {
         // Don't log abort errors - they're expected during component unmount or navigation
         throw error;
@@ -300,6 +304,11 @@ class ApiService {
 
   async getUserLikedTerms() {
     const res = await this.get("/api/user/liked-terms");
+    return res?.data ?? res;
+  }
+
+  async getReceivedLikes() {
+    const res = await this.get("/api/user/received-likes");
     return res?.data ?? res;
   }
 
