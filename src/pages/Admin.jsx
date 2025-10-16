@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
+import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDispatch, useSelector } from "react-redux";
 import { selectAllTerms, fetchTerms } from "@/features/terms/termsSlice";
 import { selectAllUsers, fetchUsers } from "@/features/users/usersSlice";
@@ -28,12 +29,26 @@ import apiService from "@/services/api";
 const Admin = () => {
   const { user } = useAuth();
   const dispatch = useDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
   const terms = useSelector(selectAllTerms);
   const users = useSelector(selectAllUsers);
   const globalStats = useSelector(selectGlobalStats);
   const statsLoading = useSelector(selectStatsLoading);
   const reportsLoading = useSelector(selectReportsLoading);
-  const [activeTab, setActiveTab] = useState("pendingAuthors");
+  const ALLOWED_TABS = [
+    "pendingAuthors",
+    "modifications",
+    "reports",
+    "terms",
+    "categories",
+    "users",
+  ];
+
+  const initialTabParam = searchParams.get("tab");
+  const initialTab = ALLOWED_TABS.includes(initialTabParam)
+    ? initialTabParam
+    : "pendingAuthors";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [modifications, setModifications] = useState([]);
 
   useEffect(() => {
@@ -58,6 +73,19 @@ const Admin = () => {
 
     fetchAdminData();
   }, [dispatch, terms?.length, users?.length]);
+
+  // Keep active tab in sync with URL when user uses back/forward
+  useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (urlTab && ALLOWED_TABS.includes(urlTab) && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+    // If there is no tab in URL, ensure one exists (once on mount)
+    if (!urlTab) {
+      setSearchParams({ tab: activeTab }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleDataUpdate = () => {
     dispatch(fetchTerms({ limit: 10000 }));
@@ -134,7 +162,11 @@ const Admin = () => {
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    // Push the tab into the URL so Back returns to the previous tab
+                    setSearchParams({ tab: tab.id }, { replace: false });
+                  }}
                   className={`relative flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
                     activeTab === tab.id
                       ? "bg-background text-primary shadow-md"

@@ -188,6 +188,13 @@ const EditTerm = () => {
             <div className="mb-8">
               <Link
                 to={`/fiche/${slug}`}
+                onClick={(e) => {
+                  // Go back to the last page if possible; otherwise, fall back to the fiche page
+                  if (window.history.length > 1) {
+                    e.preventDefault();
+                    navigate(-1);
+                  }
+                }}
                 className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors mb-4"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />

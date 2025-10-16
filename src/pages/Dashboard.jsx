@@ -393,6 +393,78 @@ const Dashboard = () => {
   // Track which tabs have been viewed (to hide notifications)
   const [viewedTabs, setViewedTabs] = useState(new Set());
 
+  // Persist read/unread state per tab and per user using localStorage
+  // lastSeenCounts maps tabKey -> last seen badge count for that tab
+  const [lastSeenCounts, setLastSeenCounts] = useState({});
+
+  // Compute current badge counts by tab key for all sections
+  const currentBadgesByTab = useMemo(
+    () => ({
+      // Researcher tabs
+      liked: newLikedTermsCount || 0,
+      modifications: newModificationsCount || 0,
+      reports: newUserReportsCount || 0,
+      activities: 0,
+      // Author - My Content
+      terms: newUserTermsCount || 0,
+      "comments-received": newCommentsCount || 0,
+      "reports-received": newReceivedReportsCount || 0,
+      "likes-received": 0,
+      // Author - My Activities
+      "pending-validation": newPendingValidationCount || 0,
+      "my-likes": newLikedTermsCount || 0,
+      "my-comments": 0,
+      // Aliases
+      comments: newCommentsCount || 0,
+    }),
+    [
+      newLikedTermsCount,
+      newModificationsCount,
+      newUserReportsCount,
+      newUserTermsCount,
+      newCommentsCount,
+      newReceivedReportsCount,
+      newPendingValidationCount,
+    ]
+  );
+
+  // Load last seen counts from localStorage when user changes
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const key = `dashboard:lastSeen:${user.id}`;
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : {};
+      setLastSeenCounts(parsed && typeof parsed === "object" ? parsed : {});
+    } catch {
+      setLastSeenCounts({});
+    }
+  }, [user?.id]);
+
+  // Ensure lastSeenCounts do not exceed current counts (clamp down if needed)
+  useEffect(() => {
+    if (!user?.id) return;
+    let changed = false;
+    const updated = { ...lastSeenCounts };
+    Object.entries(currentBadgesByTab).forEach(([key, current]) => {
+      const curr = Number(current || 0);
+      const seen = Number(updated[key] || 0);
+      if (seen > curr) {
+        updated[key] = curr;
+        changed = true;
+      }
+    });
+    if (changed) {
+      setLastSeenCounts(updated);
+      try {
+        localStorage.setItem(
+          `dashboard:lastSeen:${user.id}`,
+          JSON.stringify(updated)
+        );
+      } catch {}
+    }
+  }, [currentBadgesByTab, user?.id, lastSeenCounts]);
+
   // Filters: content section (Mes termes, Commentaires reçus, Likes reçus)
   const [contentFilters, setContentFilters] = useState({
     q: "",
@@ -488,49 +560,67 @@ const Dashboard = () => {
   }, [activityFilters]);
 
   // Handler to clear notification when tab is clicked
-  const handleTabClick = useCallback((tabKey, section = null) => {
-    // Update the appropriate active tab state based on section
-    if (section === "content") {
-      setActiveContentTab(tabKey);
-    } else if (section === "activity") {
-      setActiveActivityTab(tabKey);
-    } else {
-      setActiveTab(tabKey);
-    }
+  const handleTabClick = useCallback(
+    (tabKey, section = null) => {
+      // Update the appropriate active tab state based on section
+      if (section === "content") {
+        setActiveContentTab(tabKey);
+      } else if (section === "activity") {
+        setActiveActivityTab(tabKey);
+      } else {
+        setActiveTab(tabKey);
+      }
 
-    // Mark tab as viewed
-    setViewedTabs((prev) => new Set([...prev, tabKey]));
+      // Mark tab as viewed
+      setViewedTabs((prev) => new Set([...prev, tabKey]));
 
-    // Clear the notification for this tab
-    switch (tabKey) {
-      case "comments":
-      case "comments-received":
-        setNewCommentsCount(0);
-        break;
-      case "liked":
-      case "my-likes":
-      case "termes-apprecies":
-        setNewLikedTermsCount(0);
-        break;
-      case "terms":
-        setNewUserTermsCount(0);
-        break;
-      case "reports-received":
-        setNewReceivedReportsCount(0);
-        break;
-      case "reports":
-        setNewUserReportsCount(0);
-        break;
-      case "modifications":
-        setNewModificationsCount(0);
-        break;
-      case "pending-validation":
-        setNewPendingValidationCount(0);
-        break;
-      default:
-        break;
-    }
-  }, []);
+      // Persist last seen badge count for this tab (per user)
+      const current = Number(currentBadgesByTab[tabKey] || 0);
+      setLastSeenCounts((prev) => {
+        const next = { ...prev, [tabKey]: current };
+        try {
+          if (user?.id) {
+            localStorage.setItem(
+              `dashboard:lastSeen:${user.id}`,
+              JSON.stringify(next)
+            );
+          }
+        } catch {}
+        return next;
+      });
+
+      // Clear the notification for this tab
+      switch (tabKey) {
+        case "comments":
+        case "comments-received":
+          setNewCommentsCount(0);
+          break;
+        case "liked":
+        case "my-likes":
+        case "termes-apprecies":
+          setNewLikedTermsCount(0);
+          break;
+        case "terms":
+          setNewUserTermsCount(0);
+          break;
+        case "reports-received":
+          setNewReceivedReportsCount(0);
+          break;
+        case "reports":
+          setNewUserReportsCount(0);
+          break;
+        case "modifications":
+          setNewModificationsCount(0);
+          break;
+        case "pending-validation":
+          setNewPendingValidationCount(0);
+          break;
+        default:
+          break;
+      }
+    },
+    [currentBadgesByTab, user?.id]
+  );
 
   // Pagination state for each tab (5 items per page)
   const [commentsPage, setCommentsPage] = useState(1);
@@ -3870,27 +3960,31 @@ const Dashboard = () => {
             >
               <div className="rounded-3xl border border-border/60 bg-background/70 backdrop-blur-md shadow-xl overflow-hidden">
                 <div className="flex flex-wrap gap-2 p-6 pb-4">
-                  {researcherTabs.map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => handleTabClick(tab.key)}
-                      className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        activeTab === tab.key
-                          ? "bg-primary text-white shadow"
-                          : "bg-muted text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {tab.label}
-                      {tab.badge &&
-                        tab.badge > 0 &&
-                        !viewedTabs.has(tab.key) && (
+                  {researcherTabs.map((tab) => {
+                    const unseen = Math.max(
+                      0,
+                      (tab.badge || 0) - Number(lastSeenCounts[tab.key] || 0)
+                    );
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => handleTabClick(tab.key)}
+                        className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          activeTab === tab.key
+                            ? "bg-primary text-white shadow"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {tab.label}
+                        {unseen > 0 && !viewedTabs.has(tab.key) && (
                           <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
-                            {tab.badge}
+                            {unseen}
                           </span>
                         )}
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="px-6 pb-6">{renderTabContent()}</div>
               </div>
@@ -3977,27 +4071,31 @@ const Dashboard = () => {
                     Mes Contenus
                   </h2>
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {authorMyContentTabs.map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => handleTabClick(tab.key, "content")}
-                        className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                          activeContentTab === tab.key
-                            ? "bg-primary text-white shadow"
-                            : "bg-muted text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tab.label}
-                        {tab.badge &&
-                          tab.badge > 0 &&
-                          !viewedTabs.has(tab.key) && (
+                    {authorMyContentTabs.map((tab) => {
+                      const unseen = Math.max(
+                        0,
+                        (tab.badge || 0) - Number(lastSeenCounts[tab.key] || 0)
+                      );
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => handleTabClick(tab.key, "content")}
+                          className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                            activeContentTab === tab.key
+                              ? "bg-primary text-white shadow"
+                              : "bg-muted text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab.label}
+                          {unseen > 0 && !viewedTabs.has(tab.key) && (
                             <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
-                              {tab.badge}
+                              {unseen}
                             </span>
                           )}
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                   <div>{renderTabContent(activeContentTab)}</div>
                 </div>
@@ -4020,27 +4118,31 @@ const Dashboard = () => {
                     Mes Activités
                   </h2>
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {authorMyActivitiesTabs.map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => handleTabClick(tab.key, "activity")}
-                        className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                          activeActivityTab === tab.key
-                            ? "bg-primary text-white shadow"
-                            : "bg-muted text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {tab.label}
-                        {tab.badge &&
-                          tab.badge > 0 &&
-                          !viewedTabs.has(tab.key) && (
+                    {authorMyActivitiesTabs.map((tab) => {
+                      const unseen = Math.max(
+                        0,
+                        (tab.badge || 0) - Number(lastSeenCounts[tab.key] || 0)
+                      );
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => handleTabClick(tab.key, "activity")}
+                          className={`relative px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                            activeActivityTab === tab.key
+                              ? "bg-primary text-white shadow"
+                              : "bg-muted text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {tab.label}
+                          {unseen > 0 && !viewedTabs.has(tab.key) && (
                             <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform bg-red-500 rounded-full min-w-[1.25rem]">
-                              {tab.badge}
+                              {unseen}
                             </span>
                           )}
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                   <div>{renderTabContent(activeActivityTab)}</div>
                 </div>
