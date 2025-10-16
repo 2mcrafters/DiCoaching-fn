@@ -70,7 +70,20 @@ const findTermRecord = async (id) => {
 // GET /api/terms
 router.get('/', async (req, res) => {
   try {
-    const { search, category, limit } = req.query;
+    const {
+      search,
+      category,
+      limit,
+      author,
+      authorId,
+      authorName,
+      status,
+      from,
+      to,
+      sort,
+    } = req.query;
+
+    // Build base query for FR table
     let sql = `
       SELECT t.*, c.libelle as categorie_libelle, u.firstname, u.lastname, u.role
       FROM termes t
@@ -80,43 +93,208 @@ router.get('/', async (req, res) => {
     `;
     const params = [];
 
+    // Text search (prefix on terme)
     if (search) {
       sql += ` AND t.terme LIKE ?`;
-      const searchPattern = `${search}%`; // Start with pattern
-      params.push(searchPattern);
+      params.push(`${search}%`);
     }
 
+    // Category filter: id or label
     if (category) {
-      if (isNaN(category)) {
-        sql += ` AND c.libelle = ?`;
-        params.push(category);
-      } else {
+      if (!isNaN(category)) {
         sql += ` AND t.categorie_id = ?`;
         params.push(parseInt(category, 10));
+      } else {
+        sql += ` AND c.libelle = ?`;
+        params.push(category);
       }
     }
 
-    sql += ` ORDER BY t.terme ASC`;
-    
-    // Only add LIMIT if explicitly provided
+    // Author filter: by id or name
+    const authorParam = author ?? authorId ?? undefined;
+    const authorNameParam = authorName ?? undefined;
+    if (authorParam && !isNaN(authorParam)) {
+      sql += ` AND t.author_id = ?`;
+      params.push(parseInt(authorParam, 10));
+    } else if (authorParam && isNaN(authorParam)) {
+      // treat as name
+      sql += ` AND (CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,'')) LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)`;
+      const pat = `%${String(authorParam)}%`;
+      params.push(pat, pat, pat);
+    } else if (authorNameParam) {
+      const pat = `%${String(authorNameParam)}%`;
+      sql += ` AND (CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,'')) LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)`;
+      params.push(pat, pat, pat);
+    }
+
+    // Status filter
+    if (status) {
+      sql += ` AND t.status = ?`;
+      params.push(status);
+    }
+
+    // Date range (best-effort on created_at)
+    let usedDateFilters = false;
+    let wantRecentSort = sort === "recent";
+    if (from) {
+      sql += ` AND t.created_at >= ?`;
+      params.push(new Date(from));
+      usedDateFilters = true;
+    }
+    if (to) {
+      sql += ` AND t.created_at <= ?`;
+      params.push(new Date(to));
+      usedDateFilters = true;
+    }
+
+    // Sorting
+    if (wantRecentSort) {
+      sql += ` ORDER BY t.created_at DESC`;
+    } else {
+      sql += ` ORDER BY t.terme ASC`;
+    }
+
+    // Optional LIMIT
     if (limit && !isNaN(limit)) {
       sql += ` LIMIT ?`;
       params.push(parseInt(limit, 10));
     }
 
+    // Try FR query; on Unknown column for created_at, retry without date filters and with safe ORDER BY
+    const runFr = async () => {
+      try {
+        return await db.query(sql, params);
+      } catch (err) {
+        const msg = (err && err.message) || "";
+        if (
+          msg.includes("Unknown column 't.created_at'") ||
+          msg.includes("created_at")
+        ) {
+          // Rebuild without date filters and use id DESC for recent sort
+          let sqlNoDate = sql
+            .replace(/ AND t\.created_at >= \?/g, "")
+            .replace(/ AND t\.created_at <= \?/g, "");
+          if (wantRecentSort) {
+            sqlNoDate = sqlNoDate.replace(
+              /ORDER BY t\.created_at DESC/,
+              "ORDER BY t.id DESC"
+            );
+          }
+          const paramsNoDate = params.filter((_, idx) => true); // same count, but removed date params not trivial; rebuild instead
+          // Rebuild params safely
+          const rebuiltParams = [];
+          // Reconstruct by re-parsing req.query to avoid misalignment
+          // Simpler: recompose from scratch matching sqlNoDate order
+          rebuiltParams.push(...[]);
+          // Instead of reconstructing, run a fresh FR build without the date filters
+          let frSql = `\n      SELECT t.*, c.libelle as categorie_libelle, u.firstname, u.lastname, u.role\n      FROM termes t\n      LEFT JOIN categories c ON t.categorie_id = c.id\n      LEFT JOIN users u ON t.author_id = u.id\n      WHERE 1=1\n    `;
+          const frParams = [];
+          if (search) {
+            frSql += " AND t.terme LIKE ?";
+            frParams.push(`${search}%`);
+          }
+          if (category) {
+            if (!isNaN(category)) {
+              frSql += " AND t.categorie_id = ?";
+              frParams.push(parseInt(category, 10));
+            } else {
+              frSql += " AND c.libelle = ?";
+              frParams.push(category);
+            }
+          }
+          if (authorParam && !isNaN(authorParam)) {
+            frSql += " AND t.author_id = ?";
+            frParams.push(parseInt(authorParam, 10));
+          } else if (authorParam && isNaN(authorParam)) {
+            const pat = `%${String(authorParam)}%`;
+            frSql += ` AND (CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,'')) LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)`;
+            frParams.push(pat, pat, pat);
+          } else if (authorNameParam) {
+            const pat = `%${String(authorNameParam)}%`;
+            frSql += ` AND (CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,'')) LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)`;
+            frParams.push(pat, pat, pat);
+          }
+          if (status) {
+            frSql += " AND t.status = ?";
+            frParams.push(status);
+          }
+          frSql += wantRecentSort
+            ? " ORDER BY t.id DESC"
+            : " ORDER BY t.terme ASC";
+          if (limit && !isNaN(limit)) {
+            frSql += " LIMIT ?";
+            frParams.push(parseInt(limit, 10));
+          }
+          return await db.query(frSql, frParams);
+        }
+        throw err;
+      }
+    };
+
     let terms = [];
     try {
-      terms = await db.query(sql.replace(/termes/g, 'termes'), params);
+      terms = await runFr();
     } catch (errTer) {
+      // Build EN query by replacing FR-specific columns
+      const buildEn = (withDate) => {
+        let base = `\n      SELECT t.*, c.category_label as categorie_libelle, u.firstname, u.lastname, u.role\n      FROM terms t\n      LEFT JOIN categories c ON t.category_id = c.id\n      LEFT JOIN users u ON t.author_id = u.id\n      WHERE 1=1\n    `;
+        const p = [];
+        if (search) {
+          base += " AND t.term LIKE ?";
+          p.push(`${search}%`);
+        }
+        if (category) {
+          if (!isNaN(category)) {
+            base += " AND t.category_id = ?";
+            p.push(parseInt(category, 10));
+          } else {
+            base += " AND c.category_label = ?";
+            p.push(category);
+          }
+        }
+        if (authorParam && !isNaN(authorParam)) {
+          base += " AND t.author_id = ?";
+          p.push(parseInt(authorParam, 10));
+        } else if (authorParam && isNaN(authorParam)) {
+          const pat = `%${String(authorParam)}%`;
+          base += ` AND (CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,'')) LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)`;
+          p.push(pat, pat, pat);
+        } else if (authorNameParam) {
+          const pat = `%${String(authorNameParam)}%`;
+          base += ` AND (CONCAT(COALESCE(u.firstname,''),' ',COALESCE(u.lastname,'')) LIKE ? OR u.firstname LIKE ? OR u.lastname LIKE ?)`;
+          p.push(pat, pat, pat);
+        }
+        if (status) {
+          base += " AND t.status = ?";
+          p.push(status);
+        }
+        if (withDate && from) {
+          base += " AND t.created_at >= ?";
+          p.push(new Date(from));
+        }
+        if (withDate && to) {
+          base += " AND t.created_at <= ?";
+          p.push(new Date(to));
+        }
+        base += wantRecentSort
+          ? " ORDER BY t.created_at DESC"
+          : " ORDER BY t.term ASC";
+        if (limit && !isNaN(limit)) {
+          base += " LIMIT ?";
+          p.push(parseInt(limit, 10));
+        }
+        return { base, p };
+      };
       try {
-        const sqlEn = sql
-          .replace(/termes/g, 'terms')
-          .replace(/categorie_id/g, 'category_id')
-          .replace(/categorie_libelle/g, 'category_label')
-          .replace(/t\.terme/g, 't.term');
-        terms = await db.query(sqlEn, params);
+        const { base, p } = buildEn(true);
+        terms = await db.query(base, p);
       } catch (errEn) {
-        throw errEn;
+        // Retry EN without date if created_at missing
+        const { base, p } = buildEn(false);
+        const safeBase = wantRecentSort
+          ? base.replace("ORDER BY t.created_at DESC", "ORDER BY t.id DESC")
+          : base;
+        terms = await db.query(safeBase, p);
       }
     }
 

@@ -40,6 +40,13 @@ const FRONTEND_URL = normalizeOrigin(
   process.env.FRONTEND_URL,
   "http://localhost:3000"
 );
+// Support both localhost and 127.0.0.1 to avoid CORS/CSP mismatches
+const FRONTEND_ALIAS = FRONTEND_URL?.includes("localhost")
+  ? FRONTEND_URL.replace("localhost", "127.0.0.1")
+  : FRONTEND_URL?.includes("127.0.0.1")
+  ? FRONTEND_URL.replace("127.0.0.1", "localhost")
+  : null;
+const allowedOrigins = [FRONTEND_URL, FRONTEND_ALIAS].filter(Boolean);
 const BACKEND_PUBLIC_URL = normalizeOrigin(
   process.env.BACKEND_PUBLIC_URL,
   `http://localhost:${PORT}`
@@ -58,19 +65,15 @@ app.use(
           "'self'",
           "data:",
           "blob:",
-          FRONTEND_URL,
+          ...allowedOrigins,
           BACKEND_PUBLIC_URL,
         ].filter(Boolean),
         objectSrc: ["'none'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         scriptSrcAttr: ["'none'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        connectSrc: ["'self'", FRONTEND_URL, BACKEND_PUBLIC_URL].filter(
-          Boolean
-        ),
-        formAction: ["'self'", FRONTEND_URL, BACKEND_PUBLIC_URL].filter(
-          Boolean
-        ),
+        connectSrc: ["'self'", ...allowedOrigins, BACKEND_PUBLIC_URL].filter(Boolean),
+        formAction: ["'self'", ...allowedOrigins, BACKEND_PUBLIC_URL].filter(Boolean),
         frameAncestors: ["'self'"],
       },
     },
@@ -82,7 +85,15 @@ app.use(morgan("combined"));
 // Configuration CORS
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: function (origin, callback) {
+      // Allow same-origin or tools without an Origin (like curl/postman)
+      if (!origin) return callback(null, true);
+      const normalized = origin.replace(/\/$/, "");
+      if (allowedOrigins.includes(normalized)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   })
 );
@@ -95,7 +106,12 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(
   "/uploads",
   cors({
-    origin: FRONTEND_URL,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      const normalized = origin.replace(/\/$/, "");
+      if (allowedOrigins.includes(normalized)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   }),
   express.static(path.join(__dirname, "uploads"))

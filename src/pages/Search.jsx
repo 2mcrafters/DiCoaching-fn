@@ -22,6 +22,9 @@ const Search = () => {
   const [selectedCategory, setSelectedCategory] = useState(
     searchParams.get("category") || "all"
   );
+  const [selectedStatus, setSelectedStatus] = useState(
+    searchParams.get("status") || "published"
+  );
   const [selectedAuthor, setSelectedAuthor] = useState(
     searchParams.get("author") || "all"
   );
@@ -44,29 +47,30 @@ const Search = () => {
     dispatch(fetchTerms({})); // Empty params = fetch ALL terms
   }, [dispatch]);
 
-  const publishedTerms = useMemo(
-    () => terms.filter((term) => term.status === "published"),
-    [terms]
-  );
+  // Apply status first (default to published)
+  const statusTerms = useMemo(() => {
+    if (selectedStatus === "all") return terms;
+    return terms.filter((t) => (t.status || "published") === selectedStatus);
+  }, [terms, selectedStatus]);
 
   // Build authors list directly from backend-normalized terms (no localStorage)
   const authors = useMemo(() => {
     const map = new Map();
-    publishedTerms.forEach((t) => {
+    statusTerms.forEach((t) => {
       const id = t.authorId || "unknown";
       const name = t.authorName || "Mohamed Rachid Belhadj";
       if (!map.has(id)) map.set(id, name);
     });
     const items = Array.from(map.entries()).map(([id, name]) => ({ id, name }));
     return [{ id: "all", name: "Tous les auteurs" }, ...items];
-  }, [publishedTerms]);
+  }, [statusTerms]);
 
   const categories = useMemo(() => {
     return ["all", "Coaching"];
   }, []);
 
   const filteredTerms = useMemo(() => {
-    let filtered = [...publishedTerms];
+    let filtered = [...statusTerms];
 
     // Apply standard filters first
     if (selectedCategory !== "all") {
@@ -130,10 +134,11 @@ const Search = () => {
   }, [
     searchQuery,
     selectedCategory,
+    selectedStatus,
     selectedAuthor,
     sortBy,
     dateRange,
-    publishedTerms,
+    statusTerms,
   ]);
 
   const totalPages = Math.ceil(filteredTerms.length / ITEMS_PER_PAGE);
@@ -161,6 +166,8 @@ const Search = () => {
     const params = new URLSearchParams();
     if (searchQuery) params.set("q", searchQuery);
     if (selectedCategory !== "all") params.set("category", selectedCategory);
+    if (selectedStatus && selectedStatus !== "published")
+      params.set("status", selectedStatus);
     if (selectedAuthor !== "all") params.set("author", selectedAuthor);
 
     // Only set sort if it's not the default
@@ -185,7 +192,7 @@ const Search = () => {
   ]);
 
   const getAuthorName = (authorId) => {
-    const term = publishedTerms.find((t) => t.authorId === authorId);
+    const term = statusTerms.find((t) => t.authorId === authorId);
     return term?.authorName || "Mohamed Rachid Belhadj";
   };
 
@@ -213,11 +220,11 @@ const Search = () => {
             </h1>
             <p className="text-muted-foreground">
               Explorez les concepts et techniques du coaching
-              {!loading && publishedTerms.length > 0 && (
+              {!loading && statusTerms.length > 0 && (
                 <span className="ml-2 font-medium">
-                  • {publishedTerms.length} terme
-                  {publishedTerms.length > 1 ? "s" : ""} disponible
-                  {publishedTerms.length > 1 ? "s" : ""}
+                  • {statusTerms.length} terme
+                  {statusTerms.length > 1 ? "s" : ""} disponible
+                  {statusTerms.length > 1 ? "s" : ""}
                 </span>
               )}
             </p>
@@ -235,6 +242,8 @@ const Search = () => {
                 setSearchQuery={setSearchQuery}
                 selectedCategory={selectedCategory}
                 setSelectedCategory={setSelectedCategory}
+                selectedStatus={selectedStatus}
+                setSelectedStatus={setSelectedStatus}
                 selectedAuthor={selectedAuthor}
                 setSelectedAuthor={setSelectedAuthor}
                 sortBy={sortBy}
