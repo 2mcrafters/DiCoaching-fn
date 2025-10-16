@@ -352,37 +352,79 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/terms
-router.post('/', async (req, res) => {
+router.post("/", authenticateToken, async (req, res) => {
   try {
+    // Permissions: Admin or confirmed/active author only
+    const userId = req.user?.id;
+    const roleFromToken = (req.user?.role || "").toLowerCase();
+    let isAdmin = roleFromToken === "admin";
+    let isAuthor = roleFromToken === "author";
+    let authorApproved = false;
+
+    // Source of truth: read current role/status from DB to avoid relying on JWT fields
+    if (userId) {
+      try {
+        const [u] = await db.query(
+          "SELECT role, status FROM users WHERE id = ?",
+          [userId]
+        );
+        if (u) {
+          const r = String(u.role || roleFromToken || "").toLowerCase();
+          const s = String(u.status || "").toLowerCase();
+          isAdmin = r === "admin";
+          isAuthor = r === "author" || r === "auteur";
+          authorApproved = s === "active" || s === "confirmed";
+        }
+      } catch (_) {
+        // Fallback to token-derived checks if DB lookup fails
+        authorApproved = false;
+      }
+    }
+    if (!isAdmin && !(isAuthor && authorApproved)) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Votre candidature d'auteur est en attente. Attendez l'approbation d'un administrateur pour ajouter des termes.",
+      });
+    }
     // Accept both legacy and new payload shapes
     const terme = req.body.terme || req.body.term;
-    const definition = req.body.definition || req.body.desc || '';
+    const definition = req.body.definition || req.body.desc || "";
     const categorie_id = req.body.categorie_id || req.body.category_id || null;
     const examplesIn = req.body.exemples ?? req.body.exemple ?? [];
     const sourcesIn = req.body.sources ?? req.body.source ?? [];
     const remarquesIn = req.body.remarques ?? req.body.remarque ?? [];
-    const author_id = req.body.author_id || req.body.authorId || null;
-    const status = req.body.status || 'published';
+    const author_id = req.body.author_id || req.body.authorId || userId || null;
+    const termStatus = req.body.status || "published";
 
     if (!terme || !definition) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Le terme et la définition sont requis',
+        status: "error",
+        message: "Le terme et la définition sont requis",
       });
     }
 
     // Normalize arrays/strings
     const finalExemple = Array.isArray(examplesIn)
-      ? examplesIn.map(e => (typeof e === 'string' ? e : e?.text || '')).filter(Boolean).join('\n')
-      : (examplesIn || null);
+      ? examplesIn
+          .map((e) => (typeof e === "string" ? e : e?.text || ""))
+          .filter(Boolean)
+          .join("\n")
+      : examplesIn || null;
 
     const finalSource = Array.isArray(sourcesIn)
-      ? sourcesIn.map(s => (typeof s === 'string' ? s : s?.text || '')).filter(Boolean).join('\n')
-      : (sourcesIn || null);
+      ? sourcesIn
+          .map((s) => (typeof s === "string" ? s : s?.text || ""))
+          .filter(Boolean)
+          .join("\n")
+      : sourcesIn || null;
 
     const finalRemarque = Array.isArray(remarquesIn)
-      ? remarquesIn.map(r => (typeof r === 'string' ? r : r?.text || '')).filter(Boolean).join('\n')
-      : (remarquesIn || null);
+      ? remarquesIn
+          .map((r) => (typeof r === "string" ? r : r?.text || ""))
+          .filter(Boolean)
+          .join("\n")
+      : remarquesIn || null;
 
     const result = await db.query(
       `
@@ -396,26 +438,33 @@ router.post('/', async (req, res) => {
         finalExemple || null,
         finalRemarque || null,
         finalSource || null,
-        author_id || 1,
+        author_id || userId || 1,
       ]
     );
 
     // Try to set status if the column exists
-    if (status) {
-      try { await db.query('UPDATE termes SET status = ? WHERE id = ?', [status, result.insertId]); } catch (e) { /* ignore if column doesn't exist */ }
+    if (termStatus) {
+      try {
+        await db.query("UPDATE termes SET status = ? WHERE id = ?", [
+          termStatus,
+          result.insertId,
+        ]);
+      } catch (e) {
+        /* ignore if column doesn't exist */
+      }
     }
 
     res.status(201).json({
-      status: 'success',
-      message: 'Terme créé avec succès',
+      status: "success",
+      message: "Terme créé avec succès",
       data: {
         id: result.insertId,
         terme,
         definition,
         categorie_id: categorie_id || 1,
-  exemple: finalExemple || null,
-  remarque: finalRemarque || null,
-  source: finalSource || null,
+        exemple: finalExemple || null,
+        remarque: finalRemarque || null,
+        source: finalSource || null,
         author_id: author_id || 1,
       },
       timestamp: new Date().toISOString(),
@@ -423,54 +472,75 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.log("❌ Erreur lors de l'exécution de la requête:", error.message);
     res.status(500).json({
-      status: 'error',
-      message: 'Erreur lors de la création du terme',
+      status: "error",
+      message: "Erreur lors de la création du terme",
       error: error.message,
     });
   }
 });
 
 // PUT /api/terms/:id
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const termRecord = await findTermRecord(id);
 
     if (!termRecord) {
-      return res.status(404).json({ status: 'error', message: 'Terme non trouvé' });
+      return res
+        .status(404)
+        .json({ status: "error", message: "Terme non trouvé" });
     }
 
     const { table, row: existingRow } = termRecord;
-    
+
     // Check permissions: Admin can edit all terms, Author can only edit their own terms
     const userId = req.user?.id;
-    const userRole = req.user?.role;
-    const isAdmin = userRole === 'admin';
-    const isAuthor = userRole === 'auteur' || userRole === 'author';
-    const isOwner = String(existingRow.author_id || existingRow.authorId) === String(userId);
-    
-    if (!isAdmin && !(isAuthor && isOwner)) {
-      return res.status(403).json({ 
-        status: 'error', 
-        message: 'Vous n\'avez pas la permission de modifier ce terme. Seul l\'auteur du terme ou un administrateur peut le modifier directement.' 
+    const userRole = (req.user?.role || "").toLowerCase();
+    const userStatus = (req.user?.status || "").toLowerCase();
+    const isAdmin = userRole === "admin";
+    const isAuthor = userRole === "author";
+    const authorApproved =
+      userStatus === "active" || userStatus === "confirmed";
+    const isOwner =
+      String(existingRow.author_id || existingRow.authorId) === String(userId);
+
+    if (!isAdmin && !(isAuthor && authorApproved && isOwner)) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Accès refusé. Seuls les administrateurs et les auteurs approuvés peuvent modifier leurs propres termes.",
       });
     }
 
     const payload = req.body || {};
 
-    const termValue = pickValue(payload, ['terme', 'term']);
-    const definitionValue = pickValue(payload, ['definition']);
-    const categoryIdValue = coerceNumeric(pickValue(payload, ['categorie_id', 'category_id']));
-    const categoryLabelValue = pickValue(payload, ['category', 'categorie', 'categorie_libelle', 'category_label']);
-    const examplesRaw = pickValue(payload, ['exemples', 'exemple', 'examples']);
-    const sourcesRaw = pickValue(payload, ['sources', 'source']);
-    const remarquesRaw = pickValue(payload, ['remarques', 'notes']);
-    const remarqueRaw = remarquesRaw === undefined ? pickValue(payload, ['remarque', 'remark', 'note']) : undefined;
-    const statusValue = pickValue(payload, ['status']);
-    const authorValue = coerceNumeric(pickValue(payload, ['author_id', 'authorId']));
+    const termValue = pickValue(payload, ["terme", "term"]);
+    const definitionValue = pickValue(payload, ["definition"]);
+    const categoryIdValue = coerceNumeric(
+      pickValue(payload, ["categorie_id", "category_id"])
+    );
+    const categoryLabelValue = pickValue(payload, [
+      "category",
+      "categorie",
+      "categorie_libelle",
+      "category_label",
+    ]);
+    const examplesRaw = pickValue(payload, ["exemples", "exemple", "examples"]);
+    const sourcesRaw = pickValue(payload, ["sources", "source"]);
+    const remarquesRaw = pickValue(payload, ["remarques", "notes"]);
+    const remarqueRaw =
+      remarquesRaw === undefined
+        ? pickValue(payload, ["remarque", "remark", "note"])
+        : undefined;
+    const statusValue = pickValue(payload, ["status"]);
+    const authorValue = coerceNumeric(
+      pickValue(payload, ["author_id", "authorId"])
+    );
 
     const examplesText = normalizeTextList(examplesRaw);
-    const remarkText = normalizeTextList(remarquesRaw !== undefined ? remarquesRaw : remarqueRaw);
+    const remarkText = normalizeTextList(
+      remarquesRaw !== undefined ? remarquesRaw : remarqueRaw
+    );
     const sourcesText = normalizeTextList(sourcesRaw);
 
     const updates = [];
@@ -488,47 +558,64 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return false;
     };
 
-  pushForColumns(['terme', 'term'], termValue);
-  pushForColumns(['definition'], definitionValue);
-  pushForColumns(['categorie_id', 'category_id'], categoryIdValue);
-  pushForColumns(['category', 'categorie', 'categorie_libelle', 'category_label'], categoryLabelValue);
-  pushForColumns(['exemple', 'examples'], examplesText);
-  pushForColumns(['remarque', 'remark', 'notes'], remarkText);
-  pushForColumns(['source', 'sources'], sourcesText);
-  pushForColumns(['author_id', 'authorId'], authorValue);
-  const appliedStatus = pushForColumns(['status'], statusValue);
+    pushForColumns(["terme", "term"], termValue);
+    pushForColumns(["definition"], definitionValue);
+    pushForColumns(["categorie_id", "category_id"], categoryIdValue);
+    pushForColumns(
+      ["category", "categorie", "categorie_libelle", "category_label"],
+      categoryLabelValue
+    );
+    pushForColumns(["exemple", "examples"], examplesText);
+    pushForColumns(["remarque", "remark", "notes"], remarkText);
+    pushForColumns(["source", "sources"], sourcesText);
+    pushForColumns(["author_id", "authorId"], authorValue);
+    const appliedStatus = pushForColumns(["status"], statusValue);
 
-    const timestampColumn = hasOwn(existingRow, 'updated_at')
-      ? 'updated_at'
-      : hasOwn(existingRow, 'updatedAt')
-      ? 'updatedAt'
+    const timestampColumn = hasOwn(existingRow, "updated_at")
+      ? "updated_at"
+      : hasOwn(existingRow, "updatedAt")
+      ? "updatedAt"
       : null;
 
     if (statusValue !== undefined && !appliedStatus) {
       return res.status(400).json({
-        status: 'error',
-        message: "Impossible de mettre à jour le statut pour ce terme (colonne 'status' absente).",
+        status: "error",
+        message:
+          "Impossible de mettre à jour le statut pour ce terme (colonne 'status' absente).",
       });
     }
 
     if (!updates.length && !timestampColumn) {
-      return res.status(400).json({ status: 'error', message: 'Aucun champ valide à mettre à jour' });
+      return res.status(400).json({
+        status: "error",
+        message: "Aucun champ valide à mettre à jour",
+      });
     }
 
     if (timestampColumn) {
       updates.push(`${timestampColumn} = NOW()`);
     }
 
-    const updateSql = `UPDATE ${table} SET ${updates.join(', ')} WHERE id = ?`;
+    const updateSql = `UPDATE ${table} SET ${updates.join(", ")} WHERE id = ?`;
     await db.query(updateSql, [...params, id]);
 
-    const refreshedRows = await db.query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
-    const updated = Array.isArray(refreshedRows) && refreshedRows.length > 0 ? refreshedRows[0] : existingRow;
+    const refreshedRows = await db.query(
+      `SELECT * FROM ${table} WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    const updated =
+      Array.isArray(refreshedRows) && refreshedRows.length > 0
+        ? refreshedRows[0]
+        : existingRow;
 
-    res.json({ status: 'success', message: 'Terme mis à jour', data: updated });
+    res.json({ status: "success", message: "Terme mis à jour", data: updated });
   } catch (error) {
-    console.error('Erreur update terme:', error.message);
-    res.status(500).json({ status: 'error', message: 'Erreur lors de la mise à jour du terme', error: error.message });
+    console.error("Erreur update terme:", error.message);
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors de la mise à jour du terme",
+      error: error.message,
+    });
   }
 });
 

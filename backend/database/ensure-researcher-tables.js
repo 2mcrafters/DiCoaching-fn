@@ -223,7 +223,7 @@ async function seedSampleLikes() {
   }
 
   const researchers = await db.query(
-    `SELECT id FROM users WHERE role IN ('chercheur', 'researcher') LIMIT 3`
+    `SELECT id FROM users WHERE role = 'researcher' LIMIT 3`
   );
   if (!researchers.length) {
     return;

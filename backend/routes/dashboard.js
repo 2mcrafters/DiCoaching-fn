@@ -164,7 +164,7 @@ router.get("/dashboard/stats", authenticateToken, async (req, res) => {
       [userId]
     );
 
-    // Reports created by user (for researchers/chercheurs)
+    // Reports created by user (for researchers)
     const [reportsCreated] = await db.query(
       `SELECT COUNT(*) as count 
        FROM reports 

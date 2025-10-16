@@ -168,6 +168,7 @@ const Submit = () => {
               <SubmitFormSection
                 formData={formData}
                 setFormData={setFormData}
+                hideModeratorComment
               />
               <div className="flex flex-col sm:flex-row gap-4 justify-end">
                 <Button

@@ -59,6 +59,8 @@ import {
 } from "@/components/ui/Pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -97,14 +99,50 @@ const Dashboard = () => {
   }, [dispatch, user?.id, allTerms?.length]);
 
   const roleLc = (user?.role || "").toString().trim().toLowerCase();
-  const isResearcher = roleLc === "chercheur" || roleLc === "researcher";
+  const isResearcher = roleLc === "researcher";
   // Treat user as author if:
   // - hasAuthorPermissions() returns true
   // - role is 'author' or French 'auteur' (case-insensitive)
+  // User is considered author for UI only if they actually have permissions (approved) or admin
   const isAuthor =
     (typeof hasAuthorPermissions === "function" && hasAuthorPermissions()) ||
-    roleLc === "author" ||
-    roleLc === "auteur";
+    user?.role === "admin";
+
+  // Detect pending-like author state (registered as author but waiting for approval)
+  const statusLc = (user?.status || user?.state || "").toString().toLowerCase();
+  const isAuthorRole = roleLc === "author";
+  const isPendingLike = [
+    "pending",
+    "requested",
+    "en_attente",
+    "to_validate",
+  ].includes(statusLc);
+  const needsAuthorApproval = isAuthorRole && isPendingLike;
+
+  // Rejection detection: user was downgraded to researcher and status indicates rejection/suspension
+  const isRejectedLike =
+    roleLc === "researcher" && ["rejected", "suspended"].includes(statusLc);
+
+  // One-time rejection modal per session and user
+  const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
+  useEffect(() => {
+    const key = `rejectionNotice:${user?.id || "0"}`;
+    if (isRejectedLike) {
+      const already = sessionStorage.getItem(key);
+      if (!already) {
+        setRejectionModalOpen(true);
+        sessionStorage.setItem(key, "1");
+      }
+    } else {
+      setRejectionModalOpen(false);
+    }
+  }, [isRejectedLike, user?.id]);
+
+  // Local state to control the informational modal for pending authors
+  const [pendingModalOpen, setPendingModalOpen] = useState(needsAuthorApproval);
+  useEffect(() => {
+    setPendingModalOpen(needsAuthorApproval);
+  }, [needsAuthorApproval]);
 
   useEffect(() => {
     if (isResearcher && user?.id) {
@@ -335,6 +373,8 @@ const Dashboard = () => {
   // My own comments (authored by me)
   const [myComments, setMyComments] = useState([]);
   const [myCommentsLoading, setMyCommentsLoading] = useState(false);
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const [replySubmitting, setReplySubmitting] = useState({});
   const [newCommentsCount, setNewCommentsCount] = useState(0);
 
   // Pending validation modifications for authors
@@ -352,6 +392,100 @@ const Dashboard = () => {
 
   // Track which tabs have been viewed (to hide notifications)
   const [viewedTabs, setViewedTabs] = useState(new Set());
+
+  // Filters: content section (Mes termes, Commentaires reçus, Likes reçus)
+  const [contentFilters, setContentFilters] = useState({
+    q: "",
+    from: "",
+    to: "",
+  });
+  // Filters: activity section (Modifications à valider, Mes likes, Mes commentaires)
+  const [activityFilters, setActivityFilters] = useState({
+    q: "",
+    from: "",
+    to: "",
+  });
+
+  const renderFilters = useCallback(
+    (filters, setFilters) => (
+      <div className="mb-3 grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+        <div className="md:col-span-2">
+          <label className="block text-xs text-muted-foreground mb-1">
+            Recherche
+          </label>
+          <Input
+            value={filters.q}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, q: e.target.value }))
+            }
+            placeholder="Mot-clé (terme, auteur, contenu...)"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">Du</label>
+          <Input
+            type="date"
+            value={filters.from}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, from: e.target.value }))
+            }
+          />
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block text-xs text-muted-foreground mb-1">
+              Au
+            </label>
+            <Input
+              type="date"
+              value={filters.to}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, to: e.target.value }))
+              }
+            />
+          </div>
+          <Button
+            variant="outline"
+            className="h-10 mt-5"
+            onClick={() => setFilters({ q: "", from: "", to: "" })}
+          >
+            Réinitialiser
+          </Button>
+        </div>
+      </div>
+    ),
+    []
+  );
+
+  const inRange = useCallback((dateStr, from, to) => {
+    if (!dateStr) return true;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return true;
+    if (from) {
+      const f = new Date(from + "T00:00:00");
+      if (d < f) return false;
+    }
+    if (to) {
+      const t = new Date(to + "T23:59:59");
+      if (d > t) return false;
+    }
+    return true;
+  }, []);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    // Content section pages
+    setCommentsPage(1);
+    setUserTermsPage(1);
+    setReceivedLikesPage(1);
+  }, [contentFilters]);
+
+  useEffect(() => {
+    // Activity section pages
+    setPendingValidationPage(1);
+    setLikedTermsPage(1);
+    setMyCommentsPage(1);
+  }, [activityFilters]);
 
   // Handler to clear notification when tab is clicked
   const handleTabClick = useCallback((tabKey, section = null) => {
@@ -480,8 +614,7 @@ const Dashboard = () => {
         );
         if (!termData && modification.term_id) {
           try {
-            const api = await import("@/services/api");
-            const res = await api.default.getTerm(modification.term_id);
+            const res = await apiService.getTerm(modification.term_id);
             termData = res?.data || res || null;
           } catch (e) {
             console.warn("Could not fetch term by id:", e);
@@ -505,11 +638,18 @@ const Dashboard = () => {
         setViewAfter(proposed);
         setViewChangedKeys(changedKeys);
         setViewChangesOpen(true);
+      } catch (error) {
+        console.error("Error preparing view changes:", error);
+        toast({
+          title: "Impossible d'afficher les changements",
+          description: "Une erreur est survenue pendant le chargement.",
+          variant: "destructive",
+        });
       } finally {
         setViewLoading(false);
       }
     },
-    [findTermInStore]
+    [findTermInStore, toast]
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingModification, setEditingModification] = useState(null);
@@ -562,8 +702,7 @@ const Dashboard = () => {
 
         if (!baseTerm) {
           try {
-            const apiService = await import("@/services/api");
-            const response = await apiService.default.getTerm(
+            const response = await apiService.getTerm(
               modification.termId ?? modification.term_id
             );
             baseTerm = (response && response.data) || response || null;
@@ -632,8 +771,7 @@ const Dashboard = () => {
       }
 
       try {
-        const apiService = await import("@/services/api");
-        await apiService.default.deleteModification(modificationId);
+        await apiService.deleteModification(modificationId);
         dispatch(fetchModifications());
         console.log("[Dashboard] Modification deleted");
         toast({
@@ -925,8 +1063,6 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchMyComments = async () => {
       if (!user?.id) return;
-      const shouldFetch = isAuthor || user?.role === "admin";
-      if (!shouldFetch) return;
       setMyCommentsLoading(true);
       try {
         const api = await import("@/services/api");
@@ -945,7 +1081,29 @@ const Dashboard = () => {
       }
     };
     fetchMyComments();
-  }, [user?.id, isAuthor, user?.role]);
+  }, [user?.id]);
+
+  // Also (re)fetch when the user opens the "Mes commentaires" tab to ensure fresh data
+  useEffect(() => {
+    const loadOnTabOpen = async () => {
+      if (activeActivityTab !== "my-comments") return;
+      try {
+        setMyCommentsLoading(true);
+        const data = await apiService.getMyComments();
+        const comments = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+          ? data
+          : [];
+        setMyComments(comments);
+      } catch (e) {
+        console.warn("Failed to refresh my-comments on tab open:", e);
+      } finally {
+        setMyCommentsLoading(false);
+      }
+    };
+    loadOnTabOpen();
+  }, [activeActivityTab]);
 
   // Fetch reports received on user's own terms (authors/admin)
   useEffect(() => {
@@ -1087,8 +1245,7 @@ const Dashboard = () => {
       }
 
       try {
-        const apiService = await import("@/services/api");
-        await apiService.default.validateModification(
+        await apiService.validateModification(
           modificationId,
           isApprove ? "approved" : "rejected"
         );
@@ -1395,6 +1552,11 @@ const Dashboard = () => {
         label: "Mes likes",
         badge: newLikedTermsCount > 0 ? newLikedTermsCount : null,
       },
+      {
+        key: "my-comments",
+        label: "Mes commentaires",
+        badge: null,
+      },
     ],
     [newPendingValidationCount, newLikedTermsCount]
   );
@@ -1464,6 +1626,46 @@ const Dashboard = () => {
   const paginatedMyComments = useMemo(
     () => getPaginatedItems(myComments, myCommentsPage),
     [myComments, myCommentsPage, getPaginatedItems]
+  );
+
+  const submitReply = useCallback(
+    async (comment) => {
+      try {
+        const termId = comment.term?.id || comment.termId;
+        const parentId = comment.id;
+        const content = (replyDrafts[parentId] || "").trim();
+        if (!termId || !parentId || !content) return;
+        setReplySubmitting((prev) => ({ ...prev, [parentId]: true }));
+        await apiService.addReply(termId, parentId, content);
+        // Refetch my comments so the new reply appears in the list with proper term metadata
+        try {
+          const latest = await apiService.getMyComments();
+          const comments = Array.isArray(latest?.data)
+            ? latest.data
+            : Array.isArray(latest)
+            ? latest
+            : [];
+          setMyComments(comments);
+        } catch (e) {
+          console.warn("Could not refresh my comments after reply:", e);
+        }
+        setReplyDrafts((prev) => ({ ...prev, [parentId]: "" }));
+        toast({
+          title: "Réponse publiée",
+          description: "Votre réponse a été ajoutée.",
+        });
+      } catch (e) {
+        console.error("Reply failed:", e);
+        toast({
+          title: "Échec de l'envoi",
+          description: "Impossible d'envoyer votre réponse pour le moment.",
+          variant: "destructive",
+        });
+      } finally {
+        setReplySubmitting((prev) => ({ ...prev, [parentId]: false }));
+      }
+    },
+    [replyDrafts, toast]
   );
 
   const paginatedLikedTerms = useMemo(
@@ -1539,10 +1741,25 @@ const Dashboard = () => {
             );
           }
 
-          const totalReceivedLikes = receivedLikes.length;
+          // Apply filters
+          const qRL = (contentFilters.q || "").toLowerCase().trim();
+          const filteredReceivedLikes = receivedLikes.filter((like) => {
+            const textMatch =
+              !qRL ||
+              (like?.user?.name || "").toLowerCase().includes(qRL) ||
+              (like?.term?.name || "").toLowerCase().includes(qRL);
+            const dateMatch = inRange(
+              like?.likedAt,
+              contentFilters.from,
+              contentFilters.to
+            );
+            return textMatch && dateMatch;
+          });
+
+          const totalReceivedLikes = filteredReceivedLikes.length;
           const startIndex = (receivedLikesPage - 1) * itemsPerPage;
           const endIndex = startIndex + itemsPerPage;
-          const paginatedReceivedLikes = receivedLikes.slice(
+          const paginatedReceivedLikes = filteredReceivedLikes.slice(
             startIndex,
             endIndex
           );
@@ -1552,12 +1769,18 @@ const Dashboard = () => {
 
           return (
             <div className="space-y-4">
+              {renderFilters(contentFilters, setContentFilters)}
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-muted-foreground">
-                  Total des likes reçus :{" "}
+                  Résultats :{" "}
                   <span className="font-bold text-lg text-primary">
                     {totalReceivedLikes}
                   </span>
+                  {filteredReceivedLikes.length !== receivedLikes.length && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      / {receivedLikes.length} au total
+                    </span>
+                  )}
                 </p>
               </div>
 
@@ -1603,7 +1826,7 @@ const Dashboard = () => {
                                 {like.user.name}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {like.user.role === "chercheur"
+                                {like.user.role === "researcher"
                                   ? "Chercheur"
                                   : like.user.role === "author"
                                   ? "Auteur"
@@ -1662,19 +1885,6 @@ const Dashboard = () => {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      setReceivedLikesPage((p) => Math.max(1, p - 1))
-                    }
-                    disabled={receivedLikesPage === 1}
-                  >
-                    Précédent
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {receivedLikesPage} sur {totalPagesReceivedLikes}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
                       setReceivedLikesPage((p) =>
                         Math.min(totalPagesReceivedLikes, p + 1)
                       )
@@ -1686,7 +1896,8 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
-          ); // Alias for my-likes
+          );
+
         case "my-likes":
         case "liked":
           if (likedTermsLoading) {
@@ -1698,8 +1909,29 @@ const Dashboard = () => {
             );
           }
 
-          return likedTerms.length > 0 ? (
+          // Apply filters to liked terms
+          const qLT = (activityFilters.q || "").toLowerCase().trim();
+          const filteredLikedTerms = (likedTerms || []).filter((item) => {
+            const textMatch =
+              !qLT ||
+              (item?.term || "").toLowerCase().includes(qLT) ||
+              (item?.definition || "").toLowerCase().includes(qLT);
+            const dateMatch = inRange(
+              item?.likedAt,
+              activityFilters.from,
+              activityFilters.to
+            );
+            return textMatch && dateMatch;
+          });
+
+          const paginatedLikedFiltered = getPaginatedItems(
+            filteredLikedTerms,
+            likedTermsPage
+          );
+
+          return filteredLikedTerms.length > 0 ? (
             <div className="overflow-x-auto">
+              {renderFilters(activityFilters, setActivityFilters)}
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
@@ -1709,7 +1941,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {paginatedLikedTerms.map((term) => (
+                  {paginatedLikedFiltered.map((term) => (
                     <tr key={term.id} className="hover:bg-muted/40">
                       <td className="px-4 py-3 font-medium text-foreground">
                         <div>
@@ -1749,10 +1981,10 @@ const Dashboard = () => {
                     />
                   </PaginationItem>
                   {Array.from(
-                    { length: getTotalPages(likedTerms) },
+                    { length: getTotalPages(filteredLikedTerms) },
                     (_, i) => i + 1
                   ).map((page) => {
-                    const totalPages = getTotalPages(likedTerms);
+                    const totalPages = getTotalPages(filteredLikedTerms);
                     if (
                       page === 1 ||
                       page === totalPages ||
@@ -1785,11 +2017,11 @@ const Dashboard = () => {
                     <PaginationNext
                       onClick={() =>
                         setLikedTermsPage((p) =>
-                          Math.min(getTotalPages(likedTerms), p + 1)
+                          Math.min(getTotalPages(filteredLikedTerms), p + 1)
                         )
                       }
                       className={
-                        likedTermsPage === getTotalPages(likedTerms)
+                        likedTermsPage === getTotalPages(filteredLikedTerms)
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
@@ -1800,8 +2032,7 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="text-muted-foreground text-sm">
-              Vous n'avez pas encore aimé de terme. Explorez le dictionnaire
-              pour commencer votre sélection.
+              Aucun terme aimé pour le moment.
             </div>
           );
 
@@ -2066,8 +2297,37 @@ const Dashboard = () => {
             );
           }
 
-          return userComments.length > 0 ? (
+          // Apply filters to received comments
+          const qCR = (contentFilters.q || "").toLowerCase().trim();
+          const filteredUserComments = (userComments || []).filter((c) => {
+            const termTitle = (
+              c?.term?.title ||
+              c?.termTitle ||
+              ""
+            ).toLowerCase();
+            const authorName = (c?.authorName || "").toLowerCase();
+            const content = (c?.content || "").toLowerCase();
+            const textMatch =
+              !qCR ||
+              termTitle.includes(qCR) ||
+              authorName.includes(qCR) ||
+              content.includes(qCR);
+            const dateMatch = inRange(
+              c?.createdAt,
+              contentFilters.from,
+              contentFilters.to
+            );
+            return textMatch && dateMatch;
+          });
+
+          const pageComments = getPaginatedItems(
+            filteredUserComments,
+            commentsPage
+          );
+
+          return filteredUserComments.length > 0 ? (
             <div className="overflow-x-auto">
+              {renderFilters(contentFilters, setContentFilters)}
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
@@ -2079,7 +2339,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {paginatedComments.map((comment) => {
+                  {pageComments.map((comment) => {
                     const isNew =
                       new Date(comment.createdAt) >
                       new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -2154,10 +2414,10 @@ const Dashboard = () => {
                     />
                   </PaginationItem>
                   {Array.from(
-                    { length: getTotalPages(userComments) },
+                    { length: getTotalPages(filteredUserComments) },
                     (_, i) => i + 1
                   ).map((page) => {
-                    const totalPages = getTotalPages(userComments);
+                    const totalPages = getTotalPages(filteredUserComments);
                     // Show first, last, current, and neighbors
                     if (
                       page === 1 ||
@@ -2191,11 +2451,11 @@ const Dashboard = () => {
                     <PaginationNext
                       onClick={() =>
                         setCommentsPage((p) =>
-                          Math.min(getTotalPages(userComments), p + 1)
+                          Math.min(getTotalPages(filteredUserComments), p + 1)
                         )
                       }
                       className={
-                        commentsPage === getTotalPages(userComments)
+                        commentsPage === getTotalPages(filteredUserComments)
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
@@ -2210,7 +2470,188 @@ const Dashboard = () => {
             </div>
           );
 
-        // My comments tab removed per request
+        case "my-comments":
+          if (myCommentsLoading) {
+            return (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Chargement de vos
+                commentaires...
+              </div>
+            );
+          }
+
+          // Apply filters to my comments
+          const qMC = (activityFilters.q || "").toLowerCase().trim();
+          const filteredMyComments = (myComments || []).filter((c) => {
+            const termTitle = (
+              c?.term?.title ||
+              c?.termTitle ||
+              ""
+            ).toLowerCase();
+            const content = (c?.content || "").toLowerCase();
+            const textMatch =
+              !qMC || termTitle.includes(qMC) || content.includes(qMC);
+            const dateMatch = inRange(
+              c?.createdAt,
+              activityFilters.from,
+              activityFilters.to
+            );
+            return textMatch && dateMatch;
+          });
+
+          const pageMyComments = getPaginatedItems(
+            filteredMyComments,
+            myCommentsPage
+          );
+
+          return filteredMyComments.length > 0 ? (
+            <div className="overflow-x-auto">
+              {renderFilters(activityFilters, setActivityFilters)}
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Terme</th>
+                    <th className="px-4 py-3 text-left">Commentaire</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {pageMyComments.map((comment) => {
+                    const termTitle =
+                      comment.term?.title || comment.termTitle || "Terme";
+                    const link = comment.term?.link || comment.link;
+                    return (
+                      <tr key={comment.id} className="hover:bg-muted/40">
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          {termTitle}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-md">
+                          <div className="space-y-2">
+                            <div className="line-clamp-2">
+                              {comment.content}
+                            </div>
+                            <div className="mt-2">
+                              <Textarea
+                                placeholder="Répondre..."
+                                value={replyDrafts[comment.id] || ""}
+                                onChange={(e) =>
+                                  setReplyDrafts((prev) => ({
+                                    ...prev,
+                                    [comment.id]: e.target.value,
+                                  }))
+                                }
+                                className="min-h-[60px]"
+                              />
+                              <div className="mt-2 flex justify-end">
+                                <Button
+                                  size="sm"
+                                  disabled={
+                                    replySubmitting[comment.id] ||
+                                    !(replyDrafts[comment.id] || "").trim()
+                                  }
+                                  onClick={() => submitReply(comment)}
+                                >
+                                  {replySubmitting[comment.id] ? (
+                                    <>
+                                      <Loader2 className="h-3 w-3 mr-2 animate-spin" />{" "}
+                                      Envoi...
+                                    </>
+                                  ) : (
+                                    "Répondre"
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatDate(comment.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {link && (
+                            <Link
+                              to={link}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-md transition-colors"
+                            >
+                              Voir plus <ArrowRight className="h-3 w-3" />
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setMyCommentsPage((p) => Math.max(1, p - 1))
+                      }
+                      className={
+                        myCommentsPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from(
+                    { length: getTotalPages(filteredMyComments) },
+                    (_, i) => i + 1
+                  ).map((page) => {
+                    const totalPages = getTotalPages(filteredMyComments);
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - myCommentsPage) <= 1
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setMyCommentsPage(page)}
+                            isActive={myCommentsPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (
+                      page === myCommentsPage - 2 ||
+                      page === myCommentsPage + 2
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setMyCommentsPage((p) =>
+                          Math.min(getTotalPages(filteredMyComments), p + 1)
+                        )
+                      }
+                      className={
+                        myCommentsPage === getTotalPages(filteredMyComments)
+                          ? "pointer-events-none opacity-50"
+                          : "cursor-pointer"
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">
+              Vous n'avez pas encore laissé de commentaires.
+            </div>
+          );
 
         case "activities":
           return (
@@ -2342,8 +2783,39 @@ const Dashboard = () => {
             );
           }
 
-          return pendingValidationMods.length > 0 ? (
+          // Apply filters to pending validation
+          const qPV = (activityFilters.q || "").toLowerCase().trim();
+          const filteredPending = (pendingValidationMods || []).filter((m) => {
+            const termTitle = (
+              m?.term_title ||
+              m?.termTitle ||
+              ""
+            ).toLowerCase();
+            const proposer = (
+              [m?.proposer_firstname, m?.proposer_lastname]
+                .filter(Boolean)
+                .join(" ") ||
+              m?.proposer_email ||
+              ""
+            ).toLowerCase();
+            const textMatch =
+              !qPV || termTitle.includes(qPV) || proposer.includes(qPV);
+            const dateMatch = inRange(
+              m?.created_at || m?.createdAt,
+              activityFilters.from,
+              activityFilters.to
+            );
+            return textMatch && dateMatch;
+          });
+
+          const pagePending = getPaginatedItems(
+            filteredPending,
+            pendingValidationPage
+          );
+
+          return filteredPending.length > 0 ? (
             <div className="overflow-x-auto">
+              {renderFilters(activityFilters, setActivityFilters)}
               <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-500 rounded-r">
                 <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>
@@ -2363,7 +2835,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {paginatedPendingValidation.map((modification) => {
+                  {pagePending.map((modification) => {
                     const proposerName =
                       [
                         modification.proposer_firstname,
@@ -2477,10 +2949,10 @@ const Dashboard = () => {
                     />
                   </PaginationItem>
                   {Array.from(
-                    { length: getTotalPages(pendingValidationMods) },
+                    { length: getTotalPages(filteredPending) },
                     (_, i) => i + 1
                   ).map((page) => {
-                    const totalPages = getTotalPages(pendingValidationMods);
+                    const totalPages = getTotalPages(filteredPending);
                     if (
                       page === 1 ||
                       page === totalPages ||
@@ -2513,12 +2985,11 @@ const Dashboard = () => {
                     <PaginationNext
                       onClick={() =>
                         setPendingValidationPage((p) =>
-                          Math.min(getTotalPages(pendingValidationMods), p + 1)
+                          Math.min(getTotalPages(filteredPending), p + 1)
                         )
                       }
                       className={
-                        pendingValidationPage ===
-                        getTotalPages(pendingValidationMods)
+                        pendingValidationPage === getTotalPages(filteredPending)
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
@@ -2629,12 +3100,33 @@ const Dashboard = () => {
           );
 
         case "terms":
-          return userTerms.length > 0 ? (
+          // Apply filters to user terms
+          const qUT = (contentFilters.q || "").toLowerCase().trim();
+          const filteredUserTerms = (userTerms || []).filter((t) => {
+            const title = (t?.term || "").toLowerCase();
+            const category = (t?.category || "").toLowerCase();
+            const textMatch =
+              !qUT || title.includes(qUT) || category.includes(qUT);
+            const dateMatch = inRange(
+              t?.created_at || t?.createdAt,
+              contentFilters.from,
+              contentFilters.to
+            );
+            return textMatch && dateMatch;
+          });
+
+          const pageUserTerms = getPaginatedItems(
+            filteredUserTerms,
+            userTermsPage
+          );
+
+          return filteredUserTerms.length > 0 ? (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground mb-4">
                 Gérez vos termes soumis et vos brouillons.
               </div>
-              {paginatedUserTerms.map((term) => (
+              {renderFilters(contentFilters, setContentFilters)}
+              {pageUserTerms.map((term) => (
                 <div
                   key={term.id}
                   className="flex items-center justify-between p-4 border rounded-lg bg-background/50 hover:bg-muted/40 transition-colors"
@@ -2692,10 +3184,10 @@ const Dashboard = () => {
                     />
                   </PaginationItem>
                   {Array.from(
-                    { length: getTotalPages(userTerms) },
+                    { length: getTotalPages(filteredUserTerms) },
                     (_, i) => i + 1
                   ).map((page) => {
-                    const totalPages = getTotalPages(userTerms);
+                    const totalPages = getTotalPages(filteredUserTerms);
                     if (
                       page === 1 ||
                       page === totalPages ||
@@ -2728,11 +3220,11 @@ const Dashboard = () => {
                     <PaginationNext
                       onClick={() =>
                         setUserTermsPage((p) =>
-                          Math.min(getTotalPages(userTerms), p + 1)
+                          Math.min(getTotalPages(filteredUserTerms), p + 1)
                         )
                       }
                       className={
-                        userTermsPage === getTotalPages(userTerms)
+                        userTermsPage === getTotalPages(filteredUserTerms)
                           ? "pointer-events-none opacity-50"
                           : "cursor-pointer"
                       }
@@ -3252,7 +3744,7 @@ const Dashboard = () => {
                     : "Bienvenue sur votre tableau de bord personnel."}
                 </p>
               </div>
-              {(isAuthor || user?.role === "admin") && (
+              {(isAuthor || user?.role === "admin") && !needsAuthorApproval && (
                 <Link to="/submit">
                   <motion.button
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -3269,6 +3761,38 @@ const Dashboard = () => {
               )}
             </div>
           </motion.div>
+
+          {isRejectedLike && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-8"
+            >
+              <div className="rounded-3xl border border-red-300/60 bg-red-50 dark:bg-red-950/10 backdrop-blur-md shadow-xl overflow-hidden">
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-red-900 dark:text-red-200 mb-2 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                    Votre demande d'auteur a été rejetée
+                  </h2>
+                  <p className="text-sm text-red-900/90 dark:text-red-100/90 mb-4">
+                    Vous êtes désormais en mode{" "}
+                    <span className="font-semibold">Chercheur</span>. Continuez
+                    à explorer, aimer des termes et proposer des améliorations.
+                    Amusez-vous bien !
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Link to="/search" className="inline-flex">
+                      <Button>Explorer les termes</Button>
+                    </Link>
+                    <Link to="/profile" className="inline-flex">
+                      <Button variant="outline">Améliorer mon profil</Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {statsLoading ? (
             <div className="flex items-center justify-center gap-3 mb-8 p-8">
@@ -3373,8 +3897,73 @@ const Dashboard = () => {
             </motion.div>
           )}
 
+          {/* Pending Author Info Section */}
+          {needsAuthorApproval && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-10"
+            >
+              <div className="rounded-3xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/10 backdrop-blur-md shadow-xl overflow-hidden">
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-amber-800 dark:text-amber-200 mb-2 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    Votre statut d'auteur est en attente
+                  </h2>
+                  <p className="text-sm text-amber-900/90 dark:text-amber-100/90 mb-4">
+                    Merci pour votre inscription en tant qu'auteur. Votre
+                    demande a bien été reçue et doit être validée par un
+                    administrateur. Vous recevrez une notification dès que votre
+                    accès sera activé.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="p-4 rounded-lg bg-white/70 dark:bg-amber-950/20 border border-amber-200/60">
+                      <h3 className="font-semibold mb-1">
+                        Étape 1 — Vérification
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Nous vérifions vos informations de profil et éventuels
+                        documents fournis.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-white/70 dark:bg-amber-950/20 border border-amber-200/60">
+                      <h3 className="font-semibold mb-1">
+                        Étape 2 — Validation
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Un administrateur examine votre demande et valide votre
+                        statut.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-white/70 dark:bg-amber-950/20 border border-amber-200/60">
+                      <h3 className="font-semibold mb-1">
+                        Étape 3 — Activation
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Votre compte auteur passe en actif. Vous pourrez alors
+                        proposer et modifier des termes.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link to="/profile" className="inline-flex">
+                      <Button variant="outline">Compléter mon profil</Button>
+                    </Link>
+                    <a
+                      href="mailto:support@dictionnaire.fr"
+                      className="inline-flex"
+                    >
+                      <Button variant="ghost">Contacter le support</Button>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Author Tabs - Section 1: My Content */}
-          {(isAuthor || user?.role === "admin") && (
+          {(isAuthor || user?.role === "admin") && !needsAuthorApproval && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -3417,7 +4006,7 @@ const Dashboard = () => {
           )}
 
           {/* Author Tabs - Section 2: My Activities */}
-          {(isAuthor || user?.role === "admin") && (
+          {(isAuthor || user?.role === "admin") && !needsAuthorApproval && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -3687,6 +4276,75 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Pending Author Modal */}
+      <Dialog open={pendingModalOpen} onOpenChange={setPendingModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Votre rôle d'auteur est en attente</DialogTitle>
+            <DialogDescription>
+              Vous avez demandé un accès auteur. Veuillez patienter pendant la
+              validation par un administrateur.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              En attendant, vous pouvez compléter votre profil pour accélérer la
+              vérification ou consulter les termes existants.
+            </p>
+            <ul className="list-disc pl-5 text-muted-foreground">
+              <li>Complétez vos informations et documents dans votre profil</li>
+              <li>Vous serez notifié dès l'activation</li>
+              <li>Durée habituelle: 24 à 72 heures</li>
+            </ul>
+            <div className="flex gap-2 pt-2">
+              <Link to="/profile" className="inline-flex">
+                <Button>Aller à mon profil</Button>
+              </Link>
+              <Button
+                variant="outline"
+                onClick={() => setPendingModalOpen(false)}
+              >
+                Compris
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Author Rejection Modal */}
+      <Dialog open={rejectionModalOpen} onOpenChange={setRejectionModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Votre demande d'auteur a été rejetée</DialogTitle>
+            <DialogDescription>
+              Votre compte a été basculé en Chercheur. Vous pouvez toujours
+              explorer, aimer des termes et proposer des améliorations.
+              Amusez-vous bien !
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              Besoin d'aide ou d'un second avis ? Vous pouvez compléter votre
+              profil et recontacter l'équipe si nécessaire.
+            </p>
+            <div className="flex gap-2 pt-2 flex-wrap">
+              <Link to="/search" className="inline-flex">
+                <Button>Explorer les termes</Button>
+              </Link>
+              <Link to="/profile" className="inline-flex">
+                <Button variant="outline">Améliorer mon profil</Button>
+              </Link>
+              <Button
+                variant="ghost"
+                onClick={() => setRejectionModalOpen(false)}
+              >
+                Fermer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {ConfirmDialog}
     </>
   );
@@ -3695,18 +4353,24 @@ const Dashboard = () => {
 export default Dashboard;
 
 const normalizeCollectionForForm = (collection) => {
+  // Accept arrays, single objects/strings, and newline-separated strings.
   const arrayValue = Array.isArray(collection)
     ? collection
+    : typeof collection === "string"
+    ? collection.split(/\r?\n/)
     : collection
     ? [collection]
     : [];
 
   const normalized = arrayValue
-    .map((item) => {
-      if (!item) return null;
+    .flatMap((item) => {
+      if (!item) return [];
       if (typeof item === "string") {
-        const text = item.trim();
-        return text ? { text } : null;
+        const parts = item
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        return parts.map((text) => ({ text }));
       }
       if (typeof item === "object") {
         const textCandidate =
@@ -3716,9 +4380,9 @@ const normalizeCollectionForForm = (collection) => {
           (typeof item.term === "string" && item.term.trim()) ||
           (typeof item.url === "string" && item.url.trim()) ||
           "";
-        return { text: textCandidate };
+        return textCandidate ? [{ text: textCandidate }] : [];
       }
-      return null;
+      return [];
     })
     .filter(Boolean);
 
@@ -3732,18 +4396,24 @@ const normalizeCollectionForForm = (collection) => {
 };
 
 const sanitizeCollectionForDiff = (collection) => {
+  // Accept arrays, single objects/strings, and newline-separated strings.
   const arrayValue = Array.isArray(collection)
     ? collection
+    : typeof collection === "string"
+    ? collection.split(/\r?\n/)
     : collection
     ? [collection]
     : [];
 
   return arrayValue
-    .map((item) => {
-      if (!item) return null;
+    .flatMap((item) => {
+      if (!item) return [];
       if (typeof item === "string") {
-        const text = item.trim();
-        return text ? { text } : null;
+        const parts = item
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        return parts.map((text) => ({ text }));
       }
       if (typeof item === "object") {
         const textCandidate =
@@ -3753,9 +4423,9 @@ const sanitizeCollectionForDiff = (collection) => {
           (typeof item.term === "string" && item.term.trim()) ||
           (typeof item.url === "string" && item.url.trim()) ||
           "";
-        return textCandidate ? { text: textCandidate } : null;
+        return textCandidate ? [{ text: textCandidate }] : [];
       }
-      return null;
+      return [];
     })
     .filter(Boolean);
 };
@@ -3786,11 +4456,13 @@ const buildTermBaseline = (termData, commentValue = "") => {
       null,
     category: termData.category || termData.categorie || "",
     exemples: normalizeCollectionForForm(
-      termData.exemples || termData.examples || []
+      termData.exemples || termData.examples || termData.exemple || []
     ),
-    sources: normalizeCollectionForForm(termData.sources || []),
+    sources: normalizeCollectionForForm(
+      termData.sources || termData.source || []
+    ),
     remarques: normalizeCollectionForForm(
-      termData.remarques || termData.remarks || []
+      termData.remarques || termData.remarks || termData.remarque || []
     ),
     moderatorComment: commentValue || "",
   };

@@ -58,11 +58,12 @@ router.get("/", async (req, res) => {
       "totalCategories"
     );
 
+    // Pending authors awaiting admin validation
     const pendingUsers = await safeCount(
       `
       SELECT COUNT(*) as pendingUsers
       FROM users
-      WHERE role IN ('auteur', 'author') AND status = 'pending'
+      WHERE LOWER(role) IN ('author', 'auteur') AND LOWER(status) = 'pending'
     `,
       [],
       "pendingUsers"
@@ -127,8 +128,12 @@ router.get("/", async (req, res) => {
         FROM proposed_modifications
       `);
     } catch (error) {
-      console.warn(`[stats] Unable to count proposed modifications: ${error.message}`);
-      modificationCountRows = [{ totalModifications: 0, pendingModifications: 0 }];
+      console.warn(
+        `[stats] Unable to count proposed modifications: ${error.message}`
+      );
+      modificationCountRows = [
+        { totalModifications: 0, pendingModifications: 0 },
+      ];
     }
     const modificationCounts = modificationCountRows[0] || {
       totalModifications: 0,
@@ -158,7 +163,8 @@ router.get("/", async (req, res) => {
       totalCategories,
       pendingUsers,
       totalModifications: Number(modificationCounts.totalModifications) || 0,
-      pendingModifications: Number(modificationCounts.pendingModifications) || 0,
+      pendingModifications:
+        Number(modificationCounts.pendingModifications) || 0,
       totalReports: Number(reportCounts.totalReports) || 0,
       pendingReports: Number(reportCounts.pendingReports) || 0,
       usersByRole: usersByRoleRows.reduce((acc, row) => {

@@ -31,7 +31,6 @@ import {
   Menu,
   X,
   Users,
-  ShieldAlert,
   Compass,
   Edit2,
   Home,
@@ -149,12 +148,6 @@ const Navbar = () => {
                         <DropdownMenuItem onClick={() => navigate("/admin")}>
                           <Settings className="mr-2 h-4 w-4" />
                           Gestion
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => navigate("/admin/reports")}
-                        >
-                          <ShieldAlert className="mr-2 h-4 w-4" />
-                          Signalements
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => navigate("/admin/authors-ranking")}
@@ -360,18 +353,6 @@ const Navbar = () => {
                           >
                             <Settings className="mr-2 h-4 w-4" />
                             Gestion
-                          </Button>
-                        </Link>
-                        <Link to="/admin/reports" className="block">
-                          <Button
-                            variant={
-                              isActive("/admin/reports") ? "default" : "ghost"
-                            }
-                            className="w-full justify-start"
-                            onClick={() => setMobileMenuOpen(false)}
-                          >
-                            <ShieldAlert className="mr-2 h-4 w-4" />
-                            Signalements
                           </Button>
                         </Link>
                       </div>

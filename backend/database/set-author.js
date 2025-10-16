@@ -28,7 +28,7 @@ async function findOrCreateAuthor() {
   try {
     const result = await db.query(
       `INSERT INTO users (email, password, firstname, lastname, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [email, passwordHash, firstname, lastname, 'auteur', 'active']
+      [email, passwordHash, firstname, lastname, "author", "active"]
     );
     const insertId = result.insertId || result.insert_id || null;
     if (insertId) {

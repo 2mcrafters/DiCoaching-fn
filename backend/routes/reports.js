@@ -69,7 +69,7 @@ router.get("/author/:authorId", authenticateToken, async (req, res) => {
     // Only the author themselves or admin/researcher can view these reports
     if (
       String(requesterId) !== String(authorId) &&
-      !["admin", "researcher", "chercheur"].includes(requesterRole)
+      !["admin", "researcher"].includes(requesterRole)
     ) {
       return res.status(403).json({ status: "error", message: "Non autorisé" });
     }
@@ -94,13 +94,11 @@ router.get("/author/:authorId", authenticateToken, async (req, res) => {
       "❌ Erreur lors de la récupération des signalements auteur:",
       error
     );
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message: "Erreur lors de la récupération des signalements",
-        error: error.message,
-      });
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors de la récupération des signalements",
+      error: error.message,
+    });
   }
 });
 
@@ -164,12 +162,10 @@ router.get("/:id", authenticateToken, async (req, res) => {
         .json({ status: "error", message: "Signalement non trouvé" });
     }
 
-    // Authorization: allow if admin/researcher/chercheur OR reporter OR term author
+    // Authorization: allow if admin/researcher OR reporter OR term author
     const requesterId = req.user && req.user.id;
     const requesterRole = ((req.user && req.user.role) || "").toLowerCase();
-    const privileged = ["admin", "researcher", "chercheur"].includes(
-      requesterRole
-    );
+    const privileged = ["admin", "researcher"].includes(requesterRole);
 
     // Need term author id: attempt to load via joins already included (term_id present). We may not have author_id in select; fetch separately
     let termAuthorId = null;
@@ -203,13 +199,11 @@ router.get("/:id", authenticateToken, async (req, res) => {
     res.json({ status: "success", data: report[0] });
   } catch (error) {
     console.error("❌ Erreur lors de la récupération du signalement:", error);
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message: "Erreur lors de la récupération du signalement",
-        error: error.message,
-      });
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors de la récupération du signalement",
+      error: error.message,
+    });
   }
 });
 
@@ -288,18 +282,14 @@ router.put("/:id", authenticateToken, async (req, res) => {
     const requesterId = req.user.id;
     const requesterRole = (req.user.role || "").toLowerCase();
     const termAuthorId = reportRow.author_id;
-    const privileged = ["admin", "researcher", "chercheur"].includes(
-      requesterRole
-    );
+    const privileged = ["admin", "researcher"].includes(requesterRole);
     const isTermAuthor = String(termAuthorId) === String(requesterId);
 
     if (!privileged && !isTermAuthor) {
-      return res
-        .status(403)
-        .json({
-          status: "error",
-          message: "Non autorisé à modifier ce signalement",
-        });
+      return res.status(403).json({
+        status: "error",
+        message: "Non autorisé à modifier ce signalement",
+      });
     }
 
     await db.query(

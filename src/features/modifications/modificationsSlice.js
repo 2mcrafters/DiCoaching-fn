@@ -86,7 +86,7 @@ export const fetchModificationById = createAsyncThunk(
   "modifications/fetchById",
   async (id, thunkAPI) => {
     try {
-      const response = await apiService.getModification(id);
+      const response = await apiService.getModificationById(id);
       const payload =
         (response && response.data) ?? response ?? {};
       const normalized = normalizeModification(payload);

@@ -196,6 +196,9 @@ const Step1PersonalInfo = ({
             {errors.sex && (
               <p className="text-red-500 text-xs mt-1">{errors.sex}</p>
             )}
+            {serverErrors.sex && (
+              <p className="text-red-500 text-xs mt-1">{serverErrors.sex}</p>
+            )}
           </div>
 
           <div>
@@ -245,6 +248,9 @@ const Step1PersonalInfo = ({
           />
           {errors.phone && (
             <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+          )}
+          {serverErrors.phone && (
+            <p className="text-red-500 text-xs mt-1">{serverErrors.phone}</p>
           )}
         </div>
 
@@ -367,6 +373,11 @@ const Step1PersonalInfo = ({
               {errors.professionalStatus}
             </p>
           )}
+          {serverErrors.professionalStatus && (
+            <p className="text-red-500 text-xs mt-1">
+              {serverErrors.professionalStatus}
+            </p>
+          )}
         </div>
 
         {formData.professionalStatus === "Autre" && (
@@ -381,6 +392,11 @@ const Step1PersonalInfo = ({
             />
             {errors.otherStatus && (
               <p className="text-red-500 text-xs mt-1">{errors.otherStatus}</p>
+            )}
+            {serverErrors.otherStatus && (
+              <p className="text-red-500 text-xs mt-1">
+                {serverErrors.otherStatus}
+              </p>
             )}
           </div>
         )}

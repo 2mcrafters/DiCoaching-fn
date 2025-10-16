@@ -30,7 +30,12 @@ class AuthService {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = { status: 'error', message: 'Réponse invalide du serveur' };
+      }
 
       if (response.ok && data.status === 'success') {
         this.token = data.data.token;
@@ -106,6 +111,8 @@ class AuthService {
           fields = data.data.errors;
         } else if (data.validation && typeof data.validation === "object") {
           fields = data.validation;
+        } else if (data.fields && typeof data.fields === "object") {
+          fields = data.fields;
         }
 
         const message =
@@ -114,7 +121,7 @@ class AuthService {
       }
     } catch (error) {
       console.error('Erreur lors de l\'inscription:', error);
-      return { success: false, error: 'Erreur réseau' };
+      return { success: false, error: { message: 'Erreur réseau', fields: {} } };
     }
   }
 

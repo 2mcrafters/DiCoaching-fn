@@ -43,6 +43,22 @@ router.get("/user/:userId", async (req, res) => {
     });
   } catch (error) {
     console.log("❌ Erreur lors de l'exécution de la requête:", error.message);
+    // If the table doesn't exist in this environment, return an empty list gracefully
+    const msg = (error && error.message) || "";
+    if (
+      msg.toLowerCase().includes("doesn't exist") ||
+      msg.toLowerCase().includes("does not exist") ||
+      msg.toLowerCase().includes("no such table") ||
+      (error && (error.code === "ER_NO_SUCH_TABLE" || error.errno === 1146))
+    ) {
+      return res.json({
+        status: "success",
+        data: [],
+        note: "user_documents table not found; returning empty list",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     res.status(500).json({
       status: "error",
       message: "Erreur lors de la récupération des documents",

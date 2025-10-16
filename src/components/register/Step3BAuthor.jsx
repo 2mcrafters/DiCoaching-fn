@@ -144,6 +144,9 @@ const Step3BAuthor = ({
             <p className="text-xs text-gray-500">PDF, DOCX, etc.</p>
           </label>
         </div>
+        {serverErrors.documents && (
+          <p className="text-red-500 text-xs mt-1">{serverErrors.documents}</p>
+        )}
         {formData.documents.length > 0 && (
           <div className="space-y-2 mt-4">
             {formData.documents.map((file, index) => (

@@ -25,7 +25,11 @@ import {
   fetchCategories,
 } from "@/features/categories/categoriesSlice";
 
-const SubmitFormSection = ({ formData, setFormData }) => {
+const SubmitFormSection = ({
+  formData,
+  setFormData,
+  hideModeratorComment = false,
+}) => {
   const { toast } = useToast();
 
   const dispatch = useDispatch();
@@ -246,24 +250,26 @@ const SubmitFormSection = ({ formData, setFormData }) => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Commentaire pour les modérateurs</CardTitle>
-          <CardDescription>
-            Optionnel : ajoutez des informations pour les modérateurs
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Informations supplémentaires, sources, contexte..."
-            value={formData.moderatorComment || ""}
-            onChange={(e) =>
-              handleInputChange("moderatorComment", e.target.value)
-            }
-            rows={3}
-          />
-        </CardContent>
-      </Card>
+      {!hideModeratorComment && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Commentaire pour les modérateurs</CardTitle>
+            <CardDescription>
+              Optionnel : ajoutez des informations pour les modérateurs
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              placeholder="Informations supplémentaires, sources, contexte..."
+              value={formData.moderatorComment || ""}
+              onChange={(e) =>
+                handleInputChange("moderatorComment", e.target.value)
+              }
+              rows={3}
+            />
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 };

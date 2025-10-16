@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Eye,
   User,
@@ -51,6 +53,8 @@ const UserDetailsDialog = ({ user }) => {
 
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const { toast } = useToast();
+  const { user: currentUser } = useAuth();
 
   // Normalize fields to handle different API shapes
   const getDisplayName = (u) => {
@@ -76,6 +80,10 @@ const UserDetailsDialog = ({ user }) => {
     effectiveUser?.state ||
     ""
   ).toLowerCase();
+  const isPendingAuthor =
+    role === "author" &&
+    ["pending", "requested", "en_attente", "to_validate"].includes(status);
+  const isAdmin = (currentUser?.role || "").toLowerCase() === "admin";
   const createdAt =
     effectiveUser?.createdAt ||
     effectiveUser?.created_at ||
@@ -155,9 +163,9 @@ const UserDetailsDialog = ({ user }) => {
     switch (role) {
       case "admin":
         return <Badge className="bg-red-100 text-red-800">Admin</Badge>;
-      case "auteur":
+      case "author":
         return <Badge className="bg-blue-100 text-blue-800">Auteur</Badge>;
-      case "chercheur":
+      case "researcher":
         return <Badge className="bg-green-100 text-green-800">Chercheur</Badge>;
       default:
         return <Badge variant="outline">{role}</Badge>;
@@ -206,6 +214,77 @@ const UserDetailsDialog = ({ user }) => {
     };
     setSelectedDoc(doc);
     setIsViewerOpen(true);
+  };
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(String(effectiveUser?.email || ""));
+      toast({
+        title: "Copié",
+        description: "Email copié dans le presse-papiers",
+      });
+    } catch (_) {
+      toast({
+        title: "Impossible de copier",
+        description: "Copiez manuellement l'email",
+      });
+    }
+  };
+
+  const approvePending = async () => {
+    if (!effectiveUser?.id) return;
+    try {
+      await apiService.approveAuthor(effectiveUser.id);
+      setDetailedUser((prev) => ({ ...(prev || {}), status: "active" }));
+      toast({
+        title: "Auteur approuvé",
+        description: `${displayName} est maintenant actif`,
+      });
+    } catch (e) {
+      // fallback via generic update to confirmed
+      try {
+        await apiService.updateUser(effectiveUser.id, { status: "confirmed" });
+        setDetailedUser((prev) => ({ ...(prev || {}), status: "confirmed" }));
+        toast({
+          title: "Auteur confirmé",
+          description: `${displayName} est maintenant confirmé`,
+        });
+      } catch (err) {
+        toast({
+          title: "Échec de l'approbation",
+          description: err?.message || "Réessayez",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const rejectPending = async () => {
+    if (!effectiveUser?.id) return;
+    try {
+      await apiService.rejectAuthor(effectiveUser.id);
+      setDetailedUser((prev) => ({ ...(prev || {}), status: "rejected" }));
+      toast({
+        title: "Auteur rejeté",
+        description: `${displayName} a été rejeté`,
+      });
+    } catch (e) {
+      // fallback via generic update to suspended
+      try {
+        await apiService.updateUser(effectiveUser.id, { status: "suspended" });
+        setDetailedUser((prev) => ({ ...(prev || {}), status: "suspended" }));
+        toast({
+          title: "Auteur suspendu",
+          description: `${displayName} a été suspendu`,
+        });
+      } catch (err) {
+        toast({
+          title: "Échec du rejet",
+          description: err?.message || "Réessayez",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const downloadAsTxt = () => {
@@ -333,282 +412,327 @@ const UserDetailsDialog = ({ user }) => {
             <Eye className="h-4 w-4" />
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Détails de l'utilisateur</DialogTitle>
-            <DialogDescription>
-              Informations complètes sur {displayName}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-6">
+        <DialogContent className="sm:max-w-[680px] p-0 overflow-hidden max-h-[70vh] min-h-[300px] flex flex-col">
+          {/* Creative header with gradient and avatar */}
+          <div className="relative bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 px-6 py-8 text-white">
             <div className="flex items-center gap-4">
               <button
                 onClick={handleAvatarClick}
-                className="rounded-full focus:outline-none"
+                className="rounded-full focus:outline-none ring-2 ring-white/30"
                 title="Aperçu de la photo de profil"
               >
-                <Avatar className="h-20 w-20">
+                <Avatar className="h-20 w-20 border-2 border-white/40 shadow-lg">
                   <AvatarImage src={profilePicture} alt={displayName} />
                   <AvatarFallback>
                     <User className="h-10 w-10" />
                   </AvatarFallback>
                 </Avatar>
               </button>
-              <div>
-                <h3 className="text-xl font-semibold">{displayName}</h3>
-                <div className="flex items-center gap-2 mt-1">
+              <div className="min-w-0">
+                <h3 className="text-2xl font-bold truncate">{displayName}</h3>
+                <div className="flex items-center gap-2 mt-2">
                   {getRoleBadge(role)}
                   {status && getStatusBadge(status)}
                 </div>
-                <div className="text-sm text-muted-foreground mt-1">
+                <div className="text-xs/5 text-white/90 mt-2">
                   Inscrit le: {createdAtLabel}
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{user.email}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <span>{professionalStatus || "—"}</span>
-                </div>
-                {effectiveUser?.phone && (
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 text-muted-foreground">📞</span>
-                    <span>{effectiveUser.phone}</span>
-                  </div>
-                )}
-                {effectiveUser?.sex && (
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 text-muted-foreground">⚧</span>
-                    <span className="capitalize">{effectiveUser.sex}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>Documents fournis: {allFiles.length}</span>
-                </div>
-                {effectiveUser?.birth_date && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>{String(effectiveUser.birth_date).slice(0, 10)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {biography && (
-              <div>
-                <h4 className="font-semibold mb-2">Biographie</h4>
-                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                  {biography}
-                </p>
-              </div>
-            )}
-
-            {effectiveUser?.presentation && (
-              <div>
-                <h4 className="font-semibold mb-2">Présentation</h4>
-                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                  {effectiveUser.presentation}
-                </p>
-              </div>
-            )}
-
-            {socials && socials.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2">Réseaux Sociaux</h4>
-                <div className="space-y-2">
-                  {socials.map((social, index) => (
-                    <a
-                      key={index}
-                      href={social.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:underline"
+          </div>
+          <DialogHeader>
+            <DialogTitle className="sr-only">
+              Détails de l'utilisateur
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Informations complètes sur {displayName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <div className="py-6 space-y-6 px-6">
+              {/* Quick actions row */}
+              <div className="flex flex-wrap gap-3">
+                <Button variant="outline" size="sm" onClick={copyEmail}>
+                  Copier l'email
+                </Button>
+                {isAdmin && isPendingAuthor && (
+                  <div className="ml-auto flex gap-2">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      onClick={approvePending}
                     >
-                      <SocialIcon
-                        network={
-                          social.network ||
-                          social.networkName ||
-                          social.network_name ||
-                          "link"
-                        }
-                      />
-                      <strong className="uppercase text-xs">
-                        {social.network ||
-                          social.networkName ||
-                          social.network_name ||
-                          "Lien"}
-                      </strong>
-                      <span className="truncate">{social.url}</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {allFiles && allFiles.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2">Fichiers & Documents</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {allFiles.map((f, idx) => {
-                    const isPreviewable =
-                      f.url && /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(f.url);
-                    const ext = (f.title || "").split(".").pop()?.toLowerCase();
-                    return (
-                      <div
-                        key={f.url || f.title || idx}
-                        className="p-3 border rounded-md bg-muted/30 flex items-start gap-3"
-                      >
-                        <div className="h-9 w-9 flex items-center justify-center rounded bg-background border text-muted-foreground shrink-0">
-                          {ext === "pdf" ? (
-                            <span className="text-[10px] font-semibold">
-                              PDF
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-semibold">
-                              FILE
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {f.title}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            {f.purpose && (
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-wide">
-                                {f.purpose}
-                              </span>
-                            )}
-                            {f.status && (
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wide">
-                                {f.status}
-                              </span>
-                            )}
-                            {f.mime && (
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                                {f.mime}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 mt-2">
-                            {isPreviewable && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedDoc({
-                                    url: f.url,
-                                    title: f.title,
-                                  });
-                                  setIsViewerOpen(true);
-                                }}
-                              >
-                                Aperçu
-                              </Button>
-                            )}
-                            {f.url && (
-                              <a
-                                className="text-sm text-primary hover:underline"
-                                href={f.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Ouvrir
-                              </a>
-                            )}
-                            {f.downloadUrl && (
-                              <a
-                                className="text-sm text-primary hover:underline"
-                                href={f.downloadUrl}
-                              >
-                                Télécharger
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {documents && documents.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2">Documents fournis</h4>
-                <div className="space-y-2">
-                  {documents.map((doc, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleDocumentClick(doc)}
-                      className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      Approuver
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={rejectPending}
                     >
-                      <FileText className="h-4 w-4" />
+                      Rejeter
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Info grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span>{user.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <span>{professionalStatus || "—"}</span>
+                  </div>
+                  {effectiveUser?.phone && (
+                    <div className="flex items-center gap-2">
+                      <span className="h-4 w-4 text-muted-foreground">📞</span>
+                      <span>{effectiveUser.phone}</span>
+                    </div>
+                  )}
+                  {effectiveUser?.sex && (
+                    <div className="flex items-center gap-2">
+                      <span className="h-4 w-4 text-muted-foreground">⚧</span>
+                      <span className="capitalize">{effectiveUser.sex}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span>Documents fournis: {allFiles.length}</span>
+                  </div>
+                  {effectiveUser?.birth_date && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span>
-                        {doc.title || doc.name || `document-${index + 1}`}
+                        {String(effectiveUser.birth_date).slice(0, 10)}
                       </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={downloadAllDocuments}
-                  >
-                    Télécharger tous les documents
-                  </Button>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
 
-            {loadingDetail && (
-              <div className="text-sm text-muted-foreground">
-                Chargement des détails...
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={downloadAsTxt}>
-                  Télécharger TXT
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowRaw((s) => !s)}
-                >
-                  {showRaw ? "Masquer TEXTE brut" : "Afficher TEXTE brut"}
-                </Button>
-              </div>
-              {showRaw && (
-                <div className="mt-2 max-h-48 overflow-auto text-sm bg-slate-50 p-3 rounded whitespace-pre-wrap">
-                  {`Nom: ${getDisplayName(effectiveUser || user)}\nEmail: ${
-                    (effectiveUser || user || {}).email || "—"
-                  }\nRôle: ${
-                    (effectiveUser || user || {}).role || "—"
-                  }\nStatut: ${
-                    (effectiveUser || user || {}).status ||
-                    (effectiveUser || user || {}).state ||
-                    "—"
-                  }\nInscrit le: ${createdAtLabel}\n\nBiographie:\n${
-                    (effectiveUser || user || {}).biography ||
-                    (effectiveUser || user || {}).bio ||
-                    (effectiveUser || user || {}).description ||
-                    "—"
-                  }`}
+              {biography && (
+                <div className="rounded-lg border bg-background shadow-sm">
+                  <div className="px-4 py-3 border-b font-semibold">
+                    Biographie
+                  </div>
+                  <div className="p-4 text-sm text-muted-foreground">
+                    {biography}
+                  </div>
                 </div>
               )}
+
+              {effectiveUser?.presentation && (
+                <div>
+                  <h4 className="font-semibold mb-2">Présentation</h4>
+                  <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                    {effectiveUser.presentation}
+                  </p>
+                </div>
+              )}
+
+              {socials && socials.length > 0 && (
+                <div className="rounded-lg border bg-background shadow-sm">
+                  <div className="px-4 py-3 border-b font-semibold">
+                    Réseaux Sociaux
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {socials.map((social, index) => (
+                      <a
+                        key={index}
+                        href={social.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <SocialIcon
+                          network={
+                            social.network ||
+                            social.networkName ||
+                            social.network_name ||
+                            "link"
+                          }
+                        />
+                        <strong className="uppercase text-xs">
+                          {social.network ||
+                            social.networkName ||
+                            social.network_name ||
+                            "Lien"}
+                        </strong>
+                        <span className="truncate">{social.url}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {allFiles && allFiles.length > 0 && (
+                <div className="rounded-lg border bg-background shadow-sm">
+                  <div className="px-4 py-3 border-b font-semibold">
+                    Fichiers & Documents
+                  </div>
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {allFiles.map((f, idx) => {
+                      const isPreviewable =
+                        f.url && /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(f.url);
+                      const ext = (f.title || "")
+                        .split(".")
+                        .pop()
+                        ?.toLowerCase();
+                      return (
+                        <div
+                          key={f.url || f.title || idx}
+                          className="p-3 border rounded-md bg-muted/30 flex items-start gap-3"
+                        >
+                          <div className="h-9 w-9 flex items-center justify-center rounded bg-background border text-muted-foreground shrink-0">
+                            {ext === "pdf" ? (
+                              <span className="text-[10px] font-semibold">
+                                PDF
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold">
+                                FILE
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">
+                              {f.title}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              {f.purpose && (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary uppercase tracking-wide">
+                                  {f.purpose}
+                                </span>
+                              )}
+                              {f.status && (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wide">
+                                  {f.status}
+                                </span>
+                              )}
+                              {f.mime && (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                  {f.mime}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-2">
+                              {isPreviewable && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedDoc({
+                                      url: f.url,
+                                      title: f.title,
+                                    });
+                                    setIsViewerOpen(true);
+                                  }}
+                                >
+                                  Aperçu
+                                </Button>
+                              )}
+                              {f.url && (
+                                <a
+                                  className="text-sm text-primary hover:underline"
+                                  href={f.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Ouvrir
+                                </a>
+                              )}
+                              {f.downloadUrl && (
+                                <a
+                                  className="text-sm text-primary hover:underline"
+                                  href={f.downloadUrl}
+                                >
+                                  Télécharger
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {documents && documents.length > 0 && (
+                <div className="rounded-lg border bg-background shadow-sm">
+                  <div className="px-4 py-3 border-b font-semibold">
+                    Documents fournis
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {documents.map((doc, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleDocumentClick(doc)}
+                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <FileText className="h-4 w-4" />
+                        <span>
+                          {doc.title || doc.name || `document-${index + 1}`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3 px-4 pb-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={downloadAllDocuments}
+                    >
+                      Télécharger tous les documents
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {loadingDetail && (
+                <div className="text-sm text-muted-foreground">
+                  Chargement des détails...
+                </div>
+              )}
+
+              <div className="mt-4 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={downloadAsTxt}>
+                    Télécharger TXT
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowRaw((s) => !s)}
+                  >
+                    {showRaw ? "Masquer TEXTE brut" : "Afficher TEXTE brut"}
+                  </Button>
+                </div>
+                {showRaw && (
+                  <div className="mt-2 max-h-48 overflow-auto text-sm bg-slate-50 p-3 rounded whitespace-pre-wrap">
+                    {`Nom: ${getDisplayName(effectiveUser || user)}\nEmail: ${
+                      (effectiveUser || user || {}).email || "—"
+                    }\nRôle: ${
+                      (effectiveUser || user || {}).role || "—"
+                    }\nStatut: ${
+                      (effectiveUser || user || {}).status ||
+                      (effectiveUser || user || {}).state ||
+                      "—"
+                    }\nInscrit le: ${createdAtLabel}\n\nBiographie:\n${
+                      (effectiveUser || user || {}).biography ||
+                      (effectiveUser || user || {}).bio ||
+                      (effectiveUser || user || {}).description ||
+                      "—"
+                    }`}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </DialogContent>

@@ -267,7 +267,7 @@ const AuthorProfile = () => {
                     >
                       {author.role === "admin"
                         ? "Administrateur"
-                        : author.role === "chercheur"
+                        : author.role === "researcher"
                         ? "Chercheur"
                         : "Contributeur"}
                     </Badge>
@@ -678,7 +678,7 @@ const AuthorProfile = () => {
                         <Badge variant="outline" className="text-xs">
                           {author.role === "admin"
                             ? "Administrateur"
-                            : author.role === "chercheur"
+                            : author.role === "researcher"
                             ? "Chercheur"
                             : "Contributeur"}
                         </Badge>

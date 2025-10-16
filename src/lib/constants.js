@@ -5,9 +5,9 @@
 
 // User Roles - ONLY 3 ROLES IN THE SYSTEM
 export const ROLES = {
-  ADMIN: 'admin',        // Full access, can do everything
-  AUTHOR: 'author',      // Can create/edit own terms, validate modifications on own terms
-  CHERCHEUR: 'chercheur' // Can view, like, comment, propose modifications
+  ADMIN: "admin", // Full access, can do everything
+  AUTHOR: "author", // Can create/edit own terms, validate modifications on own terms
+  RESEARCHER: "researcher", // Can view, like, comment, propose modifications
 };
 
 // User Status

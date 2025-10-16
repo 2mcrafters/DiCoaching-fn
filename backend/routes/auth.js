@@ -13,11 +13,20 @@ import {
 
 const router = express.Router();
 
+const normalizeRole = (role) => {
+  const r = String(role || "").toLowerCase();
+  if (r === "auteur") return "author";
+  if (r === "chercheur") return "researcher";
+  if (["author", "researcher", "admin"].includes(r)) return r;
+  return r || "researcher";
+};
+
 const formatUserForResponse = (user) => {
   if (!user) return user;
   const formatted = { ...user };
-  const { profile_picture, profile_picture_url } =
-    resolveProfilePicturePayload(formatted.profile_picture);
+  const { profile_picture, profile_picture_url } = resolveProfilePicturePayload(
+    formatted.profile_picture
+  );
   formatted.profile_picture = profile_picture;
   formatted.profile_picture_url = profile_picture_url;
   return formatted;
@@ -86,6 +95,17 @@ router.post("/login", async (req, res) => {
     }
 
     const user = users[0];
+    const normalizedRole = normalizeRole(user.role);
+    // Try to persist normalized role if it differs
+    if (normalizedRole && normalizedRole !== user.role) {
+      try {
+        await db.query("UPDATE users SET role = ? WHERE id = ?", [
+          normalizedRole,
+          user.id,
+        ]);
+      } catch (_) {}
+      user.role = normalizedRole;
+    }
     console.log("✅ Utilisateur trouvé:", {
       id: user.id,
       email: user.email,
@@ -123,7 +143,7 @@ router.post("/login", async (req, res) => {
       status: "success",
       message: "Connexion réussie",
       data: {
-        user: formattedUser,
+        user: { ...formattedUser, role: user.role },
         token,
       },
       timestamp: new Date().toISOString(),
@@ -141,12 +161,47 @@ router.post("/login", async (req, res) => {
 });
 
 // Route d'inscription avec upload de fichiers
+// Custom wrapper to catch Multer errors (file too large, invalid type, too many files)
 router.post(
   "/register",
-  registrationUpload.fields([
-    { name: "profilePicture", maxCount: 1 },
-    { name: "documents", maxCount: 5 },
-  ]),
+  (req, res, next) => {
+    registrationUpload.fields([
+      { name: "profilePicture", maxCount: 1 },
+      { name: "documents", maxCount: 5 },
+    ])(req, res, (err) => {
+      if (!err) return next();
+
+      let status = 400;
+      let message = "Erreur lors du téléchargement des fichiers";
+      let code = err.code || undefined;
+      let fields = {};
+
+      // Handle common Multer error codes
+      if (code === "LIMIT_FILE_SIZE") {
+        status = 413; // Payload Too Large
+        message = "Fichier trop volumineux (max 10MB par fichier)";
+        fields = { files: message };
+      } else if (code === "LIMIT_FILE_COUNT") {
+        message = "Trop de fichiers envoyés (max 5 documents)";
+        fields = { documents: message };
+      } else if (
+        typeof err.message === "string" &&
+        err.message.includes("Type de fichier non autorisé")
+      ) {
+        message = err.message;
+        fields = { files: message };
+      } else if (typeof err.message === "string" && err.message.trim()) {
+        message = err.message;
+      }
+
+      return res.status(status).json({
+        status: "error",
+        message,
+        code,
+        fields,
+      });
+    });
+  },
   async (req, res) => {
     try {
       const {
@@ -155,7 +210,7 @@ router.post(
         firstName,
         lastName,
         name,
-        role = "chercheur",
+        role = "researcher",
         sex,
         phone,
         birthDate,
@@ -212,22 +267,36 @@ router.post(
         }
       }
 
-      // Validation différentielle selon le rôle
-      if (role === "auteur") {
+      const normalizedRole = normalizeRole(role);
+
+      // Validation différenciée selon le rôle
+      if (normalizedRole === "author") {
         // Pour les auteurs, plus de champs sont requis
-        if (!firstname || !lastname || !sex || !phone || !professionalStatus) {
+        const fields = {};
+        if (!firstname) fields.firstname = "Le prénom est requis";
+        if (!lastname) fields.lastname = "Le nom est requis";
+        if (!sex) fields.sex = "Le sexe est requis";
+        if (!phone) fields.phone = "Le téléphone est requis";
+        if (!professionalStatus)
+          fields.professionalStatus = "Le statut professionnel est requis";
+        if (Object.keys(fields).length) {
           return res.status(400).json({
             status: "error",
             message:
-              "Pour les auteurs, le prénom, nom, sexe, téléphone et statut professionnel sont requis",
+              "Champs requis manquants pour l'inscription en tant qu'auteur",
+            fields,
           });
         }
       } else {
         // Pour les chercheurs, seuls prénom et nom sont requis en plus de email/password
-        if (!firstname || !lastname) {
+        const fields = {};
+        if (!firstname) fields.firstname = "Le prénom est requis";
+        if (!lastname) fields.lastname = "Le nom est requis";
+        if (Object.keys(fields).length) {
           return res.status(400).json({
             status: "error",
-            message: "Prénom et nom sont requis",
+            message: "Champs requis manquants",
+            fields,
           });
         }
       }
@@ -242,6 +311,7 @@ router.post(
         return res.status(409).json({
           status: "error",
           message: "Cet email est déjà utilisé",
+          fields: { email: "Cet email est déjà utilisé" },
         });
       }
 
@@ -250,9 +320,20 @@ router.post(
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       // Créer le nouvel utilisateur avec tous les champs disponibles
-      // If role is author, mark the account as pending approval
-      const userStatus =
-        role === "auteur" || role === "author" ? "pending" : "active";
+      // Status policy: authors start as 'pending' until approved; others are 'active'
+      const userStatus = normalizedRole === "author" ? "pending" : "active";
+
+      // Prepare socials payload (avoid double-encoding JSON)
+      let socialsPayload = null;
+      if (typeof socials === "string") {
+        socialsPayload = socials;
+      } else if (socials && typeof socials === "object") {
+        try {
+          socialsPayload = JSON.stringify(socials);
+        } catch (_) {
+          socialsPayload = null;
+        }
+      }
 
       const result = await db.query(
         `
@@ -269,7 +350,7 @@ router.post(
           firstname,
           lastname,
           name || `${firstname} ${lastname}`.trim(),
-          role,
+          normalizedRole,
           sex || null,
           phone || null,
           birthDate || null,
@@ -277,7 +358,7 @@ router.post(
           otherStatus || null,
           presentation || null,
           biography || null,
-          socials ? JSON.stringify(socials) : null,
+          socialsPayload,
           profilePicturePath,
           userStatus,
         ]
@@ -308,12 +389,11 @@ router.post(
         console.log(`✅ ${documentsData.length} documents saved to database`);
       }
 
-      // Créer le token JWT pour l'utilisateur nouvellement créé
       const token = jwt.sign(
         {
           id: result.insertId,
           email,
-          role,
+          role: normalizedRole,
           firstname,
           lastname,
         },
@@ -335,7 +415,7 @@ router.post(
               email,
               firstname,
               lastname,
-              role,
+              role: normalizedRole,
               profile_picture: profilePicturePath,
               status: userStatus,
             };

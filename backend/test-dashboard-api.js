@@ -9,22 +9,30 @@ const BASE_URL = 'http://localhost:5000/api';
 async function login() {
   try {
     const response = await fetch(`${BASE_URL}/auth/login`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email: 'admin@dictionnaire.fr',
-        password: 'admin123', // Update with actual password
+        email: "admin@dictionnaire.fr",
+        password: "admin123", // Update with actual password
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Login failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Login failed: ${response.status} ${response.statusText}`
+      );
     }
 
     const data = await response.json();
-    return data.token;
+    // Support both { token } and { data: { token } } response shapes
+    const token =
+      (data && (data.token || (data.data && data.data.token))) || null;
+    if (!token) {
+      throw new Error("No token found in login response");
+    }
+    return token;
   } catch (error) {
     console.error('❌ Login error:', error.message);
     throw error;

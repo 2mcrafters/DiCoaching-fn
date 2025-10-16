@@ -28,9 +28,11 @@ import {
 import { Label } from "@/components/ui/label";
 import UserDetailsDialog from "@/components/admin/UserDetailsDialog";
 import apiService from "@/services/api";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
   const { toast } = useToast();
+  const { confirmDelete, ConfirmDialog } = useConfirmDialog();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [users, setUsers] = useState([]);
@@ -44,7 +46,7 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
     sex: "",
     phone: "",
     professionalStatus: "",
-    role: "chercheur",
+    role: "researcher",
     presentation: "",
   });
 
@@ -77,7 +79,7 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
         return <Badge className="bg-red-100 text-red-800">Admin</Badge>;
       case "author":
         return <Badge className="bg-blue-100 text-blue-800">Auteur</Badge>;
-      case "chercheur":
+      case "researcher":
         return <Badge className="bg-green-100 text-green-800">Chercheur</Badge>;
       default:
         return <Badge variant="outline">{role}</Badge>;
@@ -190,7 +192,7 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
         sex: "",
         phone: "",
         professionalStatus: "",
-        role: "chercheur",
+        role: "researcher",
         presentation: "",
       });
       setIsAddDialogOpen(false);
@@ -234,317 +236,330 @@ const UsersManagement = ({ allUsers, currentUser, onUpdate }) => {
     );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Gestion des utilisateurs</span>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter un utilisateur
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg max-h-[90vh]">
-              <DialogHeader>
-                <DialogTitle>Créer un nouvel utilisateur</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={handleAddUser}
-                className="space-y-4 max-h-[70vh] overflow-y-auto"
-              >
-                <div className="grid grid-cols-2 gap-4">
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Gestion des utilisateurs</span>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Ajouter un utilisateur
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg max-h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle>Créer un nouvel utilisateur</DialogTitle>
+                </DialogHeader>
+                <form
+                  onSubmit={handleAddUser}
+                  className="space-y-4 max-h-[70vh] overflow-y-auto"
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">Prénom *</Label>
+                      <Input
+                        id="firstName"
+                        value={newUser.firstName}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, firstName: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Nom *</Label>
+                      <Input
+                        id="lastName"
+                        value={newUser.lastName}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, lastName: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+
                   <div>
-                    <Label htmlFor="firstName">Prénom *</Label>
+                    <Label htmlFor="email">Email *</Label>
                     <Input
-                      id="firstName"
-                      value={newUser.firstName}
+                      id="email"
+                      type="email"
+                      value={newUser.email}
                       onChange={(e) =>
-                        setNewUser({ ...newUser, firstName: e.target.value })
+                        setNewUser({ ...newUser, email: e.target.value })
                       }
                       required
                     />
                   </div>
+
                   <div>
-                    <Label htmlFor="lastName">Nom *</Label>
+                    <Label htmlFor="password">Mot de passe *</Label>
                     <Input
-                      id="lastName"
-                      value={newUser.lastName}
+                      id="password"
+                      type="password"
+                      value={newUser.password}
                       onChange={(e) =>
-                        setNewUser({ ...newUser, lastName: e.target.value })
+                        setNewUser({ ...newUser, password: e.target.value })
                       }
                       required
+                      minLength={6}
                     />
                   </div>
-                </div>
 
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, email: e.target.value })
-                    }
-                    required
-                  />
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="sex">Sexe</Label>
+                      <Select
+                        value={newUser.sex}
+                        onValueChange={(value) =>
+                          setNewUser({ ...newUser, sex: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionnez" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="homme">Homme</SelectItem>
+                          <SelectItem value="femme">Femme</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Téléphone</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={newUser.phone}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, phone: e.target.value })
+                        }
+                        placeholder="06 12 34 56 78"
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                  <Label htmlFor="password">Mot de passe *</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, password: e.target.value })
-                    }
-                    required
-                    minLength={6}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="sex">Sexe</Label>
+                    <Label htmlFor="professionalStatus">
+                      Statut professionnel
+                    </Label>
                     <Select
-                      value={newUser.sex}
+                      value={newUser.professionalStatus}
                       onValueChange={(value) =>
-                        setNewUser({ ...newUser, sex: value })
+                        setNewUser({ ...newUser, professionalStatus: value })
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Sélectionnez" />
+                        <SelectValue placeholder="Sélectionnez un statut" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="homme">Homme</SelectItem>
-                        <SelectItem value="femme">Femme</SelectItem>
+                        <SelectItem value="Étudiant">Étudiant</SelectItem>
+                        <SelectItem value="Enseignant / Professeur">
+                          Enseignant / Professeur
+                        </SelectItem>
+                        <SelectItem value="Coach / Formateur">
+                          Coach / Formateur
+                        </SelectItem>
+                        <SelectItem value="Chercheur">Chercheur</SelectItem>
+                        <SelectItem value="Professionnel RH">
+                          Professionnel RH
+                        </SelectItem>
+                        <SelectItem value="Autre">Autre</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
                   <div>
-                    <Label htmlFor="phone">Téléphone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={newUser.phone}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, phone: e.target.value })
-                      }
-                      placeholder="06 12 34 56 78"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="professionalStatus">
-                    Statut professionnel
-                  </Label>
-                  <Select
-                    value={newUser.professionalStatus}
-                    onValueChange={(value) =>
-                      setNewUser({ ...newUser, professionalStatus: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez un statut" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Étudiant">Étudiant</SelectItem>
-                      <SelectItem value="Enseignant / Professeur">
-                        Enseignant / Professeur
-                      </SelectItem>
-                      <SelectItem value="Coach / Formateur">
-                        Coach / Formateur
-                      </SelectItem>
-                      <SelectItem value="Chercheur">Chercheur</SelectItem>
-                      <SelectItem value="Professionnel RH">
-                        Professionnel RH
-                      </SelectItem>
-                      <SelectItem value="Autre">Autre</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="role">Rôle *</Label>
-                  <Select
-                    value={newUser.role}
-                    onValueChange={(value) =>
-                      setNewUser({ ...newUser, role: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="chercheur">Chercheur</SelectItem>
-                      <SelectItem value="author">Auteur</SelectItem>
-                      <SelectItem value="admin">Administrateur</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="presentation">
-                    Présentation (facultatif)
-                  </Label>
-                  <Input
-                    id="presentation"
-                    value={newUser.presentation}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, presentation: e.target.value })
-                    }
-                    placeholder="Une courte présentation de l'utilisateur..."
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button type="submit" className="flex-1">
-                    Créer l'utilisateur
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsAddDialogOpen(false)}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </CardTitle>
-        <CardDescription>
-          Gérez les rôles et permissions des utilisateurs actifs.
-        </CardDescription>
-        <div className="flex flex-col sm:flex-row gap-4 pt-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher un utilisateur..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Filtrer par rôle" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les rôles</SelectItem>
-              <SelectItem value="admin">Administrateurs</SelectItem>
-              <SelectItem value="author">Auteurs</SelectItem>
-              <SelectItem value="chercheur">Chercheurs</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">
-                Chargement des utilisateurs...
-              </p>
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                Aucun utilisateur trouvé
-              </h3>
-              <p className="text-muted-foreground">
-                {users.length === 0
-                  ? "Aucun utilisateur dans la base de données. Utilisez le bouton 'Ajouter un utilisateur' pour créer le premier compte."
-                  : "Aucun utilisateur ne correspond à vos critères de recherche."}
-              </p>
-            </div>
-          ) : (
-            filteredUsers.map((userData) => {
-              const displayName =
-                `${userData.firstname || ""} ${
-                  userData.lastname || ""
-                }`.trim() || userData.email;
-              const initials =
-                userData.firstname && userData.lastname
-                  ? `${userData.firstname.charAt(0)}${userData.lastname.charAt(
-                      0
-                    )}`.toUpperCase()
-                  : userData.email.charAt(0).toUpperCase();
-
-              return (
-                <div
-                  key={userData.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                      {initials}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium">{displayName}</h4>
-                        {getRoleBadge(userData.role)}
-                        {getStatusBadge(userData.status)}
-                        {userData.id === currentUser?.id && (
-                          <Badge variant="outline" className="text-xs">
-                            Vous
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {userData.email}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Inscrit le{" "}
-                        {new Date(
-                          userData.created_at || userData.createdAt
-                        ).toLocaleDateString("fr-FR")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <UserDetailsDialog user={userData} />
+                    <Label htmlFor="role">Rôle *</Label>
                     <Select
-                      value={userData.role}
-                      onValueChange={(newRole) =>
-                        handleUserRoleChange(userData.id, newRole)
+                      value={newUser.role}
+                      onValueChange={(value) =>
+                        setNewUser({ ...newUser, role: value })
                       }
-                      disabled={userData.id === currentUser?.id}
                     >
-                      <SelectTrigger className="w-32">
+                      <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="chercheur">Chercheur</SelectItem>
+                        <SelectItem value="researcher">Chercheur</SelectItem>
                         <SelectItem value="author">Auteur</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="admin">Administrateur</SelectItem>
                       </SelectContent>
                     </Select>
-                    {userData.id !== currentUser?.id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteUser(userData.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </CardContent>
-    </Card>
+
+                  <div>
+                    <Label htmlFor="presentation">
+                      Présentation (facultatif)
+                    </Label>
+                    <Input
+                      id="presentation"
+                      value={newUser.presentation}
+                      onChange={(e) =>
+                        setNewUser({ ...newUser, presentation: e.target.value })
+                      }
+                      placeholder="Une courte présentation de l'utilisateur..."
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-4 border-t">
+                    <Button type="submit" className="flex-1">
+                      Créer l'utilisateur
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsAddDialogOpen(false)}
+                    >
+                      Annuler
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </CardTitle>
+          <CardDescription>
+            Gérez les rôles et permissions des utilisateurs actifs.
+          </CardDescription>
+          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher un utilisateur..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filtrer par rôle" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les rôles</SelectItem>
+                <SelectItem value="admin">Administrateurs</SelectItem>
+                <SelectItem value="author">Auteurs</SelectItem>
+                <SelectItem value="researcher">Chercheurs</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">
+                  Chargement des utilisateurs...
+                </p>
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  Aucun utilisateur trouvé
+                </h3>
+                <p className="text-muted-foreground">
+                  {users.length === 0
+                    ? "Aucun utilisateur dans la base de données. Utilisez le bouton 'Ajouter un utilisateur' pour créer le premier compte."
+                    : "Aucun utilisateur ne correspond à vos critères de recherche."}
+                </p>
+              </div>
+            ) : (
+              filteredUsers.map((userData) => {
+                const displayName =
+                  `${userData.firstname || ""} ${
+                    userData.lastname || ""
+                  }`.trim() || userData.email;
+                const initials =
+                  userData.firstname && userData.lastname
+                    ? `${userData.firstname.charAt(
+                        0
+                      )}${userData.lastname.charAt(0)}`.toUpperCase()
+                    : userData.email.charAt(0).toUpperCase();
+
+                return (
+                  <div
+                    key={userData.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-medium">
+                        {initials}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium">{displayName}</h4>
+                          {getRoleBadge(userData.role)}
+                          {getStatusBadge(userData.status)}
+                          {userData.id === currentUser?.id && (
+                            <Badge variant="outline" className="text-xs">
+                              Vous
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {userData.email}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Inscrit le{" "}
+                          {new Date(
+                            userData.created_at || userData.createdAt
+                          ).toLocaleDateString("fr-FR")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <UserDetailsDialog user={userData} />
+                      <Select
+                        value={userData.role}
+                        onValueChange={(newRole) =>
+                          handleUserRoleChange(userData.id, newRole)
+                        }
+                        disabled={userData.id === currentUser?.id}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="researcher">Chercheur</SelectItem>
+                          <SelectItem value="author">Auteur</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {userData.id !== currentUser?.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            const confirmed = await confirmDelete({
+                              title: "Supprimer cet utilisateur ?",
+                              description:
+                                "Cet utilisateur sera définitivement supprimé. Cette action est irréversible.",
+                              confirmText: "Supprimer",
+                              cancelText: "Annuler",
+                            });
+                            if (!confirmed) return;
+                            await handleDeleteUser(userData.id);
+                          }}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      {ConfirmDialog}
+    </>
   );
 };
 

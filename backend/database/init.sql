@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     firstname VARCHAR(100) NOT NULL,
     lastname VARCHAR(100) NOT NULL,
     role ENUM('user', 'author', 'researcher', 'admin') DEFAULT 'user',
-    status ENUM('pending', 'active', 'suspended') DEFAULT 'pending',
+    status ENUM('active') DEFAULT 'active',
     bio TEXT,
     institution VARCHAR(255),
     specialization VARCHAR(255),

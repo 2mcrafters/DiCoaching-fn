@@ -80,20 +80,17 @@ export const AuthProvider = ({ children }) => {
         setUser(result.data.user);
         return { success: true };
       } else {
-        // result.error may be an object { message, fields }
         const err = result.error || {
           message: "Erreur d'inscription",
           fields: {},
         };
-        setError(err.message || err);
+        setError(err.message || "Erreur d'inscription");
         return { success: false, error: err };
       }
     } catch (error) {
-      setError("Erreur d'inscription");
-      return {
-        success: false,
-        error: { message: "Erreur d'inscription", fields: {} },
-      };
+      const err = { message: "Erreur réseau", fields: {} };
+      setError(err.message);
+      return { success: false, error: err };
     } finally {
       setLoading(false);
     }

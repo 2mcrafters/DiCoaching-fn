@@ -135,8 +135,8 @@ router.get("/pending-validation", authenticateToken, async (req, res) => {
     const role = (req.user.role || "").toLowerCase();
     const scope = (req.query.scope || "").toString().toLowerCase();
 
-    // Only authors (author/auteur) and admins can validate modifications
-    const isAuthor = role === "author" || role === "auteur";
+    // Only authors and admins can validate modifications
+    const isAuthor = role === "author";
     const isAdmin = role === "admin";
     if (!isAuthor && !isAdmin) {
       return res.status(403).json({
@@ -153,9 +153,10 @@ router.get("/pending-validation", authenticateToken, async (req, res) => {
     // scope=mine forces filtering to the current user's authored terms even for admins
     const forceMine = scope === "mine";
     const shouldFilterToMine = isAuthor || forceMine;
-    const whereClause = !isAdmin || shouldFilterToMine
-      ? `WHERE ${pendingWhere} AND t.author_id = ? AND m.proposer_id != ?`
-      : `WHERE ${pendingWhere}`;
+    const whereClause =
+      !isAdmin || shouldFilterToMine
+        ? `WHERE ${pendingWhere} AND t.author_id = ? AND m.proposer_id != ?`
+        : `WHERE ${pendingWhere}`;
 
     const params = !isAdmin || shouldFilterToMine ? [userId, userId] : [];
 
@@ -296,60 +297,85 @@ router.put("/:id", authenticateToken, async (req, res) => {
       });
     }
 
-    if (wantsAdminUpdate && !isAdmin) {
-      return res.status(403).json({
-        status: "error",
-        message: "Action reservee aux administrateurs",
-      });
-    }
-
-    // CRITICAL: Prevent authors from validating their own proposals
-    if (wantsAdminUpdate && !isAdmin) {
-      // Get term to check if user is the term author. Try EN `terms` then FR `termes`.
-      let termAuthorId = null;
-      try {
-        const termRows = await db.query(
-          "SELECT author_id FROM terms WHERE id = ?",
-          [existing.term_id]
-        );
-        if (termRows && termRows.length > 0) {
-          termAuthorId = Number(termRows[0].author_id);
-        }
-      } catch (_) {
-        // ignore and fallback to FR table
-      }
-      if (termAuthorId === null) {
+    // Admins can always perform status updates; authors can validate only on their own terms
+    if (wantsAdminUpdate) {
+      if (isAdmin) {
+        // allowed
+      } else if (role === "author") {
+        // Get term to check if user is the term author. Try EN `terms` then FR `termes`.
+        let termAuthorId = null;
         try {
-          const termRowsFr = await db.query(
-            "SELECT author_id FROM termes WHERE id = ?",
+          const termRows = await db.query(
+            "SELECT author_id FROM terms WHERE id = ?",
             [existing.term_id]
           );
-          if (termRowsFr && termRowsFr.length > 0) {
-            termAuthorId = Number(termRowsFr[0].author_id);
+          if (termRows && termRows.length > 0) {
+            termAuthorId = Number(termRows[0].author_id);
           }
         } catch (_) {
-          // ignore
+          // ignore and fallback to FR table
         }
-      }
+        if (termAuthorId === null) {
+          try {
+            const termRowsFr = await db.query(
+              "SELECT author_id FROM termes WHERE id = ?",
+              [existing.term_id]
+            );
+            if (termRowsFr && termRowsFr.length > 0) {
+              termAuthorId = Number(termRowsFr[0].author_id);
+            }
+          } catch (_) {
+            // ignore
+          }
+        }
 
-      const isTermAuthor =
-        termAuthorId !== null && termAuthorId === Number(req.user.id);
+        const isTermAuthor =
+          termAuthorId !== null && termAuthorId === Number(req.user.id);
 
-      // Author can validate modifications on their terms BUT NOT their own proposals
-      if (isOwner) {
+        // Author can validate modifications on their terms BUT NOT their own proposals
+        if (isOwner) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "Vous ne pouvez pas valider votre propre proposition de modification",
+          });
+        }
+
+        // Non-admin, non-term-author cannot validate
+        if (role === "author" && !isTermAuthor) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "Vous ne pouvez valider que les modifications sur vos propres termes",
+          });
+        }
+
+        // Pending authors cannot validate anything; require active/confirmed status
+        if (role === "author") {
+          let authorStatus = null;
+          try {
+            const rows = await db.query(
+              "SELECT status FROM users WHERE id = ?",
+              [req.user.id]
+            );
+            if (rows && rows.length > 0) {
+              authorStatus = (rows[0].status || "").toLowerCase();
+            }
+          } catch (_) {}
+          const approved =
+            authorStatus === "active" || authorStatus === "confirmed";
+          if (!approved) {
+            return res.status(403).json({
+              status: "error",
+              message:
+                "Votre compte auteur doit être approuvé avant de valider des modifications",
+            });
+          }
+        }
+      } else {
         return res.status(403).json({
           status: "error",
-          message:
-            "Vous ne pouvez pas valider votre propre proposition de modification",
-        });
-      }
-
-      // Non-admin, non-term-author cannot validate
-      if (role === "author" && !isTermAuthor) {
-        return res.status(403).json({
-          status: "error",
-          message:
-            "Vous ne pouvez valider que les modifications sur vos propres termes",
+          message: "Action reservee aux administrateurs ou auteurs concernés",
         });
       }
     }

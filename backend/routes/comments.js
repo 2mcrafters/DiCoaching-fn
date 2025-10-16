@@ -387,7 +387,7 @@ router.get(
 
       if (
         String(authorId) !== String(requesterId) &&
-        !["admin", "researcher", "chercheur"].includes(requesterRole)
+        !["admin", "researcher"].includes(requesterRole)
       ) {
         return res
           .status(403)
@@ -500,7 +500,6 @@ router.get(
   }
 );
 
-export default router;
 /**
  * GET /api/comments/me
  * Returns comments authored by the current user across EN/FR tables, newest first.
@@ -510,46 +509,99 @@ router.get("/comments/me", authenticateToken, async (req, res) => {
     const userId = req.user?.id;
     await ensureCommentsTables();
 
-    // Try to aggregate from both comments and commentaires; include term title/slug from either table
+    const hasEN = await tableExists("comments");
+    const hasFR = await tableExists("commentaires");
+    const hasTerms = await tableExists("terms");
+    const hasTermes = await tableExists("termes");
+
     let rows = [];
-    try {
-      rows = await q(
-        `SELECT 
-           c.id,
-           c.term_id AS termId,
-           c.created_at AS createdAt,
-           CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-           te.slug AS termSlugEN,
-           CAST(te.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleEN,
-           CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR
+
+    // Build EN comments query conditionally
+    if (hasEN) {
+      const selectCols = [
+        "c.id",
+        "c.term_id AS termId",
+        "c.created_at AS createdAt",
+        "CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content",
+      ];
+      const joins = [];
+      if (hasTerms) {
+        selectCols.push(
+          "te.slug AS termSlugEN",
+          "CAST(te.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleEN"
+        );
+        joins.push("LEFT JOIN terms te ON te.id = c.term_id");
+      } else {
+        selectCols.push("NULL AS termSlugEN", "NULL AS termTitleEN");
+      }
+      if (hasTermes) {
+        selectCols.push(
+          "CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR"
+        );
+        joins.push("LEFT JOIN termes tf ON tf.id = c.term_id");
+      } else {
+        selectCols.push("NULL AS termTitleFR");
+      }
+
+      const sqlEN = `SELECT ${selectCols.join(",\n           ")}
          FROM comments c
-         LEFT JOIN terms te ON te.id = c.term_id
-         LEFT JOIN termes tf ON tf.id = c.term_id
-         WHERE c.user_id = ?
-         UNION ALL
-         SELECT 
-           c.id,
-           c.term_id AS termId,
-           c.created_at AS createdAt,
-           CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-           te.slug AS termSlugEN,
-           CAST(te.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleEN,
-           CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR
-         FROM commentaires c
-         LEFT JOIN terms te ON te.id = c.term_id
-         LEFT JOIN termes tf ON tf.id = c.term_id
-         WHERE c.author_id = ?
-         ORDER BY createdAt DESC`,
-        [userId, userId]
-      );
-    } catch (e) {
-      console.error("[comments] me query error:", e.message);
-      rows = [];
+         ${joins.join("\n         ")}
+         WHERE c.user_id = ?`;
+      try {
+        const rEN = await q(sqlEN, [userId]);
+        rows = rows.concat(rEN);
+      } catch (e) {
+        console.error("[comments] me EN query error:", e.message);
+      }
     }
+
+    // Build FR commentaires query conditionally
+    if (hasFR) {
+      const selectCols = [
+        "c.id",
+        "c.term_id AS termId",
+        "c.created_at AS createdAt",
+        "CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content",
+      ];
+      const joins = [];
+      if (hasTerms) {
+        selectCols.push("te.slug AS termSlugEN");
+        joins.push("LEFT JOIN terms te ON te.id = c.term_id");
+      } else {
+        selectCols.push("NULL AS termSlugEN");
+      }
+      if (hasTermes) {
+        selectCols.push(
+          "CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR"
+        );
+        joins.push("LEFT JOIN termes tf ON tf.id = c.term_id");
+      } else {
+        selectCols.push("NULL AS termTitleFR");
+      }
+
+      // We don't have EN title from commentaires; add NULL to keep shape
+      selectCols.push("NULL AS termTitleEN");
+
+      const sqlFR = `SELECT ${selectCols.join(",\n           ")}
+         FROM commentaires c
+         ${joins.join("\n         ")}
+         WHERE c.author_id = ?`;
+      try {
+        const rFR = await q(sqlFR, [userId]);
+        rows = rows.concat(rFR);
+      } catch (e) {
+        console.error("[comments] me FR query error:", e.message);
+      }
+    }
+
+    // Sort newest first (DB may not order UNION consistently)
+    rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     const data = rows.map((r) => {
       const title = r.termTitleEN || r.termTitleFR || "";
-      const slug = r.termSlugEN || (title ? slugify(String(title), { lower: true, strict: true }) : null);
+      const slug =
+        r.termSlugEN ||
+        (title ? slugify(String(title), { lower: true, strict: true }) : null);
       return {
         id: r.id,
         termId: r.termId,
@@ -573,3 +625,5 @@ router.get("/comments/me", authenticateToken, async (req, res) => {
     });
   }
 });
+
+export default router;

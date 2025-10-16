@@ -156,13 +156,13 @@ const Authors = () => {
       if (!user) return;
       const normalized = normalizeUser(user);
       const id = normalized.id;
-      const isAuthorRole = ["author", "auteur", "admin"].includes(
+      const isAuthorRole = ["author", "admin"].includes(
         (normalized.role || "").toLowerCase()
       );
       // If the user has author role but is pending approval, don't show them on the public authors page
       if (!isAuthorRole) return;
       if (
-        ["author", "auteur"].includes((normalized.role || "").toLowerCase()) &&
+        ["author"].includes((normalized.role || "").toLowerCase()) &&
         (normalized.status || "").toLowerCase() === "pending"
       ) {
         return; // skip pending authors

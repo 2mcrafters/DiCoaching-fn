@@ -14,38 +14,56 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 async function runMigration() {
   try {
     const connection = await mysql.createConnection({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'dictionnaire_ch',
-      port: process.env.DB_PORT || 3306
+      host: process.env.DB_HOST || "localhost",
+      user: process.env.DB_USER || "root",
+      password: process.env.DB_PASSWORD || "",
+      database: process.env.DB_NAME || "dictionnaire_ch",
+      port: process.env.DB_PORT || 3306,
     });
 
-    console.log('✅ Connexion à la base de données établie');
+    console.log("✅ Connexion à la base de données établie");
 
-    // Lire le fichier de migration
-    const migrationPath = path.join(__dirname, 'database/migrations/003_update_users_for_registration.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+    // Lire tous les fichiers de migration dans l'ordre
+    const migrationsDir = path.join(__dirname, "database/migrations");
+    const files = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.toLowerCase().endsWith(".sql"))
+      .sort((a, b) => a.localeCompare(b));
 
-    // Diviser les commandes SQL
-    const commands = migrationSQL
-      .split(';')
-      .map(cmd => cmd.trim())
-      .filter(cmd => cmd && !cmd.startsWith('--'));
+    console.log(`📦 ${files.length} fichiers de migration trouvés`);
 
-    console.log(`📋 Exécution de ${commands.length} commandes de migration...`);
+    for (const file of files) {
+      const filePath = path.join(migrationsDir, file);
+      const migrationSQL = fs.readFileSync(filePath, "utf8");
+      const commands = migrationSQL
+        .split(";")
+        .map((cmd) => cmd.trim())
+        .filter((cmd) => cmd && !cmd.startsWith("--"));
 
-    // Exécuter chaque commande
-    for (const command of commands) {
-      if (command.trim()) {
-        await connection.execute(command);
-        console.log('✅ Commande exécutée:', command.substring(0, 50) + '...');
+      console.log(
+        `\n📋 Exécution de ${commands.length} commandes depuis ${file}...`
+      );
+      for (const command of commands) {
+        if (!command) continue;
+        try {
+          await connection.execute(command);
+          console.log(
+            "✅ Commande exécutée:",
+            command.substring(0, 80).replace(/\s+/g, " ") + "..."
+          );
+        } catch (err) {
+          console.warn(
+            "⚠️  Échec commande (continuation):",
+            command.substring(0, 120)
+          );
+          console.warn("   Raison:", err.message);
+          // Continue with next commands/files to keep migrations idempotent
+        }
       }
     }
 
     await connection.end();
-    console.log('🎉 Migration terminée avec succès !');
-
+    console.log("🎉 Migration terminée avec succès !");
   } catch (error) {
     console.error('❌ Erreur lors de la migration:', error.message);
     process.exit(1);

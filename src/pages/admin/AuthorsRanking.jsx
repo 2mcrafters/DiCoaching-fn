@@ -109,7 +109,7 @@ const AuthorsRanking = () => {
   useEffect(() => {
     // Filter only authors and admins
     const authorUsers = allUsers.filter((user) =>
-      ["author", "auteur", "admin", "chercheur", "researcher"].includes(
+      ["author", "admin", "researcher"].includes(
         (user.role || "").toLowerCase()
       )
     );

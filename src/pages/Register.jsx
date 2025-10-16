@@ -95,8 +95,8 @@ const Register = () => {
     try {
       const result = await register(data);
       if (result.success) {
-        // Show popup if user registered as author (backend accepts 'auteur' but client normalizes to 'author')
-        if (data.role === "auteur" || data.role === "author") {
+        // Show popup if user registered as author
+        if (data.role === "author") {
           setShowAuthorPopup(true);
         } else {
           toast({
@@ -122,7 +122,26 @@ const Register = () => {
           typeof err.fields === "object" &&
           Object.keys(err.fields).length > 0
         ) {
-          setServerErrors(err.fields);
+          // Map backend field keys to frontend form field names
+          const mapKey = (k) => {
+            switch (k) {
+              case "firstname":
+                return "firstName";
+              case "lastname":
+                return "lastName";
+              case "professional_status":
+                return "professionalStatus";
+              case "confirm_password":
+                return "confirmPassword";
+              default:
+                return k;
+            }
+          };
+          const normalizedFields = Object.keys(err.fields).reduce((acc, k) => {
+            acc[mapKey(k)] = err.fields[k];
+            return acc;
+          }, {});
+          setServerErrors(normalizedFields);
           const items = Object.keys(err.fields).map((k) => ({
             field: k,
             message: err.fields[k],
@@ -194,7 +213,7 @@ const Register = () => {
           />
         );
       case 3:
-        if (formData.role === "chercheur") {
+        if (formData.role === "researcher") {
           return (
             <Step3AResearcher
               formData={formData}
@@ -206,7 +225,7 @@ const Register = () => {
             />
           );
         }
-        if (formData.role === "auteur") {
+        if (formData.role === "author") {
           return (
             <Step3BAuthor
               formData={formData}

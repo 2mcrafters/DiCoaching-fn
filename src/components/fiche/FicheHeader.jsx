@@ -15,7 +15,8 @@ const FicheHeader = ({ term, authorName }) => {
   const handleAction = (feature) => {
     toast({
       title: `🚧 ${feature} en cours de développement`,
-      description: "Cette fonctionnalité n'est pas encore implémentée, mais vous pouvez la demander ! 🚀",
+      description:
+        "Cette fonctionnalité n'est pas encore implémentée, mais vous pouvez la demander ! 🚀",
     });
   };
 
@@ -30,12 +31,15 @@ const FicheHeader = ({ term, authorName }) => {
       navigator.clipboard.writeText(window.location.href);
       toast({
         title: "Lien copié !",
-        description: "Le lien de cette fiche a été copié dans le presse-papiers.",
+        description:
+          "Le lien de cette fiche a été copié dans le presse-papiers.",
       });
     }
   };
 
-  const canEdit = user && (user.id === term.authorId || user.role === 'admin' || user.role === 'éditeur');
+  // Edit allowed for: admin, or the term owner (author of this term)
+  const canEdit =
+    !!user && (user.role === "admin" || user.id === term.authorId);
 
   return (
     <motion.div
@@ -55,20 +59,43 @@ const FicheHeader = ({ term, authorName }) => {
                 </Badge>
               </div>
               <CardTitle className="text-3xl mb-4">{term.title}</CardTitle>
-              <CardDescription className="text-lg">{term.shortDefinition}</CardDescription>
+              <CardDescription className="text-lg">
+                {term.shortDefinition}
+              </CardDescription>
             </div>
           </div>
           <div className="flex items-center justify-between pt-4 border-t mt-4">
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1"><User className="h-4 w-4" /><span>{authorName}</span></div>
-              <div className="flex items-center gap-1"><Calendar className="h-4 w-4" /><span>{new Date(term.createdAt).toLocaleDateString('fr-FR')}</span></div>
+              <div className="flex items-center gap-1">
+                <User className="h-4 w-4" />
+                <span>{authorName}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                <span>
+                  {new Date(term.createdAt).toLocaleDateString("fr-FR")}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleAction("J'aime")}><Heart className="h-4 w-4 mr-2" />J'aime</Button>
-              <Button variant="outline" size="sm" onClick={handleShare}><Share2 className="h-4 w-4 mr-2" />Partager</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleAction("J'aime")}
+              >
+                <Heart className="h-4 w-4 mr-2" />
+                J'aime
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Partager
+              </Button>
               {canEdit && (
                 <Link to={`/edit/${term.slug}`}>
-                  <Button variant="outline" size="sm"><Edit className="h-4 w-4 mr-2" />Modifier</Button>
+                  <Button variant="outline" size="sm">
+                    <Edit className="h-4 w-4 mr-2" />
+                    Modifier
+                  </Button>
                 </Link>
               )}
             </div>

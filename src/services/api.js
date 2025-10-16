@@ -200,6 +200,22 @@ class ApiService {
     return this.delete(`/api/users/${id}`);
   }
 
+  // Admin: pending authors moderation
+  async getPendingAuthors() {
+    const response = await this.get(`/api/users/pending-authors`);
+    return response.data || response;
+  }
+
+  async approveAuthor(id) {
+    const response = await this.post(`/api/users/${id}/approve-author`);
+    return response.data || response;
+  }
+
+  async rejectAuthor(id) {
+    const response = await this.post(`/api/users/${id}/reject-author`);
+    return response.data || response;
+  }
+
   // Gestion des signalements
   async getReports() {
     const response = await this.get("/api/reports");
