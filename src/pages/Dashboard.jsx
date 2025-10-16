@@ -59,6 +59,13 @@ import {
 } from "@/components/ui/Pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const Dashboard = () => {
   const { user, hasAuthorPermissions } = useAuth();
@@ -325,6 +332,9 @@ const Dashboard = () => {
   const [updatingReportStatus, setUpdatingReportStatus] = useState(false);
   const [userComments, setUserComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  // My own comments (authored by me)
+  const [myComments, setMyComments] = useState([]);
+  const [myCommentsLoading, setMyCommentsLoading] = useState(false);
   const [newCommentsCount, setNewCommentsCount] = useState(0);
 
   // Pending validation modifications for authors
@@ -390,6 +400,7 @@ const Dashboard = () => {
 
   // Pagination state for each tab (5 items per page)
   const [commentsPage, setCommentsPage] = useState(1);
+  const [myCommentsPage, setMyCommentsPage] = useState(1);
   const [likedTermsPage, setLikedTermsPage] = useState(1);
   const [userTermsPage, setUserTermsPage] = useState(1);
   const [reportsPage, setReportsPage] = useState(1);
@@ -398,6 +409,108 @@ const Dashboard = () => {
   const itemsPerPage = 5;
 
   const [editingReport, setEditingReport] = useState(null);
+
+  // View Changes dialog state (for pending validation modifications)
+  const [viewChangesOpen, setViewChangesOpen] = useState(false);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewTitle, setViewTitle] = useState("");
+  const [viewBefore, setViewBefore] = useState(null);
+  const [viewAfter, setViewAfter] = useState(null);
+  const [viewChangedKeys, setViewChangedKeys] = useState([]);
+
+  const formatCollectionDisplay = useCallback((items) => {
+    if (!Array.isArray(items)) return "—";
+    if (items.length === 0) return "—";
+    return items
+      .map((item) => {
+        if (!item) return "";
+        if (typeof item === "string") return item;
+        if (item.text) return String(item.text);
+        if (item.label) return String(item.label);
+        if (item.term) return String(item.term);
+        if (item.url) return String(item.url);
+        return JSON.stringify(item);
+      })
+      .filter(Boolean)
+      .join("\n• ");
+  }, []);
+
+  const formatFieldValue = useCallback(
+    (key, value) => {
+      if (value === null || value === undefined) return "—";
+      switch (key) {
+        case "exemples":
+        case "sources":
+        case "remarques":
+          return formatCollectionDisplay(value);
+        case "categorie_id":
+        case "category_id":
+          return String(value);
+        default:
+          return String(value);
+      }
+    },
+    [formatCollectionDisplay]
+  );
+
+  const findTermInStore = useCallback(
+    (id, slug) => {
+      if (!allTerms || allTerms.length === 0) return null;
+      const byId = allTerms.find((t) => String(t.id) === String(id));
+      if (byId) return byId;
+      if (slug) {
+        const bySlug = allTerms.find((t) => String(t.slug) === String(slug));
+        if (bySlug) return bySlug;
+      }
+      return null;
+    },
+    [allTerms]
+  );
+
+  const handleViewChanges = useCallback(
+    async (modification) => {
+      try {
+        setViewLoading(true);
+        setViewTitle(modification.term_title || "Terme");
+
+        // 1) Get current term data from store or API
+        let termData = findTermInStore(
+          modification.term_id,
+          modification.term_slug
+        );
+        if (!termData && modification.term_id) {
+          try {
+            const api = await import("@/services/api");
+            const res = await api.default.getTerm(modification.term_id);
+            termData = res?.data || res || null;
+          } catch (e) {
+            console.warn("Could not fetch term by id:", e);
+          }
+        }
+
+        // 2) Build baseline and proposed data using existing helpers
+        const baseline = buildTermBaseline(
+          termData || { terme: modification.term_title }
+        );
+        const proposed = applyChangesToFormData(
+          baseline,
+          modification.changes || {}
+        );
+
+        // 3) Compute changed keys to display
+        const diff = computeChangesDiff(baseline, proposed);
+        const changedKeys = Object.keys(diff);
+
+        setViewBefore(baseline);
+        setViewAfter(proposed);
+        setViewChangedKeys(changedKeys);
+        setViewChangesOpen(true);
+      } finally {
+        setViewLoading(false);
+      }
+    },
+    [findTermInStore]
+  );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingModification, setEditingModification] = useState(null);
   const [isEditModificationDialogOpen, setIsEditModificationDialogOpen] =
@@ -808,6 +921,32 @@ const Dashboard = () => {
     fetchUserComments();
   }, [user?.id, isAuthor, user?.role]);
 
+  // Fetch my own comments (authored by me)
+  useEffect(() => {
+    const fetchMyComments = async () => {
+      if (!user?.id) return;
+      const shouldFetch = isAuthor || user?.role === "admin";
+      if (!shouldFetch) return;
+      setMyCommentsLoading(true);
+      try {
+        const api = await import("@/services/api");
+        const data = await api.default.getMyComments();
+        const comments = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+          ? data
+          : [];
+        setMyComments(comments);
+      } catch (error) {
+        console.error("❌ Error fetching my comments:", error);
+        setMyComments([]);
+      } finally {
+        setMyCommentsLoading(false);
+      }
+    };
+    fetchMyComments();
+  }, [user?.id, isAuthor, user?.role]);
+
   // Fetch reports received on user's own terms (authors/admin)
   useEffect(() => {
     const fetchReceivedReports = async () => {
@@ -851,8 +990,9 @@ const Dashboard = () => {
       setPendingValidationLoading(true);
       try {
         const apiService = await import("@/services/api");
-        const data =
-          await apiService.default.getPendingValidationModifications();
+        const data = await apiService.default.getPendingValidationModifications(
+          { scope: "mine" }
+        );
         console.log("✅ Pending Validation Mods:", data);
 
         const modifications = Array.isArray(data?.data)
@@ -1255,11 +1395,6 @@ const Dashboard = () => {
         label: "Mes likes",
         badge: newLikedTermsCount > 0 ? newLikedTermsCount : null,
       },
-      {
-        key: "my-comments",
-        label: "Mes commentaires",
-        badge: null,
-      },
     ],
     [newPendingValidationCount, newLikedTermsCount]
   );
@@ -1324,6 +1459,11 @@ const Dashboard = () => {
   const paginatedComments = useMemo(
     () => getPaginatedItems(userComments, commentsPage),
     [userComments, commentsPage, getPaginatedItems]
+  );
+
+  const paginatedMyComments = useMemo(
+    () => getPaginatedItems(myComments, myCommentsPage),
+    [myComments, myCommentsPage, getPaginatedItems]
   );
 
   const paginatedLikedTerms = useMemo(
@@ -2070,23 +2210,7 @@ const Dashboard = () => {
             </div>
           );
 
-        // My comments on other authors' terms
-        case "my-comments":
-          return (
-            <div className="p-6 bg-muted/20 rounded-lg text-center">
-              <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <p className="text-lg font-medium text-muted-foreground mb-2">
-                Vos commentaires
-              </p>
-              <p className="text-sm text-muted-foreground mb-4">
-                Cette fonctionnalité affichera tous les commentaires que vous
-                avez laissés sur les termes d'autres auteurs.
-              </p>
-              <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 rounded inline-block">
-                ⚠️ Fonctionnalité à venir prochainement
-              </p>
-            </div>
-          );
+        // My comments tab removed per request
 
         case "activities":
           return (
@@ -2296,6 +2420,14 @@ const Dashboard = () => {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleViewChanges(modification)}
+                              className="px-3 py-1.5 text-xs font-medium text-primary border border-primary hover:bg-primary/10 rounded transition-colors"
+                              title="Voir les changements proposés"
+                            >
+                              Voir changements
+                            </button>
                             <button
                               type="button"
                               onClick={() =>
@@ -3396,6 +3528,165 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+      {/* View Changes Dialog */}
+      <Dialog open={viewChangesOpen} onOpenChange={setViewChangesOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Changements proposés</DialogTitle>
+            <DialogDescription>
+              Comparaison du terme actuel et de la proposition:{" "}
+              {viewTitle || "—"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Préparation de
+              l'aperçu...
+            </div>
+          ) : viewBefore && viewAfter && viewChangedKeys.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-semibold mb-2">Terme actuel</h4>
+                <div className="space-y-3 text-sm">
+                  {viewChangedKeys.includes("term") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">Terme</div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-muted/40">
+                        {formatFieldValue("term", viewBefore.term)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("definition") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Définition
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-muted/40">
+                        {formatFieldValue("definition", viewBefore.definition)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("categorie_id") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Catégorie (ID)
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-muted/40">
+                        {formatFieldValue(
+                          "categorie_id",
+                          viewBefore.categorie_id
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("exemples") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Exemples
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-muted/40">
+                        • {formatFieldValue("exemples", viewBefore.exemples)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("sources") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Sources
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-muted/40">
+                        • {formatFieldValue("sources", viewBefore.sources)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("remarques") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Remarques
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-muted/40">
+                        • {formatFieldValue("remarques", viewBefore.remarques)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">Proposition</h4>
+                <div className="space-y-3 text-sm">
+                  {viewChangedKeys.includes("term") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">Terme</div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-green-50 dark:bg-green-950/20">
+                        {formatFieldValue("term", viewAfter.term)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("definition") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Définition
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-green-50 dark:bg-green-950/20">
+                        {formatFieldValue("definition", viewAfter.definition)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("categorie_id") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Catégorie (ID)
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-green-50 dark:bg-green-950/20">
+                        {formatFieldValue(
+                          "categorie_id",
+                          viewAfter.categorie_id
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("exemples") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Exemples
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-green-50 dark:bg-green-950/20">
+                        • {formatFieldValue("exemples", viewAfter.exemples)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("sources") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Sources
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-green-50 dark:bg-green-950/20">
+                        • {formatFieldValue("sources", viewAfter.sources)}
+                      </div>
+                    </div>
+                  )}
+                  {viewChangedKeys.includes("remarques") && (
+                    <div>
+                      <div className="text-muted-foreground text-xs">
+                        Remarques
+                      </div>
+                      <div className="whitespace-pre-wrap p-2 rounded bg-green-50 dark:bg-green-950/20">
+                        • {formatFieldValue("remarques", viewAfter.remarques)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              Aucun changement détecté.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {ConfirmDialog}
     </>
   );

@@ -33,11 +33,44 @@ const queryModifications = async ({
   const suffix = `${whereClause ? ` ${whereClause}` : ""}${
     orderClause ? ` ${orderClause}` : ""
   }`;
-  try {
-    return await db.query(`${selectEnglish} ${suffix}`, params);
-  } catch (errEn) {
-    return await db.query(`${selectFrench} ${suffix}`, params);
+
+  // Prefer querying available tables and merging results to handle cases where both tables exist
+  const tableExists = async (name) => {
+    try {
+      const rows = await db.query("SHOW TABLES LIKE ?", [name]);
+      return Array.isArray(rows) && rows.length > 0;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const hasTerms = await tableExists("terms");
+  const hasTermes = await tableExists("termes");
+
+  let results = [];
+  if (hasTerms) {
+    try {
+      const enRows = await db.query(`${selectEnglish} ${suffix}`, params);
+      results.push(...enRows);
+    } catch (_) {
+      // ignore EN failures and continue
+    }
   }
+  if (hasTermes) {
+    try {
+      const frRows = await db.query(`${selectFrench} ${suffix}`, params);
+      results.push(...frRows);
+    } catch (_) {
+      // ignore FR failures
+    }
+  }
+
+  // If neither table exists (unlikely), fall back to EN attempt to surface the error
+  if (!hasTerms && !hasTermes) {
+    return await db.query(`${selectEnglish} ${suffix}`, params);
+  }
+
+  return results;
 };
 
 const normalizeModificationRow = (row) => {
@@ -87,6 +120,65 @@ router.get("/", authenticateToken, async (req, res) => {
     res.status(500).json({
       status: "error",
       message: "Erreur lors de la récupération des modifications",
+      error: error.message,
+    });
+  }
+});
+
+// GET /api/modifications/:id - Récupérer une modification proposée
+// NOTE: Keep static routes (e.g., /pending-validation) ABOVE dynamic routes like /:id
+// to prevent path collisions where Express treats 'pending-validation' as an :id.
+// GET /api/modifications/pending-validation - Get modifications pending validation by author
+router.get("/pending-validation", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const role = (req.user.role || "").toLowerCase();
+    const scope = (req.query.scope || "").toString().toLowerCase();
+
+    // Only authors (author/auteur) and admins can validate modifications
+    const isAuthor = role === "author" || role === "auteur";
+    const isAdmin = role === "admin";
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({
+        status: "error",
+        message: "Accès réservé aux auteurs et administrateurs",
+      });
+    }
+
+    // Get pending modifications on user's terms (excluding their own proposals)
+    // Treat NULL and common variants as pending
+    const pendingWhere =
+      "(m.status IS NULL OR LOWER(m.status) IN ('pending','en_attente','to_validate'))";
+
+    // scope=mine forces filtering to the current user's authored terms even for admins
+    const forceMine = scope === "mine";
+    const shouldFilterToMine = isAuthor || forceMine;
+    const whereClause = !isAdmin || shouldFilterToMine
+      ? `WHERE ${pendingWhere} AND t.author_id = ? AND m.proposer_id != ?`
+      : `WHERE ${pendingWhere}`;
+
+    const params = !isAdmin || shouldFilterToMine ? [userId, userId] : [];
+
+    const modifications = await queryModifications({
+      whereClause,
+      params,
+      // Use id DESC to avoid relying on created_at in legacy tables
+      orderClause: "ORDER BY m.id DESC",
+    });
+
+    res.json({
+      status: "success",
+      data: modifications.map(normalizeModificationRow),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(
+      "❌ Erreur lors de la récupération des modifications en attente:",
+      error
+    );
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors de la récupération des modifications en attente",
       error: error.message,
     });
   }
@@ -370,46 +462,7 @@ router.put("/:id", authenticateToken, async (req, res) => {
 });
 
 // GET /api/modifications/pending-validation - Get modifications pending validation by author
-router.get("/pending-validation", authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const role = (req.user.role || "").toLowerCase();
-
-    // Only authors and admins can validate modifications
-    if (role !== "author" && role !== "admin") {
-      return res.status(403).json({
-        status: "error",
-        message: "Accès réservé aux auteurs et administrateurs",
-      });
-    }
-
-    // Get pending modifications on user's terms (excluding their own proposals)
-    const modifications = await queryModifications({
-      whereClause:
-        role === "admin"
-          ? "WHERE m.status = ?"
-          : "WHERE m.status = ? AND t.author_id = ? AND m.proposer_id != ?",
-      params: role === "admin" ? ["pending"] : ["pending", userId, userId],
-      orderClause: "ORDER BY m.created_at DESC",
-    });
-
-    res.json({
-      status: "success",
-      data: modifications.map(normalizeModificationRow),
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error(
-      "❌ Erreur lors de la récupération des modifications en attente:",
-      error
-    );
-    res.status(500).json({
-      status: "error",
-      message: "Erreur lors de la récupération des modifications en attente",
-      error: error.message,
-    });
-  }
-});
+// (duplicate route removed)
 
 // DELETE /api/modifications/:id - Supprimer une modification proposée
 router.delete('/:id', authenticateToken, async (req, res) => {

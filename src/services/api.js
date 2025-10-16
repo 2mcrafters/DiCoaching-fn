@@ -226,8 +226,12 @@ class ApiService {
     return this.get("/api/modifications");
   }
 
-  async getPendingValidationModifications() {
-    return this.get("/api/modifications/pending-validation");
+  async getPendingValidationModifications(params = {}) {
+    const searchParams = new URLSearchParams(params);
+    const qs = searchParams.toString();
+    return this.get(
+      `/api/modifications/pending-validation${qs ? `?${qs}` : ""}`
+    );
   }
 
   async getModificationById(id, options = {}) {
@@ -256,6 +260,10 @@ class ApiService {
   // Comments
   async getAuthorComments(authorId) {
     return this.get(`/api/comments/author/${authorId}`);
+  }
+
+  async getMyComments() {
+    return this.get(`/api/comments/me`);
   }
 
   // Reports on author's terms

@@ -501,3 +501,75 @@ router.get(
 );
 
 export default router;
+/**
+ * GET /api/comments/me
+ * Returns comments authored by the current user across EN/FR tables, newest first.
+ */
+router.get("/comments/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    await ensureCommentsTables();
+
+    // Try to aggregate from both comments and commentaires; include term title/slug from either table
+    let rows = [];
+    try {
+      rows = await q(
+        `SELECT 
+           c.id,
+           c.term_id AS termId,
+           c.created_at AS createdAt,
+           CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
+           te.slug AS termSlugEN,
+           CAST(te.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleEN,
+           CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR
+         FROM comments c
+         LEFT JOIN terms te ON te.id = c.term_id
+         LEFT JOIN termes tf ON tf.id = c.term_id
+         WHERE c.user_id = ?
+         UNION ALL
+         SELECT 
+           c.id,
+           c.term_id AS termId,
+           c.created_at AS createdAt,
+           CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
+           te.slug AS termSlugEN,
+           CAST(te.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleEN,
+           CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR
+         FROM commentaires c
+         LEFT JOIN terms te ON te.id = c.term_id
+         LEFT JOIN termes tf ON tf.id = c.term_id
+         WHERE c.author_id = ?
+         ORDER BY createdAt DESC`,
+        [userId, userId]
+      );
+    } catch (e) {
+      console.error("[comments] me query error:", e.message);
+      rows = [];
+    }
+
+    const data = rows.map((r) => {
+      const title = r.termTitleEN || r.termTitleFR || "";
+      const slug = r.termSlugEN || (title ? slugify(String(title), { lower: true, strict: true }) : null);
+      return {
+        id: r.id,
+        termId: r.termId,
+        content: r.content,
+        createdAt: r.createdAt,
+        term: {
+          id: r.termId,
+          title,
+          slug,
+          link: buildTermLink(slug || r.termId, r.id),
+        },
+      };
+    });
+
+    res.json({ status: "success", data });
+  } catch (err) {
+    console.error("[comments] me list error:", err);
+    res.status(500).json({
+      status: "error",
+      message: "Erreur lors du chargement de vos commentaires",
+    });
+  }
+});
