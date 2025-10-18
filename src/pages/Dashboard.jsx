@@ -1875,7 +1875,7 @@ const Dashboard = () => {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse responsive-table">
                   <thead>
                     <tr className="bg-muted/50">
                       <th className="text-left p-3 font-semibold text-sm border-b">
@@ -1898,7 +1898,7 @@ const Dashboard = () => {
                         key={like.id}
                         className="border-b hover:bg-muted/30 transition-colors"
                       >
-                        <td className="p-3">
+                        <td className="p-3" data-label="Qui a aimé">
                           <Link
                             to={`/author/${like.user.id}`}
                             className="flex items-center gap-2 hover:text-primary transition-colors group"
@@ -1927,7 +1927,7 @@ const Dashboard = () => {
                             </div>
                           </Link>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3" data-label="Terme aimé">
                           <Link
                             to={`/fiche/${like.term.slug || like.term.id}`}
                             className="group flex items-center gap-2 hover:text-primary transition-colors"
@@ -1943,7 +1943,7 @@ const Dashboard = () => {
                             </div>
                           </Link>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3" data-label="Date">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Calendar className="h-4 w-4" />
                             <span>
@@ -1958,7 +1958,7 @@ const Dashboard = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3" data-label="">
                           <div className="flex justify-center">
                             <Heart className="h-5 w-5 fill-pink-500 text-pink-500 animate-pulse" />
                           </div>
@@ -2022,7 +2022,7 @@ const Dashboard = () => {
           return filteredLikedTerms.length > 0 ? (
             <div className="overflow-x-auto">
               {renderFilters(activityFilters, setActivityFilters)}
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Terme</th>
@@ -2033,7 +2033,10 @@ const Dashboard = () => {
                 <tbody className="divide-y divide-border/60">
                   {paginatedLikedFiltered.map((term) => (
                     <tr key={term.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3 font-medium text-foreground">
+                      <td
+                        className="px-4 py-3 font-medium text-foreground"
+                        data-label="Terme"
+                      >
                         <div>
                           <div className="text-primary font-semibold">
                             {term.term || "Terme sans titre"}
@@ -2045,10 +2048,16 @@ const Dashboard = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Statut"
+                      >
                         {formatStatus(term.status)}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Aimé le"
+                      >
                         {formatDate(term.likedAt)}
                       </td>
                     </tr>
@@ -2138,7 +2147,7 @@ const Dashboard = () => {
 
           return userReports.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Terme signalé</th>
@@ -2151,7 +2160,10 @@ const Dashboard = () => {
                 <tbody className="divide-y divide-border/60">
                   {paginatedReports.map((report) => (
                     <tr key={report.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3 font-medium text-foreground">
+                      <td
+                        className="px-4 py-3 font-medium text-foreground"
+                        data-label="Terme signalé"
+                      >
                         <Link
                           to={
                             report.term_slug
@@ -2167,10 +2179,13 @@ const Dashboard = () => {
                           {report.term_title || report.termTitle || "Terme"}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Raison"
+                      >
                         {report.reason || "—"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Statut">
                         <span
                           className={`text-xs px-2 py-1 rounded-full ${
                             report.status === "resolved"
@@ -2191,10 +2206,13 @@ const Dashboard = () => {
                             : "En attente"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Date"
+                      >
                         {formatDate(report.created_at || report.createdAt)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Actions">
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -2299,7 +2317,7 @@ const Dashboard = () => {
           }
           return receivedReports.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Terme</th>
@@ -2312,7 +2330,10 @@ const Dashboard = () => {
                 <tbody className="divide-y divide-border/60">
                   {receivedReports.map((report) => (
                     <tr key={report.id} className="hover:bg-muted/40">
-                      <td className="px-4 py-3 font-medium text-foreground">
+                      <td
+                        className="px-4 py-3 font-medium text-foreground"
+                        data-label="Terme"
+                      >
                         <Link
                           to={
                             report.term_slug
@@ -2328,10 +2349,13 @@ const Dashboard = () => {
                           {report.term_title || report.termTitle || "Terme"}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Raison"
+                      >
                         {report.reason || "—"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Statut">
                         <span
                           className={`text-xs px-2 py-1 rounded-full ${
                             report.status === "resolved"
@@ -2352,10 +2376,13 @@ const Dashboard = () => {
                             : "En attente"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Date"
+                      >
                         {formatDate(report.created_at || report.createdAt)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Actions">
                         <button
                           type="button"
                           onClick={() => setReportDetails(report)}
@@ -2418,7 +2445,7 @@ const Dashboard = () => {
           return filteredUserComments.length > 0 ? (
             <div className="overflow-x-auto">
               {renderFilters(contentFilters, setContentFilters)}
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Terme</th>
@@ -2447,7 +2474,10 @@ const Dashboard = () => {
                           isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
                         }`}
                       >
-                        <td className="px-4 py-3 font-medium text-foreground">
+                        <td
+                          className="px-4 py-3 font-medium text-foreground"
+                          data-label="Terme"
+                        >
                           <Link
                             to={commentLink}
                             className={
@@ -2465,16 +2495,28 @@ const Dashboard = () => {
                             )}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td
+                          className="px-4 py-3 text-muted-foreground"
+                          data-label="Auteur"
+                        >
                           {comment.authorName || "Anonyme"}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-md">
+                        <td
+                          className="px-4 py-3 text-muted-foreground max-w-md"
+                          data-label="Commentaire"
+                        >
                           <div className="line-clamp-2">{comment.content}</div>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td
+                          className="px-4 py-3 text-muted-foreground"
+                          data-label="Date"
+                        >
                           {formatDate(comment.createdAt)}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td
+                          className="px-4 py-3 text-center"
+                          data-label="Action"
+                        >
                           {termSlug && (
                             <Link
                               to={commentLink}
@@ -2597,7 +2639,7 @@ const Dashboard = () => {
           return filteredMyComments.length > 0 ? (
             <div className="overflow-x-auto">
               {renderFilters(activityFilters, setActivityFilters)}
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Terme</th>
@@ -2613,10 +2655,16 @@ const Dashboard = () => {
                     const link = comment.term?.link || comment.link;
                     return (
                       <tr key={comment.id} className="hover:bg-muted/40">
-                        <td className="px-4 py-3 font-medium text-foreground">
+                        <td
+                          className="px-4 py-3 font-medium text-foreground"
+                          data-label="Terme"
+                        >
                           {termTitle}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-md">
+                        <td
+                          className="px-4 py-3 text-muted-foreground max-w-md"
+                          data-label="Commentaire"
+                        >
                           <div className="space-y-2">
                             <div className="line-clamp-2">
                               {comment.content}
@@ -2655,10 +2703,16 @@ const Dashboard = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td
+                          className="px-4 py-3 text-muted-foreground"
+                          data-label="Date"
+                        >
                           {formatDate(comment.createdAt)}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td
+                          className="px-4 py-3 text-center"
+                          data-label="Action"
+                        >
                           {link && (
                             <Link
                               to={link}
@@ -2813,7 +2867,7 @@ const Dashboard = () => {
         case "score":
           return (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Indicateur</th>
@@ -2915,7 +2969,7 @@ const Dashboard = () => {
                   Vous ne pouvez pas valider vos propres propositions.
                 </p>
               </div>
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Terme</th>
@@ -2948,7 +3002,10 @@ const Dashboard = () => {
                           isNew ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
                         }`}
                       >
-                        <td className="px-4 py-3 font-medium text-foreground">
+                        <td
+                          className="px-4 py-3 font-medium text-foreground"
+                          data-label="Terme"
+                        >
                           <Link
                             to={
                               modification.term_slug
@@ -2972,15 +3029,21 @@ const Dashboard = () => {
                             )}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td
+                          className="px-4 py-3 text-muted-foreground"
+                          data-label="Proposée par"
+                        >
                           {proposerName}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td
+                          className="px-4 py-3 text-muted-foreground"
+                          data-label="Date"
+                        >
                           {formatDate(
                             modification.created_at || modification.createdAt
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" data-label="Actions">
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -3106,7 +3169,7 @@ const Dashboard = () => {
 
           return researcherModifications.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Terme</th>
@@ -3121,7 +3184,10 @@ const Dashboard = () => {
                       (modification.status || "").toLowerCase() === "pending";
                     return (
                       <tr key={modification.id} className="hover:bg-muted/40">
-                        <td className="px-4 py-3 font-medium text-foreground">
+                        <td
+                          className="px-4 py-3 font-medium text-foreground"
+                          data-label="Terme"
+                        >
                           <Link
                             to={
                               modification.termSlug
@@ -3139,15 +3205,21 @@ const Dashboard = () => {
                               "Terme inconnu"}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td
+                          className="px-4 py-3 text-muted-foreground"
+                          data-label="Statut"
+                        >
                           {formatStatus(modification.status)}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td
+                          className="px-4 py-3 text-muted-foreground"
+                          data-label="Soumise le"
+                        >
                           {formatDate(
                             modification.createdAt || modification.created_at
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" data-label="Actions">
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -3344,7 +3416,7 @@ const Dashboard = () => {
         case "score":
           return (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm responsive-table">
                 <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                   <tr>
                     <th className="px-4 py-3 text-left">Indicateur</th>
@@ -3355,13 +3427,22 @@ const Dashboard = () => {
                 <tbody className="divide-y divide-border/60">
                   {scoreBreakdown.map((row) => (
                     <tr key={row.metric} className="hover:bg-muted/40">
-                      <td className="px-4 py-3 font-medium text-foreground">
+                      <td
+                        className="px-4 py-3 font-medium text-foreground"
+                        data-label="Indicateur"
+                      >
                         {row.metric}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Valeur"
+                      >
                         {row.value}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td
+                        className="px-4 py-3 text-muted-foreground"
+                        data-label="Détails"
+                      >
                         {row.details}
                       </td>
                     </tr>
@@ -4170,7 +4251,7 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm">
+                      <table className="min-w-full text-sm responsive-table">
                         <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wide text-xs">
                           <tr>
                             <th className="px-4 py-3 text-left">Terme</th>
@@ -4181,7 +4262,10 @@ const Dashboard = () => {
                         <tbody className="divide-y divide-border/60">
                           {likedTerms.map((term) => (
                             <tr key={term.id} className="hover:bg-muted/40">
-                              <td className="px-4 py-3 font-medium text-foreground">
+                              <td
+                                className="px-4 py-3 font-medium text-foreground"
+                                data-label="Terme"
+                              >
                                 <div>
                                   <div className="text-primary font-semibold">
                                     {term.term || "Terme sans titre"}
@@ -4193,10 +4277,16 @@ const Dashboard = () => {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-muted-foreground">
+                              <td
+                                className="px-4 py-3 text-muted-foreground"
+                                data-label="Statut"
+                              >
                                 {formatStatus(term.status)}
                               </td>
-                              <td className="px-4 py-3 text-muted-foreground">
+                              <td
+                                className="px-4 py-3 text-muted-foreground"
+                                data-label="Aimé le"
+                              >
                                 {formatDate(term.likedAt)}
                               </td>
                             </tr>

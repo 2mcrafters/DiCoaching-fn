@@ -84,3 +84,42 @@ body {
 
 /* Mobile-specific rules kept minimal to avoid overriding layout.
    Titles can be centered per-component using utility classes. */
+
+/* Responsive tables: stack rows on small screens */
+@media (max-width: 640px) {
+  .responsive-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .responsive-table thead {
+    display: none;
+  }
+  .responsive-table tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  .responsive-table td,
+  .responsive-table th {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .responsive-table td:last-child,
+  .responsive-table th:last-child {
+    border-bottom: none;
+  }
+  .responsive-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 0.25rem;
+  }
+}

@@ -35,7 +35,7 @@ import Reports from "@/pages/admin/Reports";
 import ProposeModification from "@/pages/ProposeModification";
 import Modifications from "@/pages/Modifications";
 import ModificationDetails from "@/pages/ModificationDetails";
-import NewsletterPopup from "@/components/layout/NewsletterPopup";
+// import NewsletterPopup from "@/components/layout/NewsletterPopup";
 import TermsManagement from "@/components/admin/TermsManagement";
 import UsersManagement from "@/components/admin/UsersManagement";
 import ApiTest from "@/pages/ApiTest";
@@ -70,15 +70,17 @@ const AppContent = () => {
     dispatch(fetchUsers());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      const newsletterShown = sessionStorage.getItem("newsletterShown");
-      if (!newsletterShown) {
-        setIsNewsletterOpen(true);
-        sessionStorage.setItem("newsletterShown", "true");
-      }
-    }
-  }, [user, loading]);
+  // Disabled auto-opening of the newsletter popup on first load
+  // If you want to re-enable later, restore the effect below
+  // useEffect(() => {
+  //   if (!loading && !user) {
+  //     const newsletterShown = sessionStorage.getItem("newsletterShown");
+  //     if (!newsletterShown) {
+  //       setIsNewsletterOpen(true);
+  //       sessionStorage.setItem("newsletterShown", "true");
+  //     }
+  //   }
+  // }, [user, loading]);
 
   return (
     <div className="min-h-screen bg-background font-sans flex flex-col px-4 sm:px-6 lg:px-8 xl:px-12">
@@ -208,10 +210,7 @@ const AppContent = () => {
       </main>
       <Footer />
       <Toaster />
-      <NewsletterPopup
-        isOpen={isNewsletterOpen}
-        onOpenChange={setIsNewsletterOpen}
-      />
+      {/* Newsletter popup disabled */}
       <ScrollToTopButton />
     </div>
   );

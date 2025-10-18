@@ -340,7 +340,7 @@ const AuthorsRanking = () => {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
+                  <table className="w-full text-sm text-left responsive-table">
                     <thead className="text-xs text-muted-foreground uppercase bg-muted/50">
                       <tr>
                         <th
@@ -384,7 +384,10 @@ const AuthorsRanking = () => {
                           key={author.id}
                           className="bg-background border-b hover:bg-muted/50"
                         >
-                          <td className="px-6 py-4 font-medium text-foreground">
+                          <td
+                            className="px-6 py-4 font-medium text-foreground"
+                            data-label="Auteur"
+                          >
                             <button
                               onClick={() => handleAuthorClick(author)}
                               className="text-primary hover:text-primary/80 hover:underline font-semibold flex items-center gap-2 transition-colors"
@@ -393,20 +396,29 @@ const AuthorsRanking = () => {
                               {author.fullName}
                             </button>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4" data-label="Badge">
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${author.badge.bgColor} ${author.badge.textColor}`}
                             >
                               {author.badge.icon} {author.badge.name}
                             </span>
                           </td>
-                          <td className="px-6 py-4 font-bold text-lg">
+                          <td
+                            className="px-6 py-4 font-bold text-lg"
+                            data-label="Termes Ajoutés"
+                          >
                             {author.termsAdded}
                           </td>
-                          <td className="px-6 py-4 text-xs text-muted-foreground">
+                          <td
+                            className="px-6 py-4 text-xs text-muted-foreground"
+                            data-label="Seuil Badge"
+                          >
                             {author.badge.threshold}
                           </td>
-                          <td className="px-6 py-4">
+                          <td
+                            className="px-6 py-4"
+                            data-label="Dernière Activité"
+                          >
                             {new Date(author.lastActivity).toLocaleDateString(
                               "fr-FR"
                             )}
