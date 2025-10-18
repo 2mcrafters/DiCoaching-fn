@@ -1,7 +1,7 @@
 // Helpers to build URLs based on Vite env
 
 export const getApiBaseUrl = () => {
-  let base = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  let base = import.meta.env.VITE_API_URL || "http://localhost:5050";
   base = base.replace(/\/+$/g, "");
   if (base.endsWith("/api")) base = base.slice(0, -4);
   return base;

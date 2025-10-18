@@ -184,9 +184,9 @@ export const getFileUrl = (filename, subfolder = '') => {
     return filename;
   }
 
-  const baseUrl = (process.env.BASE_URL || 'http://localhost:5000').replace(
+  const baseUrl = (process.env.BASE_URL || "http://localhost:5050").replace(
     /\/+$/,
-    ''
+    ""
   );
   let filePath = filename;
 

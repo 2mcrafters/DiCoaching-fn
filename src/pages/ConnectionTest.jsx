@@ -18,19 +18,19 @@ export default function ConnectionTest() {
   const runTests = async () => {
     // Test 1: Backend Health
     try {
-      const response = await fetch('http://localhost:5000/api/test-db');
+      const response = await fetch("http://localhost:5050/api/test-db");
       const data = await response.json();
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
         backendHealth: {
-          status: 'success',
-          message: `Database connected. Users: ${data.stats.users}, Terms: ${data.stats.terms}`
-        }
+          status: "success",
+          message: `Database connected. Users: ${data.stats.users}, Terms: ${data.stats.terms}`,
+        },
       }));
     } catch (error) {
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
-        backendHealth: { status: 'error', message: error.message }
+        backendHealth: { status: "error", message: error.message },
       }));
     }
 
@@ -38,19 +38,19 @@ export default function ConnectionTest() {
     try {
       const data = await apiService.getTerms({ limit: 5 });
       const terms = data.data || data.terms || data;
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
         termsAPI: {
-          status: 'success',
+          status: "success",
           message: `Retrieved ${terms.length} terms`,
           count: terms.length,
-          sample: terms[0]?.terme || terms[0]?.term
-        }
+          sample: terms[0]?.terme || terms[0]?.term,
+        },
       }));
     } catch (error) {
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
-        termsAPI: { status: 'error', message: error.message, count: 0 }
+        termsAPI: { status: "error", message: error.message, count: 0 },
       }));
     }
 
@@ -58,71 +58,79 @@ export default function ConnectionTest() {
     try {
       const data = await apiService.getCategories();
       const categories = data.data || data;
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
         categoriesAPI: {
-          status: 'success',
+          status: "success",
           message: `Retrieved ${categories.length} categories`,
-          count: categories.length
-        }
+          count: categories.length,
+        },
       }));
     } catch (error) {
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
-        categoriesAPI: { status: 'error', message: error.message, count: 0 }
+        categoriesAPI: { status: "error", message: error.message, count: 0 },
       }));
     }
 
     // Test 4: Comments API (if we have a term)
     try {
       const data = await apiService.getComments(1); // Test with term ID 1
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
         commentsAPI: {
-          status: 'success',
-          message: `Comments API working (${data.data?.length || 0} comments)`
-        }
+          status: "success",
+          message: `Comments API working (${data.data?.length || 0} comments)`,
+        },
       }));
     } catch (error) {
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
-        commentsAPI: { status: 'error', message: error.message }
+        commentsAPI: { status: "error", message: error.message },
       }));
     }
 
     // Test 5: Likes API
     try {
       const data = await apiService.getLikes(1); // Test with term ID 1
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
         likesAPI: {
-          status: 'success',
-          message: `Likes API working (count: ${data.count || 0})`
-        }
+          status: "success",
+          message: `Likes API working (count: ${data.count || 0})`,
+        },
       }));
     } catch (error) {
-      setResults(prev => ({
+      setResults((prev) => ({
         ...prev,
-        likesAPI: { status: 'error', message: error.message }
+        likesAPI: { status: "error", message: error.message },
       }));
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'success': return '✅';
-      case 'error': return '❌';
-      case 'testing': return '⏳';
-      default: return '❓';
+      case "success":
+        return "✅";
+      case "error":
+        return "❌";
+      case "testing":
+        return "⏳";
+      default:
+        return "❓";
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'success': return 'text-green-600';
-      case 'error': return 'text-red-600';
-      case 'testing': return 'text-yellow-600';
-      default: return 'text-gray-600';
+      case "success":
+        return "text-green-600";
+      case "error":
+        return "text-red-600";
+      case "testing":
+        return "text-yellow-600";
+      default:
+        return "text-gray-600";
     }
   };
 
@@ -142,11 +150,19 @@ export default function ConnectionTest() {
             <div className="border rounded-lg p-4 bg-gray-50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{getStatusIcon(results.backendHealth.status)}</span>
+                  <span className="text-2xl">
+                    {getStatusIcon(results.backendHealth.status)}
+                  </span>
                   <div>
-                    <h3 className="font-semibold text-gray-800">Backend Health Check</h3>
-                    <p className={`text-sm ${getStatusColor(results.backendHealth.status)}`}>
-                      {results.backendHealth.message || 'Testing...'}
+                    <h3 className="font-semibold text-gray-800">
+                      Backend Health Check
+                    </h3>
+                    <p
+                      className={`text-sm ${getStatusColor(
+                        results.backendHealth.status
+                      )}`}
+                    >
+                      {results.backendHealth.message || "Testing..."}
                     </p>
                   </div>
                 </div>
@@ -157,11 +173,17 @@ export default function ConnectionTest() {
             <div className="border rounded-lg p-4 bg-gray-50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{getStatusIcon(results.termsAPI.status)}</span>
+                  <span className="text-2xl">
+                    {getStatusIcon(results.termsAPI.status)}
+                  </span>
                   <div>
                     <h3 className="font-semibold text-gray-800">Terms API</h3>
-                    <p className={`text-sm ${getStatusColor(results.termsAPI.status)}`}>
-                      {results.termsAPI.message || 'Testing...'}
+                    <p
+                      className={`text-sm ${getStatusColor(
+                        results.termsAPI.status
+                      )}`}
+                    >
+                      {results.termsAPI.message || "Testing..."}
                     </p>
                     {results.termsAPI.sample && (
                       <p className="text-xs text-gray-500 mt-1">
@@ -182,11 +204,19 @@ export default function ConnectionTest() {
             <div className="border rounded-lg p-4 bg-gray-50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{getStatusIcon(results.categoriesAPI.status)}</span>
+                  <span className="text-2xl">
+                    {getStatusIcon(results.categoriesAPI.status)}
+                  </span>
                   <div>
-                    <h3 className="font-semibold text-gray-800">Categories API</h3>
-                    <p className={`text-sm ${getStatusColor(results.categoriesAPI.status)}`}>
-                      {results.categoriesAPI.message || 'Testing...'}
+                    <h3 className="font-semibold text-gray-800">
+                      Categories API
+                    </h3>
+                    <p
+                      className={`text-sm ${getStatusColor(
+                        results.categoriesAPI.status
+                      )}`}
+                    >
+                      {results.categoriesAPI.message || "Testing..."}
                     </p>
                   </div>
                 </div>
@@ -202,11 +232,19 @@ export default function ConnectionTest() {
             <div className="border rounded-lg p-4 bg-gray-50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{getStatusIcon(results.commentsAPI.status)}</span>
+                  <span className="text-2xl">
+                    {getStatusIcon(results.commentsAPI.status)}
+                  </span>
                   <div>
-                    <h3 className="font-semibold text-gray-800">Comments API (NEW)</h3>
-                    <p className={`text-sm ${getStatusColor(results.commentsAPI.status)}`}>
-                      {results.commentsAPI.message || 'Testing...'}
+                    <h3 className="font-semibold text-gray-800">
+                      Comments API (NEW)
+                    </h3>
+                    <p
+                      className={`text-sm ${getStatusColor(
+                        results.commentsAPI.status
+                      )}`}
+                    >
+                      {results.commentsAPI.message || "Testing..."}
                     </p>
                   </div>
                 </div>
@@ -217,11 +255,17 @@ export default function ConnectionTest() {
             <div className="border rounded-lg p-4 bg-gray-50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{getStatusIcon(results.likesAPI.status)}</span>
+                  <span className="text-2xl">
+                    {getStatusIcon(results.likesAPI.status)}
+                  </span>
                   <div>
                     <h3 className="font-semibold text-gray-800">Likes API</h3>
-                    <p className={`text-sm ${getStatusColor(results.likesAPI.status)}`}>
-                      {results.likesAPI.message || 'Testing...'}
+                    <p
+                      className={`text-sm ${getStatusColor(
+                        results.likesAPI.status
+                      )}`}
+                    >
+                      {results.likesAPI.message || "Testing..."}
                     </p>
                   </div>
                 </div>
@@ -241,12 +285,25 @@ export default function ConnectionTest() {
 
           {/* System Info */}
           <div className="mt-8 p-4 bg-gray-100 rounded-lg">
-            <h4 className="font-semibold text-gray-800 mb-2">System Configuration:</h4>
+            <h4 className="font-semibold text-gray-800 mb-2">
+              System Configuration:
+            </h4>
             <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-              <div>Frontend: <span className="font-mono">http://localhost:3000</span></div>
-              <div>Backend: <span className="font-mono">http://localhost:5000</span></div>
-              <div>Database: <span className="font-mono">dictionnaire_ch</span></div>
-              <div>API Base: <span className="font-mono">{apiService.baseURL}</span></div>
+              <div>
+                Frontend:{" "}
+                <span className="font-mono">http://localhost:3000</span>
+              </div>
+              <div>
+                Backend:{" "}
+                <span className="font-mono">http://localhost:5050</span>
+              </div>
+              <div>
+                Database: <span className="font-mono">dictionnaire_ch</span>
+              </div>
+              <div>
+                API Base:{" "}
+                <span className="font-mono">{apiService.baseURL}</span>
+              </div>
             </div>
           </div>
         </div>

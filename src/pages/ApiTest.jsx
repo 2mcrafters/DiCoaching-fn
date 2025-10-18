@@ -48,12 +48,12 @@ const ApiTest = () => {
             <p>
               <strong>3. Test API :</strong> Vous pouvez tester directement l'API sur{' '}
               <a 
-                href="http://localhost:5000/api/test-db" 
+                href="http://localhost:5050/api/test-db" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="underline hover:text-blue-900"
               >
-                http://localhost:5000/api/test-db
+                http://localhost:5050/api/test-db
               </a>
             </p>
             <p>

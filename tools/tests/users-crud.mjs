@@ -5,7 +5,10 @@
 
 import 'dotenv/config';
 
-const BASE = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+const BASE = (process.env.BACKEND_URL || "http://localhost:5050").replace(
+  /\/$/,
+  ""
+);
 
 async function request(path, { method = 'GET', headers = {}, body } = {}) {
   const url = `${BASE}${path.startsWith('/') ? '' : '/'}${path}`;

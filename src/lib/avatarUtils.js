@@ -66,8 +66,10 @@ const buildProfilePicturePath = (profilePicture) => {
 // Get profile picture URL with proper fallback
 export const getProfilePictureUrl = (user = {}) => {
   const API_BASE_URL =
-    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "")?.replace(/\/+$/, "") ||
-    "http://localhost:5000";
+    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "")?.replace(
+      /\/+$/,
+      ""
+    ) || "http://localhost:5050";
 
   const storedPicture =
     user.profile_picture_url ||
