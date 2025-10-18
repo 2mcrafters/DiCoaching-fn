@@ -52,7 +52,7 @@ const PhotoCarousel = () => {
                   <img
                     className="object-cover w-full h-full"
                     alt={photo.alt}
-                    src=".\public\images\rachid.jpg"
+                    src="images/rachid.jpg"
                   />
                 </div>
               </CardContent>
