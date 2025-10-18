@@ -242,24 +242,26 @@ const Home = () => {
       </Helmet>
 
       <div className="min-h-screen">
-        <section className="relative overflow-hidden creative-hero-bg text-white">
+        <section className="relative overflow-visible creative-hero-bg text-white">
           <div className="absolute inset-0 hero-pattern opacity-20"></div>
           <div className="relative max-w-7xl mx-auto py-24 lg:py-32">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="text-center"
+              className="text-center overflow-visible"
             >
-              <h1 className="text-4xl md:text-6xl font-bold mb-6">
+              <h1 className="text-4xl md:text-6xl font-bold mb-4 md:mb-6 leading-[1.3] pb-1">
                 <span> Dicoaching</span>
-                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">
+
+                <span className="inline-block align-baseline text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400 pb-3">
                   Dictionnaire Collaboratif du Coaching
                 </span>
               </h1>
-              <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-purple-100">
-                Un outil vivant pour consulter, créer, commenter et enrichir des
-                fiches sur les concepts du coaching
+              <p className="text-xl md:text-2xl leading-relaxed md:leading-loose mb-10 max-w-3xl mx-auto text-white/95">
+                Explorez les concepts clés, partagez vos définitions et
+                contribuez à une communauté vivante de coachs, formateurs et
+                passionnés.
               </p>
 
               {/* Search Bar */}
@@ -626,11 +628,6 @@ const Home = () => {
                 <div className="relative rounded-2xl overflow-hidden shadow-xl group">
                   <div className="aspect-[16/9]">
                     <PhotoCarousel />
-                  </div>
-                  <div className="absolute top-4 left-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm px-4 py-2 rounded-full">
-                    <p className="text-xs font-semibold text-purple-600 dark:text-purple-400">
-                      Gallery
-                    </p>
                   </div>
                 </div>
 

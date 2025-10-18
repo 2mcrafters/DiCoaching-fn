@@ -2,26 +2,27 @@
 export const getGenderAvatar = (userId, gender) => {
   // Generate a consistent seed based on user ID for consistent avatar
   const seed = `user${userId}`;
-  
-  if (gender === 'femme') {
-    // Female avatars - using different avatar services for women
+  const g = String(gender || "").toLowerCase();
+  const isFemale = ["femme", "female", "f", "woman", "girl"].includes(g);
+  const isMale = ["homme", "male", "m", "man", "boy"].includes(g);
+
+  if (isFemale) {
     return `https://avatar.iran.liara.run/public/girl?username=${seed}`;
-  } else if (gender === 'homme') {
-    // Male avatars - using different avatar services for men  
-    return `https://avatar.iran.liara.run/public/boy?username=${seed}`;
-  } else {
-    // Default/neutral avatar for 'autre' or undefined gender
-    return `https://avatar.iran.liara.run/public?username=${seed}`;
   }
+  if (isMale) {
+    return `https://avatar.iran.liara.run/public/boy?username=${seed}`;
+  }
+  // Default/neutral avatar for 'autre' or undefined gender
+  return `https://avatar.iran.liara.run/public?username=${seed}`;
 };
 
 // Alternative service if the above doesn't work well
 export const getGenderAvatarAlternative = (userId, gender) => {
   const seed = `user${userId}`;
-  
-  if (gender === 'femme') {
+
+  if (gender === "femme") {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&gender=female`;
-  } else if (gender === 'homme') {
+  } else if (gender === "homme") {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&gender=male`;
   } else {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
@@ -45,8 +46,8 @@ const buildProfilePicturePath = (profilePicture) => {
   let sanitized = String(profilePicture).trim();
   if (!sanitized) return null;
 
-  // If it's already an absolute URL, keep it as-is
-  if (/^https?:\/\//i.test(sanitized)) {
+  // If it's already an absolute URL (http/https) or a data URI, keep it as-is
+  if (/^(https?:\/\/|data:)/i.test(sanitized)) {
     return sanitized;
   }
 
@@ -69,14 +70,23 @@ export const getProfilePictureUrl = (user = {}) => {
     import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "")?.replace(
       /\/+$/,
       ""
-    ) || "http://localhost:5050";
+    ) || "http://localhost:5000";
 
+  // Accept a wide range of common fields coming from various backends
   const storedPicture =
     user.profile_picture_url ||
     user.profilePictureUrl ||
     user.profile_picture ||
     user.profilePicture ||
-    user.profilePhoto;
+    user.profilePhoto ||
+    user.avatar_url ||
+    user.avatarUrl ||
+    user.avatar ||
+    user.photo_url ||
+    user.photoUrl ||
+    user.photo ||
+    user.imageUrl ||
+    user.image;
   const normalizedPath = buildProfilePicturePath(storedPicture);
 
   if (normalizedPath) {
@@ -87,5 +97,5 @@ export const getProfilePictureUrl = (user = {}) => {
   }
 
   // Otherwise use gender-appropriate avatar
-  return getGenderAvatar(user.id || "user", user.sex);
+  return getGenderAvatar(user.id || "user", user.sex || user.gender);
 };

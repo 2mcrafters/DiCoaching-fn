@@ -250,6 +250,32 @@ function MyProfile() {
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
 
+  const handleDeleteUserDoc = async (docId) => {
+    if (!docId) return;
+    try {
+      const res = await apiService.deleteDocument(docId);
+      // Backend returns { status:'success', data:{ id, filename } }
+      if (res && (res.status === "success" || res.data || res.message)) {
+        setUserDocs((prev) =>
+          (prev || []).filter((d) => String(d.id) !== String(docId))
+        );
+        toast({
+          title: "Document supprimé",
+          description: "Le document a été supprimé avec succès.",
+        });
+      } else {
+        throw new Error("Suppression échouée");
+      }
+    } catch (err) {
+      console.error("Delete document error:", err);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le document.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
@@ -1005,7 +1031,7 @@ function MyProfile() {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-3 mt-2">
+                              <div className="flex flex-wrap items-center gap-3 mt-2">
                                 {isPreviewable && (
                                   <Button
                                     size="sm"
@@ -1038,6 +1064,15 @@ function MyProfile() {
                                   >
                                     Télécharger
                                   </a>
+                                )}
+                                {d.id && (
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleDeleteUserDoc(d.id)}
+                                  >
+                                    Supprimer
+                                  </Button>
                                 )}
                               </div>
                             </div>

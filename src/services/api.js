@@ -200,6 +200,11 @@ class ApiService {
     return this.delete(`/api/users/${id}`);
   }
 
+  // Documents
+  async deleteDocument(id) {
+    return this.delete(`/api/documents/${id}`);
+  }
+
   // Admin: pending authors moderation
   async getPendingAuthors() {
     const response = await this.get(`/api/users/pending-authors`);
