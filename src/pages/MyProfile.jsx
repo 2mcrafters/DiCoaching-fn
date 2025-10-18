@@ -52,6 +52,7 @@ import AddDocumentDialog from "@/components/profile/AddDocumentDialog";
 import { Badge } from "@/components/ui/badge";
 import DocumentViewerDialog from "@/components/DocumentViewerDialog";
 import apiService from "@/services/api";
+import { buildUploadUrl } from "@/lib/url";
 
 const professionalStatuses = [
   "Étudiant",
@@ -304,7 +305,9 @@ function MyProfile() {
               title: d.original_filename || d.filename || `document-${d.id}`,
               url:
                 d.url ||
-                (d.filename ? `/uploads/documents/${d.filename}` : null),
+                (d.filename
+                  ? buildUploadUrl(`/uploads/documents/${d.filename}`)
+                  : null),
               downloadUrl:
                 d.downloadUrl ||
                 (d.id ? `/api/documents/download/${d.id}` : null),

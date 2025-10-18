@@ -710,27 +710,7 @@ const Home = () => {
                   ))}
                 </div>
 
-                {/* Stats bar */}
-                <div className="grid grid-cols-3 gap-6 bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 rounded-2xl p-8 text-white shadow-xl">
-                  <div className="text-center border-r border-white/20 last:border-r-0">
-                    <div className="text-4xl font-bold mb-2">20+</div>
-                    <div className="text-sm text-white/90 uppercase tracking-wide">
-                      Ans d'expérience
-                    </div>
-                  </div>
-                  <div className="text-center border-r border-white/20 last:border-r-0">
-                    <div className="text-4xl font-bold mb-2">1000+</div>
-                    <div className="text-sm text-white/90 uppercase tracking-wide">
-                      Coachs formés
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-4xl font-bold mb-2">50+</div>
-                    <div className="text-sm text-white/90 uppercase tracking-wide">
-                      Publications
-                    </div>
-                  </div>
-                </div>
+                {/* Stats bar removed per request */}
               </motion.div>
             </div>
           </div>

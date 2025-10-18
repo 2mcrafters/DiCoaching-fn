@@ -19,7 +19,7 @@ import SimilarTerms from "@/components/fiche/SimilarTerms";
 import SharePopover from "@/components/SharePopover";
 import LinkedContent from "@/components/shared/LinkedContent";
 import LinkedContentWithUrls from "@/components/shared/LinkedContentWithUrls";
-import { getAuthorBadge } from "@/lib/badges";
+import { getAuthorBadge, getAuthorBadgeByTermsCount } from "@/lib/badges";
 import LoginRequiredPopup from "@/components/ui/LoginRequiredPopup";
 import useLoginRequired from "@/hooks/useLoginRequired";
 import {
@@ -547,6 +547,23 @@ const Fiche = () => {
     [comments, knownUsersList]
   );
 
+  // Compute author badge values before any conditional returns to respect Hooks rules
+  const authoredTermsCount = useMemo(() => {
+    if (!author || !Array.isArray(terms)) return 0;
+    const authorId = author.id ?? author.user_id ?? author.userId;
+    return terms.filter(
+      (t) => String(t.authorId ?? t.author_id) === String(authorId)
+    ).length;
+  }, [author, terms]);
+
+  const authorBadge = useMemo(() => {
+    if (!author) return null;
+    const roleLc = String(author.role || "").toLowerCase();
+    if (roleLc !== "author" && roleLc !== "admin") return null;
+    const byCount = getAuthorBadgeByTermsCount(authoredTermsCount);
+    return byCount || getAuthorBadge(author.termsCount || 0);
+  }, [author, authoredTermsCount]);
+
   if (loading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -581,11 +598,7 @@ const Fiche = () => {
   // Only logged-in users who cannot edit directly can propose modifications
   // This includes chercheur and authors viewing other author's terms
   const canProposeModification = user && !canEditDirectly;
-  // Admin and authors get badges (admin is treated as author for badge purposes)
-  const authorBadge =
-    author && (author.role === "author" || author.role === "admin")
-      ? getAuthorBadge(author.termsCount || 0)
-      : null;
+  // authorBadge computed above
 
   return (
     <>
@@ -884,7 +897,7 @@ const Fiche = () => {
               </Card>
             )}
 
-            {author && authorBadge && (
+            {author && (
               <Card className="shadow-lg border-border/50 bg-card">
                 <CardHeader>
                   <div className="flex items-center gap-4">
@@ -912,12 +925,14 @@ const Fiche = () => {
                       <p className="text-sm text-muted-foreground">
                         {author.professionalStatus}
                       </p>
-                      <Badge variant={authorBadge.variant} className="mt-2">
-                        {React.cloneElement(authorBadge.icon, {
-                          className: "h-3 w-3 mr-1",
-                        })}
-                        {authorBadge.name}
-                      </Badge>
+                      {authorBadge && (
+                        <Badge variant={authorBadge.variant} className="mt-2">
+                          {React.cloneElement(authorBadge.icon, {
+                            className: "h-3 w-3 mr-1",
+                          })}
+                          {authorBadge.name}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </CardHeader>

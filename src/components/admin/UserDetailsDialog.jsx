@@ -28,6 +28,7 @@ import {
 import DocumentViewerDialog from "@/components/DocumentViewerDialog";
 import { getProfilePictureUrl } from "@/lib/avatarUtils";
 import apiService from "@/services/api";
+import { buildUploadUrl } from "@/lib/url";
 
 const SocialIcon = ({ network }) => {
   switch (network.toLowerCase()) {
@@ -349,7 +350,9 @@ const UserDetailsDialog = ({ user }) => {
           const normalized = docs.map((d) => ({
             url:
               d.url ||
-              (d.filename ? `/uploads/documents/${d.filename}` : null) ||
+              (d.filename
+                ? buildUploadUrl(`/uploads/documents/${d.filename}`)
+                : null) ||
               d.file_path ||
               null,
             title: d.original_filename || d.filename || `document-${d.id}`,
