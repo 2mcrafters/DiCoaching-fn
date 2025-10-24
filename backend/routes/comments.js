@@ -35,26 +35,14 @@ const tableExists = async (name) => {
   }
 };
 
-// Best-effort creation of minimal tables/columns (does not throw)
-async function ensureCommentsTables() {
+// Best-effort creation of minimal table (does not throw)
+async function ensureCommentsTable() {
   try {
     await q(`
       CREATE TABLE IF NOT EXISTS comments (
         id INT AUTO_INCREMENT PRIMARY KEY,
         term_id INT NOT NULL,
         user_id INT NOT NULL,
-        parent_id INT NULL,
-        content TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `);
-  } catch {}
-  try {
-    await q(`
-      CREATE TABLE IF NOT EXISTS commentaires (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        term_id INT NOT NULL,
-        author_id INT NOT NULL,
         parent_id INT NULL,
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -72,88 +60,23 @@ async function ensureCommentsTables() {
 router.get("/terms/:termId/comments", async (req, res) => {
   try {
     const { termId } = req.params;
-    await ensureCommentsTables();
+    await ensureCommentsTable();
 
-    const hasEN = await tableExists("comments");
-    const hasFR = await tableExists("commentaires");
-
-    let rows = [];
-
-    if (hasEN && hasFR) {
-      try {
-        rows = await q(
-          `SELECT 
-             c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             u.id AS u_id, 
-             CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
-             CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
-             u.sex, u.role, u.profile_picture
-           FROM comments c
-           LEFT JOIN users u ON u.id = c.user_id
-           WHERE c.term_id = ?
-           UNION ALL
-           SELECT 
-             c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             u.id AS u_id,
-             CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
-             CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
-             u.sex, u.role, u.profile_picture
-           FROM commentaires c
-           LEFT JOIN users u ON u.id = c.author_id
-           WHERE c.term_id = ?
-           ORDER BY createdAt ASC`,
-          [termId, termId]
-        );
-      } catch {
-        rows = await q(
-          `SELECT 
-             c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             NULL AS u_id, NULL AS firstname, NULL AS lastname, NULL AS sex, NULL AS role, NULL AS profile_picture
-           FROM comments c
-           WHERE c.term_id = ?
-           UNION ALL
-           SELECT 
-             c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             NULL AS u_id, NULL AS firstname, NULL AS lastname, NULL AS sex, NULL AS role, NULL AS profile_picture
-           FROM commentaires c
-           WHERE c.term_id = ?
-           ORDER BY createdAt ASC`,
-          [termId, termId]
-        );
-      }
-    } else if (hasEN) {
-      rows = await q(
-        `SELECT 
-           c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
-           c.content, c.created_at AS createdAt,
-           u.id AS u_id, u.firstname, u.lastname, u.sex, u.role, u.profile_picture
-         FROM comments c
-         LEFT JOIN users u ON u.id = c.user_id
-         WHERE c.term_id = ?
-         ORDER BY c.created_at ASC`,
-        [termId]
-      );
-    } else if (hasFR) {
-      rows = await q(
-        `SELECT 
-           c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId,
-           c.content, c.created_at AS createdAt,
-           u.id AS u_id, u.firstname, u.lastname, u.sex, u.role, u.profile_picture
-         FROM commentaires c
-         LEFT JOIN users u ON u.id = c.author_id
-         WHERE c.term_id = ?
-         ORDER BY c.created_at ASC`,
-        [termId]
-      );
-    }
+    const rows = await q(
+      `SELECT 
+         c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
+         CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
+         c.created_at AS createdAt,
+         u.id AS u_id, 
+         CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
+         CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
+         u.sex, u.role, u.profile_picture
+       FROM comments c
+       LEFT JOIN users u ON u.id = c.user_id
+       WHERE c.term_id = ?
+       ORDER BY c.created_at ASC`,
+      [termId]
+    );
 
     const data = rows.map((r) => ({
       id: r.id,
@@ -200,35 +123,19 @@ router.post("/terms/:termId/comments", authenticateToken, async (req, res) => {
         .json({ status: "error", message: "Contenu requis" });
     }
 
-    await ensureCommentsTables();
+    await ensureCommentsTable();
 
     let insert;
-    // Try EN table
-    try {
-      if (parentId !== undefined && parentId !== null) {
-        insert = await q(
-          "INSERT INTO comments (term_id, user_id, content, parent_id, created_at) VALUES (?, ?, ?, ?, NOW())",
-          [termId, userId, text, parentId]
-        );
-      } else {
-        insert = await q(
-          "INSERT INTO comments (term_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())",
-          [termId, userId, text]
-        );
-      }
-    } catch {
-      // Fallback FR table
-      if (parentId !== undefined && parentId !== null) {
-        insert = await q(
-          "INSERT INTO commentaires (term_id, author_id, content, parent_id, created_at) VALUES (?, ?, ?, ?, NOW())",
-          [termId, userId, text, parentId]
-        );
-      } else {
-        insert = await q(
-          "INSERT INTO commentaires (term_id, author_id, content, created_at) VALUES (?, ?, ?, NOW())",
-          [termId, userId, text]
-        );
-      }
+    if (parentId !== undefined && parentId !== null) {
+      insert = await q(
+        "INSERT INTO comments (term_id, user_id, content, parent_id, created_at) VALUES (?, ?, ?, ?, NOW())",
+        [termId, userId, text, parentId]
+      );
+    } else {
+      insert = await q(
+        "INSERT INTO comments (term_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())",
+        [termId, userId, text]
+      );
     }
 
     const id = insert.insertId;
@@ -246,20 +153,8 @@ router.post("/terms/:termId/comments", authenticateToken, async (req, res) => {
        FROM comments c
        LEFT JOIN users u ON u.id = c.user_id
        WHERE c.id = ?
-       UNION ALL
-       SELECT 
-         c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId, 
-         CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-         c.created_at AS createdAt,
-         u.id AS u_id,
-         CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
-         CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
-         u.sex, u.role, u.profile_picture
-       FROM commentaires c
-       LEFT JOIN users u ON u.id = c.author_id
-       WHERE c.id = ?
        LIMIT 1`,
-      [id, id]
+      [id]
     );
 
     const r = rows[0] || {
@@ -315,12 +210,10 @@ router.delete("/comments/:id", authenticateToken, async (req, res) => {
     const requesterId = req.user?.id;
     const requesterRole = String(req.user?.role || "").toLowerCase();
 
-    await ensureCommentsTables();
+  await ensureCommentsTable();
 
-    // Load comment (EN then FR)
+    // Load comment
     let row = (await q("SELECT * FROM comments WHERE id = ?", [id]))[0];
-    if (!row)
-      row = (await q("SELECT * FROM commentaires WHERE id = ?", [id]))[0];
 
     if (!row) {
       return res
@@ -328,7 +221,7 @@ router.delete("/comments/:id", authenticateToken, async (req, res) => {
         .json({ status: "error", message: "Commentaire non trouvé" });
     }
 
-    const ownerId = row.author_id ?? row.user_id;
+  const ownerId = row.user_id;
     const isOwner = String(ownerId) === String(requesterId);
     const isAdmin = requesterRole === "admin";
 
@@ -353,14 +246,9 @@ router.delete("/comments/:id", authenticateToken, async (req, res) => {
       return res.status(403).json({ status: "error", message: "Non autorisé" });
     }
 
-    // Delete children then the comment (both tables, best-effort)
+    // Delete children then the comment
     await q("DELETE FROM comments WHERE parent_id = ?", [id]).catch(() => {});
-    await q("DELETE FROM commentaires WHERE parent_id = ?", [id]).catch(
-      () => {}
-    );
-    await q("DELETE FROM comments WHERE id = ?", [id]).catch(async () => {
-      await q("DELETE FROM commentaires WHERE id = ?", [id]);
-    });
+    await q("DELETE FROM comments WHERE id = ?", [id]).catch(() => {});
 
     res.json({ status: "success" });
   } catch (err) {
@@ -394,74 +282,37 @@ router.get(
           .json({ status: "error", message: "Non autorisé" });
       }
 
-      await ensureCommentsTables();
+      await ensureCommentsTable();
+      const hasTerms = await tableExists("terms");
+      const hasTermes = await tableExists("termes");
 
-      let rows = [];
-      try {
-        // Only query tables that exist: comments + commentaires with termes
-        rows = await q(
-          `SELECT 
-             c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
-             CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
-             NULL AS termSlug,
-             CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
-           FROM comments c
-           LEFT JOIN users u ON u.id = c.user_id
-           LEFT JOIN termes t ON t.id = c.term_id
-           WHERE t.author_id = ?
-           UNION ALL
-           SELECT 
-             c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId,
-             CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-             c.created_at AS createdAt,
-             CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
-             CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
-             NULL AS termSlug,
-             CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
-           FROM commentaires c
-           LEFT JOIN users u ON u.id = c.author_id
-           LEFT JOIN termes t ON t.id = c.term_id
-           WHERE t.author_id = ?
-         ORDER BY createdAt DESC`,
-          [authorId, authorId]
-        );
-      } catch (e) {
-        console.error("[comments] author query error:", e.message);
-        // Fallback without user joins
-        try {
-          rows = await q(
-            `SELECT 
-               c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
-               CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-               c.created_at AS createdAt,
-               NULL AS firstname, NULL AS lastname,
-               NULL AS termSlug,
-               CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
-             FROM comments c
-             LEFT JOIN termes t ON t.id = c.term_id
-             WHERE t.author_id = ?
-             UNION ALL
-             SELECT 
-               c.id, c.term_id AS termId, c.author_id AS authorId, c.parent_id AS parentId,
-               CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
-               c.created_at AS createdAt,
-               NULL AS firstname, NULL AS lastname,
-               NULL AS termSlug,
-               CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle
-             FROM commentaires c
-             LEFT JOIN termes t ON t.id = c.term_id
-             WHERE t.author_id = ?
-           ORDER BY createdAt DESC`,
-            [authorId, authorId]
-          );
-        } catch (e2) {
-          console.error("[comments] fallback query error:", e2.message);
-          rows = [];
-        }
+      let joinClause = "";
+      let selectTitle = "NULL AS termSlug, NULL AS termTitle";
+      if (hasTermes) {
+        joinClause = "LEFT JOIN termes t ON t.id = c.term_id";
+        selectTitle =
+          "NULL AS termSlug, CAST(t.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle";
+      } else if (hasTerms) {
+        joinClause = "LEFT JOIN terms t ON t.id = c.term_id";
+        selectTitle =
+          "t.slug AS termSlug, CAST(t.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitle";
       }
+
+      const rows = await q(
+        `SELECT 
+           c.id, c.term_id AS termId, c.user_id AS authorId, c.parent_id AS parentId,
+           CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content,
+           c.created_at AS createdAt,
+           CAST(u.firstname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS firstname,
+           CAST(u.lastname AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS lastname,
+           ${selectTitle}
+         FROM comments c
+         LEFT JOIN users u ON u.id = c.user_id
+         ${joinClause}
+         ${joinClause ? "WHERE t.author_id = ?" : ""}
+         ORDER BY createdAt DESC`,
+        joinClause ? [authorId] : []
+      );
 
       const data = rows.map((r) => {
         const title = r.termTitle || "";
@@ -507,95 +358,40 @@ router.get(
 router.get("/comments/me", authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.id;
-    await ensureCommentsTables();
-
-    const hasEN = await tableExists("comments");
-    const hasFR = await tableExists("commentaires");
+    await ensureCommentsTable();
     const hasTerms = await tableExists("terms");
     const hasTermes = await tableExists("termes");
 
-    let rows = [];
-
-    // Build EN comments query conditionally
-    if (hasEN) {
-      const selectCols = [
-        "c.id",
-        "c.term_id AS termId",
-        "c.created_at AS createdAt",
-        "CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content",
-      ];
-      const joins = [];
-      if (hasTerms) {
-        selectCols.push(
-          "te.slug AS termSlugEN",
-          "CAST(te.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleEN"
-        );
-        joins.push("LEFT JOIN terms te ON te.id = c.term_id");
-      } else {
-        selectCols.push("NULL AS termSlugEN", "NULL AS termTitleEN");
-      }
-      if (hasTermes) {
-        selectCols.push(
-          "CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR"
-        );
-        joins.push("LEFT JOIN termes tf ON tf.id = c.term_id");
-      } else {
-        selectCols.push("NULL AS termTitleFR");
-      }
-
-      const sqlEN = `SELECT ${selectCols.join(",\n           ")}
-         FROM comments c
-         ${joins.join("\n         ")}
-         WHERE c.user_id = ?`;
-      try {
-        const rEN = await q(sqlEN, [userId]);
-        rows = rows.concat(rEN);
-      } catch (e) {
-        console.error("[comments] me EN query error:", e.message);
-      }
+    const selectCols = [
+      "c.id",
+      "c.term_id AS termId",
+      "c.created_at AS createdAt",
+      "CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content",
+    ];
+    const joins = [];
+    if (hasTerms) {
+      selectCols.push(
+        "te.slug AS termSlugEN",
+        "CAST(te.term AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleEN"
+      );
+      joins.push("LEFT JOIN terms te ON te.id = c.term_id");
+    } else {
+      selectCols.push("NULL AS termSlugEN", "NULL AS termTitleEN");
+    }
+    if (hasTermes) {
+      selectCols.push(
+        "CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR"
+      );
+      joins.push("LEFT JOIN termes tf ON tf.id = c.term_id");
+    } else {
+      selectCols.push("NULL AS termTitleFR");
     }
 
-    // Build FR commentaires query conditionally
-    if (hasFR) {
-      const selectCols = [
-        "c.id",
-        "c.term_id AS termId",
-        "c.created_at AS createdAt",
-        "CAST(c.content AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS content",
-      ];
-      const joins = [];
-      if (hasTerms) {
-        selectCols.push("te.slug AS termSlugEN");
-        joins.push("LEFT JOIN terms te ON te.id = c.term_id");
-      } else {
-        selectCols.push("NULL AS termSlugEN");
-      }
-      if (hasTermes) {
-        selectCols.push(
-          "CAST(tf.terme AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci AS termTitleFR"
-        );
-        joins.push("LEFT JOIN termes tf ON tf.id = c.term_id");
-      } else {
-        selectCols.push("NULL AS termTitleFR");
-      }
-
-      // We don't have EN title from commentaires; add NULL to keep shape
-      selectCols.push("NULL AS termTitleEN");
-
-      const sqlFR = `SELECT ${selectCols.join(",\n           ")}
-         FROM commentaires c
-         ${joins.join("\n         ")}
-         WHERE c.author_id = ?`;
-      try {
-        const rFR = await q(sqlFR, [userId]);
-        rows = rows.concat(rFR);
-      } catch (e) {
-        console.error("[comments] me FR query error:", e.message);
-      }
-    }
-
-    // Sort newest first (DB may not order UNION consistently)
-    rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const sql = `SELECT ${selectCols.join(",\n           ")}
+       FROM comments c
+       ${joins.join("\n         ")}
+       WHERE c.user_id = ?`;
+    const rows = await q(sql, [userId]);
 
     const data = rows.map((r) => {
       const title = r.termTitleEN || r.termTitleFR || "";

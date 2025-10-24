@@ -105,28 +105,18 @@ router.get("/dashboard/stats", authenticateToken, async (req, res) => {
     // COMMENTS STATISTICS
     // ========================================
 
-    // Comments made by user (EN + FR tables)
-    let madeEN = 0,
-      madeFR = 0;
+    // Comments made by user (unified)
     try {
       const [row] = await db.query(
         "SELECT COUNT(*) as count FROM comments WHERE user_id = ?",
         [userId]
       );
-      madeEN = Number(row.count || 0);
-    } catch (_) {}
-    try {
-      const [row] = await db.query(
-        "SELECT COUNT(*) as count FROM commentaires WHERE author_id = ?",
-        [userId]
-      );
-      madeFR = Number(row.count || 0);
-    } catch (_) {}
-    stats.comments.made = madeEN + madeFR;
+      stats.comments.made = Number(row.count || 0);
+    } catch (_) {
+      stats.comments.made = 0;
+    }
 
-    // Comments received on user's terms (EN + FR)
-    let recvEN = 0,
-      recvFR = 0;
+    // Comments received on user's terms (unified)
     try {
       const [row] = await db.query(
         `SELECT COUNT(*) as count 
@@ -135,19 +125,10 @@ router.get("/dashboard/stats", authenticateToken, async (req, res) => {
          WHERE t.author_id = ? AND c.user_id != ?`,
         [userId, userId]
       );
-      recvEN = Number(row.count || 0);
-    } catch (_) {}
-    try {
-      const [row] = await db.query(
-        `SELECT COUNT(*) as count 
-         FROM commentaires c 
-         INNER JOIN termes t ON c.term_id = t.id 
-         WHERE t.author_id = ? AND c.author_id != ?`,
-        [userId, userId]
-      );
-      recvFR = Number(row.count || 0);
-    } catch (_) {}
-    stats.comments.received = recvEN + recvFR;
+      stats.comments.received = Number(row.count || 0);
+    } catch (_) {
+      stats.comments.received = 0;
+    }
 
     // ========================================
     // REPORTS STATISTICS
@@ -292,20 +273,13 @@ router.get("/dashboard/stats", authenticateToken, async (req, res) => {
       );
       stats.global.totalLikes = Number(totalLikes.count || 0);
 
-      // Total comments in system (EN + FR)
-      let totalEN = 0,
-        totalFR = 0;
+      // Total comments in system (unified)
       try {
         const [row] = await db.query("SELECT COUNT(*) as count FROM comments");
-        totalEN = Number(row.count || 0);
-      } catch (_) {}
-      try {
-        const [row] = await db.query(
-          "SELECT COUNT(*) as count FROM commentaires"
-        );
-        totalFR = Number(row.count || 0);
-      } catch (_) {}
-      stats.global.totalComments = totalEN + totalFR;
+        stats.global.totalComments = Number(row.count || 0);
+      } catch (_) {
+        stats.global.totalComments = 0;
+      }
     }
 
     // ========================================
@@ -381,7 +355,7 @@ router.get("/dashboard/chart-data", authenticateToken, async (req, res) => {
       [userId, parseInt(period)]
     );
 
-    // Comments received over time (EN + FR)
+    // Comments received over time (unified)
     const commentsOverTimeEN = await db.query(
       `SELECT DATE(c.created_at) as date, COUNT(*) as count 
        FROM comments c 
@@ -391,32 +365,10 @@ router.get("/dashboard/chart-data", authenticateToken, async (req, res) => {
        ORDER BY date ASC`,
       [userId, parseInt(period)]
     );
-    let commentsOverTimeFR = [];
-    try {
-      commentsOverTimeFR = await db.query(
-        `SELECT DATE(c.created_at) as date, COUNT(*) as count 
-         FROM commentaires c 
-         INNER JOIN termes t ON c.term_id = t.id 
-         WHERE t.author_id = ? AND c.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
-         GROUP BY DATE(c.created_at)
-         ORDER BY date ASC`,
-        [userId, parseInt(period)]
-      );
-    } catch (_) {}
-    const commentsOverTimeMap = new Map();
-    for (const row of commentsOverTimeEN) {
-      commentsOverTimeMap.set(String(row.date), Number(row.count || 0));
-    }
-    for (const row of commentsOverTimeFR) {
-      const key = String(row.date);
-      commentsOverTimeMap.set(
-        key,
-        (commentsOverTimeMap.get(key) || 0) + Number(row.count || 0)
-      );
-    }
-    const commentsOverTime = Array.from(commentsOverTimeMap.entries())
-      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-      .map(([date, count]) => ({ date, count }));
+    const commentsOverTime = commentsOverTimeEN.map((row) => ({
+      date: row.date,
+      count: Number(row.count || 0),
+    }));
 
     res.json({
       status: "success",

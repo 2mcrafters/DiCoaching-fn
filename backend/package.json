@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:init": "mysql -u root -p < database/init.sql",
-    "db:migrate:proposed": "node database/run-proposed-modifications-migration.js"
+    "db:migrate:proposed": "node database/run-proposed-modifications-migration.js",
+    "db:unify:comments": "node database/run-unify-comments-migration.js"
   },
   "keywords": [
     "dictionnaire",
