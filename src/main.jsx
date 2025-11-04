@@ -4,6 +4,7 @@ import App from '@/App';
 import '@/index.css';
 import { initialUsers } from '@/lib/seed';
 import { HelmetProvider } from "react-helmet-async";
+import ErrorBoundary from "@/components/ErrorBoundary";
 // Dynamic import fallback: allows the app to run even if react-redux isn't installed yet.
 
 import { useState, useEffect } from "react";
@@ -19,10 +20,12 @@ function ReduxAppLoader({ children }) {
       try {
         const r = await import("react-redux");
         const s = await import("@/store/store");
+        if (!mounted) return;
         setProvider(() => r.Provider);
         setStore(s.store || s.default || s);
         setReady(true);
       } catch (e) {
+        if (!mounted) return;
         setReady(true); // fallback to non-redux
       }
     }
@@ -141,9 +144,11 @@ window.addEventListener("unhandledrejection", (event) => {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>
-      <ReduxAppLoader>
-        <App />
-      </ReduxAppLoader>
+      <ErrorBoundary>
+        <ReduxAppLoader>
+          <App />
+        </ReduxAppLoader>
+      </ErrorBoundary>
     </HelmetProvider>
   </React.StrictMode>
 );

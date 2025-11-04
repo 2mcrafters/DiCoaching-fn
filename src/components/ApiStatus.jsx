@@ -71,7 +71,7 @@ const ApiStatus = () => {
       )}
 
       <div className="mt-4 text-xs text-gray-500">
-        URL API: http://localhost:5000 | Mode: Données mockées
+        URL API: http://localhost:5001 | Mode: Données mockées
       </div>
     </Card>
   );

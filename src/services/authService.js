@@ -1,6 +1,6 @@
 // Service d'authentification pour communiquer avec l'API backend
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5050/api";
+  import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 class AuthService {
   constructor() {
@@ -57,17 +57,45 @@ class AuthService {
     try {
       const formData = new FormData();
 
-      // Ajouter les données textuelles
+      // Ajouter les données textuelles (avec traitement spécial pour les dates)
+      const toYYYYMMDD = (d) => {
+        try {
+          if (!d) return "";
+          // If already a YYYY-MM-DD string, return as-is
+          if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+            return d;
+          }
+          const dateObj = typeof d === "string" ? new Date(d) : d;
+          if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) return "";
+          const pad = (n) => String(n).padStart(2, "0");
+          const yyyy = dateObj.getFullYear();
+          const mm = pad(dateObj.getMonth() + 1);
+          const dd = pad(dateObj.getDate());
+          return `${yyyy}-${mm}-${dd}`;
+        } catch (_) {
+          return "";
+        }
+      };
+
       Object.keys(userData).forEach((key) => {
-        if (key === "profilePictureFile" || key === "documents") {
+        if (key === "profilePictureFile" || key === "documents" || key === "profilePicture") {
           return; // Skip files for now
         }
-        if (userData[key] !== null && userData[key] !== undefined) {
-          if (typeof userData[key] === "object") {
-            formData.append(key, JSON.stringify(userData[key]));
-          } else {
-            formData.append(key, userData[key]);
-          }
+        const value = userData[key];
+        if (value === null || value === undefined) return;
+
+        // birthDate doit être envoyé en texte 'YYYY-MM-DD' (sans JSON.stringify)
+        if (key === "birthDate") {
+          const formatted = toYYYYMMDD(value);
+          if (formatted) formData.append(key, formatted);
+          return;
+        }
+
+        // Pour les autres objets (ex: socials array), encoder en JSON
+        if (typeof value === "object") {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value);
         }
       });
 

@@ -22,9 +22,11 @@ const Step3AResearcher = ({ formData, setFormData, onBack, onSubmit, loading }) 
         />
       </div>
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={loading}>← Précédent</Button>
-        <Button onClick={onSubmit} disabled={loading}>
-          {loading ? 'Finalisation...' : 'Terminer l’inscription'}
+        <Button type="button" variant="outline" onClick={onBack} disabled={loading}>
+          ← Précédent
+        </Button>
+        <Button type="button" onClick={onSubmit} disabled={loading}>
+          {loading ? "Finalisation..." : "Terminer l'inscription"}
         </Button>
       </div>
     </div>

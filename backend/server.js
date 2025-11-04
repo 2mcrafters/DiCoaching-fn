@@ -31,7 +31,7 @@ const envPath = path.join(__dirname, ".env");
 dotenv.config({ path: envPath });
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const normalizeOrigin = (value, fallback) => {
   const base = value || fallback;
   return base ? base.replace(/\/+$/, "") : undefined;

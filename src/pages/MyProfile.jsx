@@ -53,6 +53,7 @@ import { Badge } from "@/components/ui/badge";
 import DocumentViewerDialog from "@/components/DocumentViewerDialog";
 import apiService from "@/services/api";
 import { buildUploadUrl } from "@/lib/url";
+import { buildDocumentUrl, buildDocumentDownloadUrl } from "@/lib/uploadUtils";
 
 const professionalStatuses = [
   "Étudiant",
@@ -329,14 +330,8 @@ function MyProfile() {
           ? docs.map((d) => ({
               id: d.id,
               title: d.original_filename || d.filename || `document-${d.id}`,
-              url:
-                d.url ||
-                (d.filename
-                  ? buildUploadUrl(`/uploads/documents/${d.filename}`)
-                  : null),
-              downloadUrl:
-                d.downloadUrl ||
-                (d.id ? `/api/documents/download/${d.id}` : null),
+              url: buildDocumentUrl(d),
+              downloadUrl: buildDocumentDownloadUrl(d.id),
               mime: d.mime_type || d.mimeType || null,
               purpose: d.purpose || null,
               status: d.status || null,
@@ -449,9 +444,8 @@ function MyProfile() {
         d.name ||
         d.label ||
         "Document",
-      url: d.url || d.file || d.downloadUrl || d.url || null,
-      downloadUrl:
-        d.downloadUrl || (d.id ? `/api/documents/download/${d.id}` : null),
+      url: buildDocumentUrl(d),
+      downloadUrl: buildDocumentDownloadUrl(d.id),
       id: d.id || null,
       _raw: d,
     }));

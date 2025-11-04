@@ -43,7 +43,7 @@ async function verifyAdminProfilePicture() {
         console.log(`   Modified: ${stats.mtime.toLocaleString()}\n`);
         
         console.log('📸 Profile picture URL:');
-        console.log(`   http://localhost:5000/uploads/profiles/${admin.profile_picture}\n`);
+        console.log(`   http://localhost:5001/uploads/profiles/${admin.profile_picture}\n`);
         
         console.log('✅ The profile picture is correctly set up!');
         console.log('\n📍 Where it displays:');
@@ -54,7 +54,7 @@ async function verifyAdminProfilePicture() {
         console.log('   ✓ User details dialog');
         
         console.log('\n💡 Tips:');
-        console.log('   - Make sure the backend server is running on port 5000');
+        console.log('   - Make sure the backend server is running on port 5001');
         console.log('   - Clear browser cache if changes don\'t appear (Ctrl + Shift + R)');
         console.log('   - Check browser console for any 404 errors on the image');
         

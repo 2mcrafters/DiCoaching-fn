@@ -1,11 +1,11 @@
 // Simple smoke test for Users CRUD against the running backend
 // Usage:
-//   BACKEND_URL=http://localhost:5000 node tools/tests/users-crud.mjs
+//   BACKEND_URL=http://localhost:5001 node tools/tests/users-crud.mjs
 // or via npm script: npm run test:users
 
 import 'dotenv/config';
 
-const BASE = (process.env.BACKEND_URL || "http://localhost:5050").replace(
+const BASE = (process.env.BACKEND_URL || "http://localhost:5051").replace(
   /\/$/,
   ""
 );

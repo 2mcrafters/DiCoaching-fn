@@ -40,7 +40,18 @@ const Step3BAuthor = ({
 
   const handleFileChange = (files) => {
     if (files) {
-      const newFiles = Array.from(files).map((file) => ({
+      const allowed = Array.from(files).filter(
+        (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name)
+      );
+      if (allowed.length === 0) {
+        toast({
+          title: "Fichier non autorisé",
+          description: "Veuillez sélectionner des fichiers PDF uniquement.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const newFiles = allowed.map((file) => ({
         file: file, // Stocker le fichier réel
         name: file.name,
         size: file.size,
@@ -130,6 +141,7 @@ const Step3BAuthor = ({
             type="file"
             className="hidden"
             multiple
+            accept="application/pdf,.pdf"
             onChange={(e) => handleFileChange(e.target.files)}
           />
           <label
@@ -141,7 +153,7 @@ const Step3BAuthor = ({
               <span className="font-semibold">Cliquez pour uploader</span> ou
               glissez-déposez
             </p>
-            <p className="text-xs text-gray-500">PDF, DOCX, etc.</p>
+            <p className="text-xs text-gray-500">Seuls les fichiers PDF sont acceptés.</p>
           </label>
         </div>
         {serverErrors.documents && (
@@ -269,10 +281,10 @@ const Step3BAuthor = ({
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={loading}>
+        <Button type="button" variant="outline" onClick={onBack} disabled={loading}>
           ← Précédent
         </Button>
-        <Button onClick={onSubmit} disabled={loading}>
+        <Button type="button" onClick={onSubmit} disabled={loading}>
           {loading ? "Envoi en cours..." : "Soumettre ma candidature"}
         </Button>
       </div>

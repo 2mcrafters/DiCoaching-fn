@@ -26,11 +26,9 @@ const AddDocumentDialog = ({ onAddDocument, userId }) => {
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (
-      selectedFile &&
-      (selectedFile.type.startsWith("image/") ||
-        selectedFile.type === "application/pdf")
-    ) {
+    // Only allow PDF files on the frontend (server still accepts other document types)
+    const isPdf = selectedFile && (selectedFile.type === "application/pdf" || /\.pdf$/i.test(selectedFile.name));
+    if (selectedFile && isPdf) {
       // enforce 10MB max (server limit is 10MB in uploadService)
       if (selectedFile.size > 10 * 1024 * 1024) {
         setFile(null);
@@ -43,7 +41,7 @@ const AddDocumentDialog = ({ onAddDocument, userId }) => {
       }
     } else {
       setFile(null);
-      setError("Veuillez sélectionner une image ou un fichier PDF.");
+      setError("Veuillez sélectionner un fichier PDF (seuls les PDF sont acceptés).");
     }
   };
 
@@ -140,7 +138,7 @@ const AddDocumentDialog = ({ onAddDocument, userId }) => {
         <DialogHeader>
           <DialogTitle>Ajouter un document</DialogTitle>
           <DialogDescription>
-            Ajoutez un titre et sélectionnez un fichier (image ou PDF).
+            Ajoutez un titre et sélectionnez un fichier. Seuls les fichiers PDF sont acceptés.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -163,7 +161,7 @@ const AddDocumentDialog = ({ onAddDocument, userId }) => {
               <Input
                 id="doc-file"
                 type="file"
-                accept="image/*,.pdf"
+                accept="application/pdf,.pdf"
                 onChange={handleFileChange}
                 className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
               />

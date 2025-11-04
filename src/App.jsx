@@ -83,7 +83,7 @@ const AppContent = () => {
   // }, [user, loading]);
 
   return (
-    <div className="min-h-screen bg-background font-sans flex flex-col px-4 sm:px-6 lg:px-8 xl:px-12">
+    <div className="min-h-screen bg-background font-sans flex flex-col px-1 sm:px-1 lg:px-1 xl:px-1">
       <Navbar />
       <main className="flex-grow">
         <Routes>

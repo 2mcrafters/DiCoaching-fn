@@ -1,4 +1,6 @@
 // Utility functions for avatar management
+import { buildProfilePictureUrl } from './uploadUtils';
+
 export const getGenderAvatar = (userId, gender) => {
   // Generate a consistent seed based on user ID for consistent avatar
   const seed = `user${userId}`;
@@ -29,49 +31,8 @@ export const getGenderAvatarAlternative = (userId, gender) => {
   }
 };
 
-// Normalize stored filename or object to an accessible relative path
-const buildProfilePicturePath = (profilePicture) => {
-  if (!profilePicture) return null;
-
-  // Handle objects returned from some APIs ({ url, path, filename, ... })
-  if (typeof profilePicture === "object") {
-    const candidate =
-      profilePicture.url ||
-      profilePicture.path ||
-      profilePicture.filePath ||
-      profilePicture.filename;
-    return buildProfilePicturePath(candidate);
-  }
-
-  let sanitized = String(profilePicture).trim();
-  if (!sanitized) return null;
-
-  // If it's already an absolute URL (http/https) or a data URI, keep it as-is
-  if (/^(https?:\/\/|data:)/i.test(sanitized)) {
-    return sanitized;
-  }
-
-  sanitized = sanitized.replace(/\\/g, "/").replace(/^\/+/, "");
-
-  // Remove leading uploads/ that might already be part of the stored value
-  if (sanitized.startsWith("uploads/")) {
-    sanitized = sanitized.substring("uploads/".length);
-  }
-
-  const alreadyScoped =
-    sanitized.startsWith("profiles/") || sanitized.startsWith("documents/");
-
-  return alreadyScoped ? sanitized : `profiles/${sanitized}`;
-};
-
 // Get profile picture URL with proper fallback
 export const getProfilePictureUrl = (user = {}) => {
-  const API_BASE_URL =
-    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "")?.replace(
-      /\/+$/,
-      ""
-    ) || "http://localhost:5000";
-
   // Accept a wide range of common fields coming from various backends
   const storedPicture =
     user.profile_picture_url ||
@@ -87,13 +48,12 @@ export const getProfilePictureUrl = (user = {}) => {
     user.photo ||
     user.imageUrl ||
     user.image;
-  const normalizedPath = buildProfilePicturePath(storedPicture);
 
-  if (normalizedPath) {
-    if (/^https?:\/\//i.test(normalizedPath)) {
-      return normalizedPath;
-    }
-    return `${API_BASE_URL}/uploads/${normalizedPath}`;
+  // Try to build profile picture URL from stored data
+  const profileUrl = buildProfilePictureUrl(storedPicture);
+  
+  if (profileUrl) {
+    return profileUrl;
   }
 
   // Otherwise use gender-appropriate avatar

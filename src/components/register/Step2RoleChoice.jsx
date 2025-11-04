@@ -6,8 +6,12 @@ import { BookUser, PenSquare } from 'lucide-react';
 
 const Step2RoleChoice = ({ formData, setFormData, onNext, onBack }) => {
   const handleRoleSelect = (role) => {
+    console.log("Role selected:", role);
     setFormData({ ...formData, role });
-    onNext();
+    // Use setTimeout to ensure state update completes before navigation
+    setTimeout(() => {
+      onNext();
+    }, 0);
   };
 
   return (

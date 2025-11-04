@@ -159,6 +159,15 @@ const UserDetailsDialog = ({ user }) => {
         network: k,
         url: socialsRaw[k],
       }));
+  // Keep only socials with a non-empty, non-placeholder URL
+  const socialLinks = (Array.isArray(socials) ? socials : []).filter((s) => {
+    const url = (s && s.url) || "";
+    if (typeof url !== "string") return false;
+    const u = url.trim();
+    if (!u) return false;
+    const placeholders = ["#", "http://", "https://", "http://#", "https://#"]; 
+    return !placeholders.includes(u);
+  });
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -539,13 +548,13 @@ const UserDetailsDialog = ({ user }) => {
                 </div>
               )}
 
-              {socials && socials.length > 0 && (
+              {socialLinks.length > 0 && (
                 <div className="rounded-lg border bg-background shadow-sm">
                   <div className="px-4 py-3 border-b font-semibold">
                     Réseaux Sociaux
                   </div>
                   <div className="p-4 space-y-2">
-                    {socials.map((social, index) => (
+                    {socialLinks.map((social, index) => (
                       <a
                         key={index}
                         href={social.url}
@@ -650,14 +659,7 @@ const UserDetailsDialog = ({ user }) => {
                                   Ouvrir
                                 </a>
                               )}
-                              {f.downloadUrl && (
-                                <a
-                                  className="text-sm text-primary hover:underline"
-                                  href={f.downloadUrl}
-                                >
-                                  Télécharger
-                                </a>
-                              )}
+                              
                             </div>
                           </div>
                         </div>
@@ -704,38 +706,7 @@ const UserDetailsDialog = ({ user }) => {
                 </div>
               )}
 
-              <div className="mt-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={downloadAsTxt}>
-                    Télécharger TXT
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowRaw((s) => !s)}
-                  >
-                    {showRaw ? "Masquer TEXTE brut" : "Afficher TEXTE brut"}
-                  </Button>
-                </div>
-                {showRaw && (
-                  <div className="mt-2 max-h-48 overflow-auto text-sm bg-slate-50 p-3 rounded whitespace-pre-wrap">
-                    {`Nom: ${getDisplayName(effectiveUser || user)}\nEmail: ${
-                      (effectiveUser || user || {}).email || "—"
-                    }\nRôle: ${
-                      (effectiveUser || user || {}).role || "—"
-                    }\nStatut: ${
-                      (effectiveUser || user || {}).status ||
-                      (effectiveUser || user || {}).state ||
-                      "—"
-                    }\nInscrit le: ${createdAtLabel}\n\nBiographie:\n${
-                      (effectiveUser || user || {}).biography ||
-                      (effectiveUser || user || {}).bio ||
-                      (effectiveUser || user || {}).description ||
-                      "—"
-                    }`}
-                  </div>
-                )}
-              </div>
+             
             </div>
           </div>
         </DialogContent>

@@ -56,6 +56,7 @@ const normalizeUser = (user = {}) => {
       user.professionalStatus ||
       FALLBACK_PROFESSION,
     profile_picture: user.profile_picture || null,
+    profile_picture_url: user.profile_picture_url || null,
     biography: user.biography || "",
     termsAdded: user.termsAdded || 0,
     score: user.score || 0,
@@ -138,6 +139,7 @@ const Authors = () => {
           FALLBACK_PROFESSION,
         biography: base.biography || entry.biography || "",
         profile_picture: base.profile_picture || entry.profile_picture || null,
+        profile_picture_url: base.profile_picture_url || null,
         sex: base.sex || entry.sex,
         termsAdded: entry.terms.length,
         score: Math.max(base.score || 0, entry.terms.length),
@@ -175,6 +177,8 @@ const Authors = () => {
           ...normalized,
           profile_picture:
             normalized.profile_picture || existing.profile_picture,
+          profile_picture_url:
+            normalized.profile_picture_url || existing.profile_picture_url,
           termsAdded: Math.max(
             existing.termsAdded || 0,
             normalized.termsAdded || 0
@@ -186,6 +190,7 @@ const Authors = () => {
         combined.set(id, {
           ...normalized,
           profile_picture: normalized.profile_picture || null,
+          profile_picture_url: normalized.profile_picture_url || null,
         });
       }
     });
@@ -222,6 +227,7 @@ const Authors = () => {
           ),
           score: Math.max(existing.score || 0, author.score || 0),
           profile_picture: author.profile_picture || existing.profile_picture,
+          profile_picture_url: author.profile_picture_url || existing.profile_picture_url,
           professionalStatus:
             author.professionalStatus || existing.professionalStatus,
         });

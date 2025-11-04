@@ -17,6 +17,20 @@ const AuthorCard = ({ author }) => {
       : (Number(author.termsAdded) || 0) * 10;
   const badge = getAuthorBadge(badgeScore);
 
+  // Get profile picture URL with proper handling
+  const profilePictureUrl = getProfilePictureUrl(author);
+  
+  // Debug log (remove in production)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('AuthorCard:', {
+      id: author.id,
+      name: author.name,
+      profile_picture: author.profile_picture,
+      profile_picture_url: author.profile_picture_url,
+      resolvedUrl: profilePictureUrl
+    });
+  }
+
   return (
     <motion.div
       whileHover={{ y: -5, scale: 1.02 }}
@@ -26,7 +40,7 @@ const AuthorCard = ({ author }) => {
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6">
           <Avatar className="h-24 w-24 mx-auto border-4 border-white shadow-lg">
             <AvatarImage
-              src={getProfilePictureUrl(author)}
+              src={profilePictureUrl}
               alt={`${author.firstname} ${author.lastname}`}
             />
             <AvatarFallback>

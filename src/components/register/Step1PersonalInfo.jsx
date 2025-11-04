@@ -28,6 +28,7 @@ const Step1PersonalInfo = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [imageLoading, setImageLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   const professionalStatuses = [
@@ -41,38 +42,76 @@ const Step1PersonalInfo = ({
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.firstName) newErrors.firstName = "Le prénom est requis.";
-    if (!formData.lastName) newErrors.lastName = "Le nom est requis.";
+    
+    // Trim values to avoid whitespace issues
+    const firstName = (formData.firstName || "").trim();
+    const lastName = (formData.lastName || "").trim();
+    const email = (formData.email || "").trim();
+    const phone = (formData.phone || "").trim();
+    const password = formData.password || "";
+    const confirmPassword = formData.confirmPassword || "";
+    
+    if (!firstName) newErrors.firstName = "Le prénom est requis.";
+    if (!lastName) newErrors.lastName = "Le nom est requis.";
     if (!formData.sex) newErrors.sex = "Le sexe est requis.";
-    if (!formData.phone) newErrors.phone = "Le numéro de téléphone est requis.";
-    else {
+    
+    if (!phone) {
+      newErrors.phone = "Le numéro de téléphone est requis.";
+    } else {
       // Allow digits, spaces, +, - and parentheses; require 8-15 digits
-      const digits = (formData.phone.match(/\d/g) || []).length;
-      if (digits < 8 || digits > 15)
-        newErrors.phone =
-          "Le numéro de téléphone est invalide (8-15 chiffres attendus).";
+      const digits = (phone.match(/\d/g) || []).length;
+      if (digits < 8 || digits > 15) {
+        newErrors.phone = "Le numéro de téléphone est invalide (8-15 chiffres attendus).";
+      }
     }
-    if (!formData.email) newErrors.email = "L'email est requis.";
-    else if (!/\S+@\S+\.\S+/.test(formData.email))
+    
+    if (!email) {
+      newErrors.email = "L'email est requis.";
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = "L'email est invalide.";
-    if (!formData.password) newErrors.password = "Le mot de passe est requis.";
-    else if (formData.password.length < 6)
+    }
+    
+    if (!password) {
+      newErrors.password = "Le mot de passe est requis.";
+    } else if (password.length < 6) {
       newErrors.password = "Le mot de passe doit faire au moins 6 caractères.";
-    if (formData.password !== formData.confirmPassword)
+    }
+    
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Veuillez confirmer le mot de passe.";
+    } else if (password !== confirmPassword) {
       newErrors.confirmPassword = "Les mots de passe ne correspondent pas.";
-    if (!formData.professionalStatus)
+    }
+    
+    if (!formData.professionalStatus) {
       newErrors.professionalStatus = "Le statut est requis.";
-    if (formData.professionalStatus === "Autre" && !formData.otherStatus)
+    } else if (formData.professionalStatus === "Autre" && !(formData.otherStatus || "").trim()) {
       newErrors.otherStatus = "Veuillez préciser votre statut.";
+    }
 
     setErrors(newErrors);
+    
+    // Log errors for debugging
+    if (Object.keys(newErrors).length > 0) {
+      console.log("Validation errors:", newErrors);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
-    if (validate()) {
+  const handleNext = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    const isValid = validate();
+    
+    if (isValid) {
+      console.log("Form is valid, proceeding to next step");
       onNext();
     } else {
+      console.log("Form has errors, staying on current step");
       toast({
         title: "Champs manquants ou invalides",
         description: "Veuillez corriger les erreurs avant de continuer.",
@@ -84,13 +123,53 @@ const Step1PersonalInfo = ({
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Stocker le fichier réel pour l'upload
-      setFormData({ ...formData, profilePictureFile: file });
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Fichier invalide",
+          description: "Veuillez sélectionner une image.",
+          variant: "destructive",
+        });
+        return;
+      }
 
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Fichier trop volumineux",
+          description: "La taille du fichier ne doit pas dépasser 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setImageLoading(true);
+      
       // Créer une prévisualisation
       const reader = new FileReader();
       reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, profilePicture: reader.result }));
+        const result = reader.result;
+        console.log("Image loaded successfully:", file.name, "Size:", result.length);
+        // IMPORTANT: setFormData here is a prop (not React's setState). It expects a plain object
+        // of updates to merge, not an updater function. Passing a function would be ignored.
+        setFormData({
+          profilePictureFile: file,
+          profilePicture: result,
+        });
+        setImageLoading(false);
+        
+        toast({
+          title: "Photo ajoutée",
+          description: `${file.name} a été chargé avec succès.`,
+        });
+      };
+      reader.onerror = () => {
+        setImageLoading(false);
+        toast({
+          title: "Erreur",
+          description: "Impossible de lire le fichier.",
+          variant: "destructive",
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -103,29 +182,74 @@ const Step1PersonalInfo = ({
       </h2>
       <div className="space-y-4">
         <div className="flex flex-col items-center space-y-2">
-          <Avatar className="h-24 w-24">
-            <AvatarImage
-              src={
-                formData.profilePicture ||
-                (formData.sex
-                  ? getGenderAvatar("temp", formData.sex)
-                  : undefined)
-              }
-              alt="Photo de profil"
-            />
-            <AvatarFallback>
-              <User className="h-12 w-12" />
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative h-24 w-24">
+            {formData.profilePicture ? (
+              <div className="relative h-24 w-24 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100">
+                <img
+                  src={formData.profilePicture}
+                  alt="Photo de profil"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    console.error("Image failed to load");
+                    // Reset to show fallback avatar on error
+                    setFormData({
+                      profilePicture: null,
+                      profilePictureFile: null,
+                    });
+                  }}
+                  onLoad={() => {
+                    console.log("Image loaded and displayed");
+                  }}
+                />
+                {imageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full z-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="relative h-24 w-24">
+                <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                  <AvatarImage
+                    src={
+                      formData.sex
+                        ? getGenderAvatar("temp", formData.sex)
+                        : undefined
+                    }
+                    alt="Photo de profil"
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-gradient-to-br from-purple-100 to-blue-100">
+                    <User className="h-12 w-12 text-purple-600" />
+                  </AvatarFallback>
+                </Avatar>
+                {imageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full z-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => fileInputRef.current.click()}
+            disabled={imageLoading}
           >
             <Upload className="mr-2 h-4 w-4" />
-            Changer la photo
+            {imageLoading
+              ? "Chargement..."
+              : formData.profilePicture
+              ? "Changer la photo"
+              : "Ajouter une photo"}
           </Button>
+          {formData.profilePictureFile && (
+            <p className="text-xs text-muted-foreground">
+              {formData.profilePictureFile.name} ({(formData.profilePictureFile.size / 1024).toFixed(0)} Ko)
+            </p>
+          )}
           <Input
             type="file"
             ref={fileInputRef}
@@ -402,7 +526,7 @@ const Step1PersonalInfo = ({
         )}
       </div>
       <div className="flex justify-end">
-        <Button onClick={handleNext}>Suivant →</Button>
+        <Button type="button" onClick={handleNext}>Suivant →</Button>
       </div>
     </div>
   );
