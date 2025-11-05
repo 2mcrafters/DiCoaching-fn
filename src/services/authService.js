@@ -1,6 +1,9 @@
 // Service d'authentification pour communiquer avec l'API backend
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+let API_BASE_URL = import.meta.env.VITE_API_URL || "";
+if (!API_BASE_URL && typeof window !== "undefined" && window.location?.origin) {
+  API_BASE_URL = `${window.location.origin}/api`;
+}
+API_BASE_URL = String(API_BASE_URL || "").replace(/\/+$/g, "");
 
 class AuthService {
   constructor() {

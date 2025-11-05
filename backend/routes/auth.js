@@ -21,11 +21,12 @@ const normalizeRole = (role) => {
   return r || "researcher";
 };
 
-const formatUserForResponse = (user) => {
+const formatUserForResponse = (user, req) => {
   if (!user) return user;
   const formatted = { ...user };
   const { profile_picture, profile_picture_url } = resolveProfilePicturePayload(
-    formatted.profile_picture
+    formatted.profile_picture,
+    req
   );
   formatted.profile_picture = profile_picture;
   formatted.profile_picture_url = profile_picture_url;
@@ -137,7 +138,7 @@ router.post("/login", async (req, res) => {
 
     // Retourner les données de l'utilisateur (sans le mot de passe) et le token
     const { password: _, ...userWithoutPassword } = user;
-    const formattedUser = formatUserForResponse(userWithoutPassword);
+  const formattedUser = formatUserForResponse(userWithoutPassword, req);
 
     res.json({
       status: "success",
@@ -420,7 +421,7 @@ router.post(
               status: userStatus,
             };
 
-      const formattedUser = formatUserForResponse(createdUser);
+  const formattedUser = formatUserForResponse(createdUser, req);
 
       res.status(201).json({
         status: "success",
@@ -473,7 +474,7 @@ router.get("/me", authenticateToken, async (req, res) => {
       }
     }
 
-    const formattedUser = formatUserForResponse(userRecord);
+  const formattedUser = formatUserForResponse(userRecord, req);
 
     res.json({
       status: "success",

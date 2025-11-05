@@ -1,10 +1,14 @@
 // Helpers to build URLs based on Vite env
 
 export const getApiBaseUrl = () => {
-  let base = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
-  base = base.replace(/\/+$/g, "");
+  // Prefer explicit env; else infer from window origin (when frontend served by backend)
+  let base = import.meta.env.VITE_API_URL || "";
+  if (!base && typeof window !== "undefined" && window.location?.origin) {
+    base = `${window.location.origin}/api`;
+  }
+  base = String(base || "").replace(/\/+$/g, "");
   if (base.endsWith("/api")) base = base.slice(0, -4);
-  return base;
+  return base; // may be empty => buildUploadUrl will return relative URL
 };
 
 // Build an absolute URL for files served by backend static "/uploads"

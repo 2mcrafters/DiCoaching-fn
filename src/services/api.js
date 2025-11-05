@@ -1,9 +1,12 @@
 // Configuration de l'API
 import authService from './authService';
 
-let API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+let API_BASE_URL = import.meta.env.VITE_API_URL || "";
+if (!API_BASE_URL && typeof window !== "undefined" && window.location?.origin) {
+  API_BASE_URL = `${window.location.origin}/api`;
+}
 // Normalize base URL: remove trailing slash and trailing '/api' if present
-API_BASE_URL = API_BASE_URL.replace(/\/+$/g, "");
+API_BASE_URL = String(API_BASE_URL || "").replace(/\/+$/g, "");
 if (API_BASE_URL.endsWith("/api")) {
   API_BASE_URL = API_BASE_URL.slice(0, -4);
 }

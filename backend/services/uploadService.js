@@ -178,16 +178,30 @@ const isHttpUrl = (value) =>
   typeof value === "string" && /^https?:\/\//i.test(value);
 
 // Get file URL for serving
-export const getFileUrl = (filename, subfolder = '') => {
+export const getFileUrl = (filename, subfolder = '', reqOrBase) => {
   if (!filename) return null;
   if (isHttpUrl(filename)) {
     return filename;
   }
 
-  const baseUrl = (process.env.BASE_URL || "http://localhost:5001").replace(
-    /\/+$/,
-    ""
-  );
+  // Resolve base URL in order of preference: explicit param -> request host -> env -> localhost
+  const resolveBaseUrl = (hint) => {
+    if (typeof hint === "string" && hint.trim()) {
+      return hint.replace(/\/+$/, "");
+    }
+    if (hint && typeof hint.get === "function") {
+      const proto =
+        hint.get("x-forwarded-proto") || hint.protocol || "http";
+      const host = hint.get("x-forwarded-host") || hint.get("host");
+      if (host) return `${proto}://${host}`.replace(/\/+$/, "");
+    }
+    const envBase = (process.env.BASE_URL || "").trim();
+    if (envBase) return envBase.replace(/\/+$/, "");
+    const port = process.env.PORT ? `:${process.env.PORT}` : ":5001";
+    return `http://localhost${port}`;
+  };
+
+  const baseUrl = resolveBaseUrl(reqOrBase);
   let filePath = filename;
 
   if (subfolder) {
@@ -236,7 +250,7 @@ export const normalizeProfilePicturePath = (value) => {
   return sanitized;
 };
 
-export const resolveProfilePicturePayload = (value) => {
+export const resolveProfilePicturePayload = (value, reqOrBase) => {
   const normalized = normalizeProfilePicturePath(value);
 
   if (!normalized) {
@@ -255,7 +269,7 @@ export const resolveProfilePicturePayload = (value) => {
 
   return {
     profile_picture: normalized,
-    profile_picture_url: getFileUrl(normalized),
+    profile_picture_url: getFileUrl(normalized, '', reqOrBase),
   };
 };
 

@@ -31,7 +31,7 @@ router.get("/user/:userId", async (req, res) => {
       const filename = d.filename || d.original_filename || null;
       return {
         ...d,
-        url: filename ? getFileUrl(filename, "documents") : null,
+        url: filename ? getFileUrl(filename, "documents", req) : null,
         downloadUrl: d.id ? `/api/documents/download/${d.id}` : null,
       };
     });
@@ -135,7 +135,7 @@ router.post(
           mime_type: file.mimetype,
           purpose,
           status: "pending",
-          url: getFileUrl(file.filename, "documents"),
+          url: getFileUrl(file.filename, "documents", req),
           downloadUrl: `/api/documents/download/${result.insertId}`,
         });
       }

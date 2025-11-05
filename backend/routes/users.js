@@ -16,11 +16,12 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-const formatUserRecord = (user) => {
+const formatUserRecord = (user, req) => {
   if (!user) return user;
   const formatted = { ...user };
   const { profile_picture, profile_picture_url } = resolveProfilePicturePayload(
-    formatted.profile_picture
+    formatted.profile_picture,
+    req
   );
   formatted.profile_picture = profile_picture;
   formatted.profile_picture_url = profile_picture_url;
@@ -105,7 +106,7 @@ router.get("/", async (req, res) => {
       ORDER BY created_at DESC
     `);
 
-    const formattedUsers = users.map(formatUserRecord);
+  const formattedUsers = users.map((u) => formatUserRecord(u, req));
 
     res.json({
       status: "success",
@@ -208,7 +209,7 @@ router.post("/:id/approve-author", authenticateToken, async (req, res) => {
     res.json({
       status: "success",
       message: "Auteur approuvé avec succès",
-      data: formatUserRecord(updated),
+  data: formatUserRecord(updated, req),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -283,7 +284,7 @@ router.post("/:id/reject-author", authenticateToken, async (req, res) => {
     res.json({
       status: "success",
       message: "Auteur rejeté avec succès",
-      data: formatUserRecord(updated),
+  data: formatUserRecord(updated, req),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -326,7 +327,7 @@ router.get("/:id", async (req, res) => {
       }
     }
 
-    const formattedUser = formatUserRecord(userRecord);
+  const formattedUser = formatUserRecord(userRecord, req);
 
     res.json({
       status: "success",
@@ -762,7 +763,7 @@ router.patch(
         }
       }
 
-      const formattedUser = formatUserRecord(userRecord);
+  const formattedUser = formatUserRecord(userRecord, req);
 
       res.json({
         status: "success",
