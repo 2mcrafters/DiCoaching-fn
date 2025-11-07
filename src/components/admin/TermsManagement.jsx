@@ -47,7 +47,7 @@ import {
   PaginationNext,
   PaginationPrevious,
   PaginationEllipsis,
-} from "@/components/ui/pagination";
+} from "@/components/ui/Pagination";
 import {
   Dialog,
   DialogContent,

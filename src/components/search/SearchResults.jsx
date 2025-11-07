@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination';
+import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/Pagination';
 import SharePopover from '@/components/SharePopover';
 import { Calendar, User, BookOpen, Loader2, AlertTriangle, Share2, ArrowRight } from 'lucide-react';
 
