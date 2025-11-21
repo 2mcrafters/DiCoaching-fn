@@ -180,15 +180,12 @@ const Home = () => {
 
   // ✅ checklist content for the “À propos” section
   const bioPoints = [
-    "Coach professionnel certifié et Membre de l’ICF, actuellement coach de dirigeants, formateur en coaching interculturel et consultant en RH, organisation et stratégie.",
-    "Diplômé en droit privé et en management, ancien Directeur général d’un grand groupe industriel, avec une longue expérience de responsabilités.",
-    "Praticien en PNL et AT, docteur en psychologie clinique et auteur du Dictionnaire du Coach Global.",
+    "Coach professionnel, actuellement chercheur en Coaching, formateur en coaching interculturel. Ancien consultant en RH, organisation et stratégie.",
+    "Diplômé en droit privé et en management, ancien Directeur dans plusieurs groupes industriels, avec une longue expérience des responsabilités.",
+    "Praticien en PNL et AT,",
+    "Auteur du Dictionnaire du Coach Global (2014) et auteur du présent Dictionnaire en ligne, toujours en cours de mise à jour.",
     "Centres d’intérêts : anthropologie, culture d’entreprise, socio-psychologie et interculturel.",
-    "Fondateur de l’association Trait d’Union Pour le Handicap (Marrakech, 2006).",
-    "Fondateur du Centre d’Éveil (Marrakech, 2004) pour la prise en charge pluridisciplinaire des personnes à capacités réduites.",
-    "Psychologue impliqué dans la prévention psychologique des projets SOS Villages d’Enfants Maroc.",
-    "Psychologue et psychothérapeute pour enfants et adultes (cabinets à Marrakech et Casablanca).",
-    "Consultant et formateur de renommée.",
+    "Consultant et formateur.",
     "Conférencier régulier.",
   ];
 
@@ -670,7 +667,7 @@ const Home = () => {
                 <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-2xl p-8 border border-purple-100 dark:border-purple-900/30">
                   <h3 className="text-2xl font-bold mb-4 text-foreground flex items-center gap-3">
                     <div className="w-1 h-8 bg-gradient-to-b from-purple-500 to-blue-500 rounded-full"></div>
-                    Un parcours d'excellence
+                    Parcours, engagements et contributions majeures
                   </h3>
                   <p className="text-muted-foreground leading-relaxed text-lg">
                     Pionnier du coaching professionnel, Mohamed Rachid Belhadj a
