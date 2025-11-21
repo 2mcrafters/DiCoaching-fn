@@ -38,6 +38,9 @@ import {
   Link as LinkIcon,
   Camera,
   BadgeInfo,
+  Eye,
+  EyeOff,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -112,12 +115,19 @@ const SocialIcon = ({ network }) => {
 };
 
 const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
+  const { logout } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  // Visibility states
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChangePassword = async () => {
     if (newPassword !== confirmPassword) {
@@ -133,34 +143,49 @@ const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
     setError("");
 
     try {
-      // TODO: Implement password change API endpoint
-      // For now, keep the localStorage approach until backend endpoint is ready
-      const allUsers = JSON.parse(
-        localStorage.getItem("coaching_dict_users") || "[]"
+      const response = await authService.authenticatedRequest(
+        "/auth/change-password",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+          }),
+        }
       );
-      const userIndex = allUsers.findIndex((u) => u.id === userId);
 
-      if (userIndex === -1) {
-        setError("Utilisateur non trouvé.");
-        return;
+      const data = await response.json();
+
+      if (data.status === "success") {
+        onPasswordChanged();
+        setIsDialogOpen(false);
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        toast({
+          title: "Succès",
+          description: "Mot de passe modifié avec succès",
+        });
+      } else {
+        if (data.message === "Token invalide") {
+          toast({
+            title: "Session expirée",
+            description:
+              "Veuillez vous reconnecter pour changer votre mot de passe.",
+            variant: "destructive",
+          });
+          setTimeout(() => {
+            logout();
+          }, 2000);
+        } else {
+          setError(data.message || "Erreur lors du changement de mot de passe");
+        }
       }
-
-      if (allUsers[userIndex].password !== currentPassword) {
-        setError("Le mot de passe actuel est incorrect.");
-        return;
-      }
-
-      allUsers[userIndex].password = newPassword;
-      localStorage.setItem("coaching_dict_users", JSON.stringify(allUsers));
-
-      setError("");
-      onPasswordChanged();
-      setIsDialogOpen(false);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
     } catch (error) {
-      setError("Erreur lors du changement de mot de passe");
+      if (error.message === "Session expirée, veuillez vous reconnecter") {
+        logout();
+      }
+      setError(error.message || "Erreur de connexion au serveur");
     } finally {
       setLoading(false);
     }
@@ -185,37 +210,76 @@ const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
             <Label htmlFor="currentPassword" className="text-right">
               Actuel
             </Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="col-span-3"
-            />
+            <div className="col-span-3 relative">
+              <Input
+                id="currentPassword"
+                type={showCurrentPassword ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="newPassword" className="text-right">
               Nouveau
             </Label>
-            <Input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="col-span-3"
-            />
+            <div className="col-span-3 relative">
+              <Input
+                id="newPassword"
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="confirmPassword" className="text-right">
               Confirmer
             </Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="col-span-3"
-            />
+            <div className="col-span-3 relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
           {error && (
             <p className="col-span-4 text-center text-red-500 text-sm">
@@ -231,8 +295,19 @@ const ChangePasswordDialog = ({ userId, onPasswordChanged }) => {
           >
             Annuler
           </Button>
-          <Button type="submit" onClick={handleChangePassword}>
-            Confirmer
+          <Button
+            type="submit"
+            onClick={handleChangePassword}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Modification...
+              </>
+            ) : (
+              "Confirmer"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

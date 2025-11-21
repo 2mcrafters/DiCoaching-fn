@@ -149,16 +149,35 @@ const Home = () => {
   };
 
   // Update suggestions when search query changes
-  // Only search in term names that start with the search query
+  // Logic: Starts with -> Includes in title -> Includes in definition
   React.useEffect(() => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      const filtered = terms
-        .filter((term) => term.status === "published")
-        .filter((term) => term.term.toLowerCase().startsWith(query))
-        .slice(0, 10); // Show top 10 suggestions with scroll
+      const publishedTerms = terms.filter(
+        (term) => term.status === "published"
+      );
 
-      setSuggestions(filtered);
+      // 1. First rule: search the first letter (starts with)
+      let filtered = publishedTerms.filter((term) =>
+        term.term.toLowerCase().startsWith(query)
+      );
+
+      // 2. If not found, search for all title letter (includes in title)
+      if (filtered.length === 0) {
+        filtered = publishedTerms.filter((term) =>
+          term.term.toLowerCase().includes(query)
+        );
+      }
+
+      // 3. If not found, search from definition of it
+      if (filtered.length === 0) {
+        filtered = publishedTerms.filter(
+          (term) =>
+            term.definition && term.definition.toLowerCase().includes(query)
+        );
+      }
+
+      setSuggestions(filtered.slice(0, 10));
       setShowSuggestions(true);
     } else {
       setSuggestions([]);
@@ -231,10 +250,47 @@ const Home = () => {
   return (
     <>
       <Helmet>
-        <title>Dicoaching - Dictionnaire Collaboratif du Coaching</title>
+        <title>Dictionnaire du Coaching : Lexique, Définitions et Outils</title>
         <meta
           name="description"
-          content="Découvrez le dictionnaire collaboratif du coaching. Consultez, créez et enrichissez des fiches sur les concepts du coaching avec notre communauté."
+          content="Le 1er Dictionnaire Collaboratif du Coaching. +1000 définitions : coaching professionnel, personnel, outils, méthodes et développement personnel. Rejoignez la communauté !"
+        />
+        <meta
+          name="keywords"
+          content="dictionnaire du coaching, lexique du coaching, définitions coaching, coaching professionnel, coaching de vie, outils de coaching, développement personnel, posture de coach"
+        />
+        <link rel="canonical" href="https://dicoaching.com/" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://dicoaching.com/" />
+        <meta
+          property="og:title"
+          content="Dictionnaire du Coaching : Lexique, Définitions et Outils"
+        />
+        <meta
+          property="og:description"
+          content="Le 1er Dictionnaire Collaboratif du Coaching. +1000 définitions : coaching professionnel, personnel, outils, méthodes et développement personnel."
+        />
+        <meta
+          property="og:image"
+          content="https://dicoaching.com/og-image.jpg"
+        />
+
+        {/* Twitter */}
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content="https://dicoaching.com/" />
+        <meta
+          property="twitter:title"
+          content="Dictionnaire du Coaching : Lexique, Définitions et Outils"
+        />
+        <meta
+          property="twitter:description"
+          content="Le 1er Dictionnaire Collaboratif du Coaching. +1000 définitions : coaching professionnel, personnel, outils, méthodes et développement personnel."
+        />
+        <meta
+          property="twitter:image"
+          content="https://dicoaching.com/twitter-image.jpg"
         />
       </Helmet>
 

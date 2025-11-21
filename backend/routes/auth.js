@@ -64,7 +64,8 @@ export const authenticateToken = (req, res, next) => {
 // Route de connexion
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    if (email) email = email.trim();
 
     console.log("🔐 Tentative de connexion:", email);
 
@@ -114,7 +115,26 @@ router.post("/login", async (req, res) => {
     });
 
     // Vérifier le mot de passe
-    const validPassword = await bcrypt.compare(password, user.password);
+    let validPassword = await bcrypt.compare(password, user.password);
+
+    // Fallback: try trimming the password if the first attempt failed
+    if (!validPassword && password.trim() !== password) {
+      validPassword = await bcrypt.compare(password.trim(), user.password);
+      if (validPassword) {
+        console.log(
+          "⚠️ Connexion réussie après suppression des espaces dans le mot de passe"
+        );
+      }
+    }
+
+    console.log(
+      `🔐 Vérification mot de passe pour ${email} (ID: ${user.id}): ${
+        validPassword ? "OK" : "ECHEC"
+      }`
+    );
+    if (!validPassword) {
+      console.log(`❌ Hash en base: ${user.password.substring(0, 10)}...`);
+    }
 
     if (!validPassword) {
       return res.status(401).json({
@@ -138,7 +158,7 @@ router.post("/login", async (req, res) => {
 
     // Retourner les données de l'utilisateur (sans le mot de passe) et le token
     const { password: _, ...userWithoutPassword } = user;
-  const formattedUser = formatUserForResponse(userWithoutPassword, req);
+    const formattedUser = formatUserForResponse(userWithoutPassword, req);
 
     res.json({
       status: "success",
@@ -421,7 +441,7 @@ router.post(
               status: userStatus,
             };
 
-  const formattedUser = formatUserForResponse(createdUser, req);
+      const formattedUser = formatUserForResponse(createdUser, req);
 
       res.status(201).json({
         status: "success",
@@ -474,7 +494,7 @@ router.get("/me", authenticateToken, async (req, res) => {
       }
     }
 
-  const formattedUser = formatUserForResponse(userRecord, req);
+    const formattedUser = formatUserForResponse(userRecord, req);
 
     res.json({
       status: "success",
@@ -494,12 +514,74 @@ router.get("/me", authenticateToken, async (req, res) => {
 });
 
 // Route de déconnexion (côté client, on supprime juste le token)
-router.post('/logout', (req, res) => {
+router.post("/logout", (req, res) => {
   res.json({
-    status: 'success',
-    message: 'Déconnexion réussie',
-    timestamp: new Date().toISOString()
+    status: "success",
+    message: "Déconnexion réussie",
+    timestamp: new Date().toISOString(),
   });
+});
+
+// Route de changement de mot de passe
+router.post("/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Le mot de passe actuel et le nouveau mot de passe sont requis",
+      });
+    }
+
+    // Récupérer l'utilisateur avec son mot de passe
+    const users = await db.query("SELECT * FROM users WHERE id = ?", [userId]);
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Utilisateur non trouvé",
+      });
+    }
+
+    const user = users[0];
+
+    // Vérifier le mot de passe actuel
+    const validPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!validPassword) {
+      return res.status(401).json({
+        status: "error",
+        message: "Mot de passe actuel incorrect",
+      });
+    }
+
+    // Hasher le nouveau mot de passe (trimming to avoid accidental spaces)
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword.trim(), saltRounds);
+
+    // Mettre à jour le mot de passe
+    const updateResult = await db.query(
+      "UPDATE users SET password = ? WHERE id = ?",
+      [hashedPassword, userId]
+    );
+
+    console.log(
+      `🔐 Mot de passe mis à jour pour l'utilisateur ${userId}. Rows affected: ${updateResult.affectedRows}`
+    );
+
+    res.json({
+      status: "success",
+      message: "Mot de passe modifié avec succès",
+    });
+  } catch (error) {
+    console.error("❌ Erreur lors du changement de mot de passe:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Erreur interne du serveur",
+    });
+  }
 });
 
 export default router;
