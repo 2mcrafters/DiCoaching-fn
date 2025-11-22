@@ -41,7 +41,7 @@ const NotFoundPage = () => {
         />
       </Helmet>
 
-      <div className="min-h-screen creative-bg flex items-center justify-center p-4 overflow-hidden">
+      <div className="min-h-screen creative-bg flex items-center justify-center py-4 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="max-w-4xl w-full relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

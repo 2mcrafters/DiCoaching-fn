@@ -45,10 +45,13 @@ const NetworkError = () => {
     <>
       <Helmet>
         <title>Erreur de connexion | Dictionnaire Collaboratif</title>
-        <meta name="description" content="Problème de connexion réseau détecté." />
+        <meta
+          name="description"
+          content="Problème de connexion réseau détecté."
+        />
       </Helmet>
 
-      <div className="min-h-screen creative-bg flex items-center justify-center p-4">
+      <div className="min-h-screen creative-bg flex items-center justify-center py-4 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl w-full relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -71,13 +74,13 @@ const NetworkError = () => {
                 transition={{
                   duration: 2,
                   repeat: Infinity,
-                  ease: "easeInOut"
+                  ease: "easeInOut",
                 }}
               >
                 <div className="relative">
                   <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full" />
                   <WifiOff className="h-32 w-32 text-amber-500 relative z-10" />
-                  
+
                   {/* Animated signal waves */}
                   <motion.div
                     className="absolute top-0 right-0"
@@ -88,7 +91,7 @@ const NetworkError = () => {
                     transition={{
                       duration: 2,
                       repeat: Infinity,
-                      ease: "easeInOut"
+                      ease: "easeInOut",
                     }}
                   >
                     <Signal className="h-12 w-12 text-amber-400" />
@@ -104,13 +107,17 @@ const NetworkError = () => {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="mb-8"
             >
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 mb-4 ${
-                isOnline 
-                  ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
-                  : 'border-red-500 bg-red-50 dark:bg-red-950/20'
-              }`}>
+              <div
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 mb-4 ${
+                  isOnline
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/20"
+                    : "border-red-500 bg-red-50 dark:bg-red-950/20"
+                }`}
+              >
                 <motion.div
-                  className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${
+                    isOnline ? "bg-green-500" : "bg-red-500"
+                  }`}
                   animate={{
                     scale: [1, 1.2, 1],
                     opacity: [1, 0.5, 1],
@@ -118,11 +125,17 @@ const NetworkError = () => {
                   transition={{
                     duration: 2,
                     repeat: Infinity,
-                    ease: "easeInOut"
+                    ease: "easeInOut",
                   }}
                 />
-                <span className={`font-medium ${isOnline ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                  {isOnline ? 'Connexion rétablie' : 'Hors ligne'}
+                <span
+                  className={`font-medium ${
+                    isOnline
+                      ? "text-green-700 dark:text-green-300"
+                      : "text-red-700 dark:text-red-300"
+                  }`}
+                >
+                  {isOnline ? "Connexion rétablie" : "Hors ligne"}
                 </span>
               </div>
 
@@ -130,10 +143,9 @@ const NetworkError = () => {
                 Problème de connexion
               </h1>
               <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-                {isOnline 
+                {isOnline
                   ? "Votre connexion semble rétablie. Vous pouvez réessayer de charger la page."
-                  : "Impossible de se connecter au serveur. Veuillez vérifier votre connexion Internet."
-                }
+                  : "Impossible de se connecter au serveur. Veuillez vérifier votre connexion Internet."}
               </p>
             </motion.div>
 
@@ -162,7 +174,8 @@ const NetworkError = () => {
                     <span className="text-xs font-bold text-primary">2</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Essayez de désactiver puis réactiver le Wi-Fi ou les données mobiles
+                    Essayez de désactiver puis réactiver le Wi-Fi ou les données
+                    mobiles
                   </p>
                 </div>
                 <div className="flex items-start gap-3">
@@ -178,7 +191,8 @@ const NetworkError = () => {
                     <span className="text-xs font-bold text-primary">4</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Si le problème persiste, contactez votre administrateur réseau
+                    Si le problème persiste, contactez votre administrateur
+                    réseau
                   </p>
                 </div>
               </div>
@@ -197,8 +211,10 @@ const NetworkError = () => {
                 size="lg"
                 className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
               >
-                <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
-                {isChecking ? 'Vérification...' : 'Réessayer'}
+                <RefreshCw
+                  className={`h-4 w-4 ${isChecking ? "animate-spin" : ""}`}
+                />
+                {isChecking ? "Vérification..." : "Réessayer"}
               </Button>
 
               <Button
@@ -212,7 +228,7 @@ const NetworkError = () => {
               </Button>
 
               <Button
-                onClick={() => window.location.href = '/'}
+                onClick={() => (window.location.href = "/")}
                 variant="outline"
                 size="lg"
                 className="flex items-center gap-2"
@@ -244,7 +260,7 @@ const NetworkError = () => {
             transition={{
               duration: 4,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
           />
           <motion.div
@@ -257,7 +273,7 @@ const NetworkError = () => {
               duration: 5,
               repeat: Infinity,
               ease: "easeInOut",
-              delay: 1
+              delay: 1,
             }}
           />
         </div>

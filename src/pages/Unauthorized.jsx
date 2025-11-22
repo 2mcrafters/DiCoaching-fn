@@ -21,10 +21,13 @@ const Unauthorized = () => {
     <>
       <Helmet>
         <title>403 - Accès refusé | Dictionnaire Collaboratif</title>
-        <meta name="description" content="Vous n'avez pas les permissions nécessaires pour accéder à cette page." />
+        <meta
+          name="description"
+          content="Vous n'avez pas les permissions nécessaires pour accéder à cette page."
+        />
       </Helmet>
 
-      <div className="min-h-screen creative-bg flex items-center justify-center p-4 overflow-hidden">
+      <div className="min-h-screen creative-bg flex items-center justify-center py-4 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="max-w-3xl w-full relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -37,10 +40,10 @@ const Unauthorized = () => {
               className="mb-8 flex justify-center"
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
-              transition={{ 
+              transition={{
                 duration: 0.8,
                 type: "spring",
-                stiffness: 100
+                stiffness: 100,
               }}
             >
               <motion.div
@@ -51,7 +54,7 @@ const Unauthorized = () => {
                 transition={{
                   duration: 2,
                   repeat: Infinity,
-                  ease: "easeInOut"
+                  ease: "easeInOut",
                 }}
               >
                 <div className="relative">
@@ -66,7 +69,7 @@ const Unauthorized = () => {
                     transition={{
                       duration: 2,
                       repeat: Infinity,
-                      ease: "easeInOut"
+                      ease: "easeInOut",
                     }}
                   >
                     <Lock className="h-16 w-16 text-red-600" />
@@ -97,14 +100,16 @@ const Unauthorized = () => {
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
                 Accès refusé
               </h2>
-              
+
               {user ? (
                 <>
                   <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-2">
-                    Désolé, vous n'avez pas les permissions nécessaires pour accéder à cette page.
+                    Désolé, vous n'avez pas les permissions nécessaires pour
+                    accéder à cette page.
                   </p>
                   <p className="text-muted-foreground">
-                    Cette section est réservée aux administrateurs ou aux utilisateurs avec des rôles spécifiques.
+                    Cette section est réservée aux administrateurs ou aux
+                    utilisateurs avec des rôles spécifiques.
                   </p>
                 </>
               ) : (
@@ -135,18 +140,24 @@ const Unauthorized = () => {
                     <div className="flex items-start gap-3">
                       <LogIn className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="font-medium text-foreground">Connectez-vous</p>
+                        <p className="font-medium text-foreground">
+                          Connectez-vous
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          Si vous avez déjà un compte, connectez-vous pour accéder à votre contenu
+                          Si vous avez déjà un compte, connectez-vous pour
+                          accéder à votre contenu
                         </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <UserPlus className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="font-medium text-foreground">Créez un compte</p>
+                        <p className="font-medium text-foreground">
+                          Créez un compte
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          Inscrivez-vous gratuitement pour accéder aux fonctionnalités du dictionnaire
+                          Inscrivez-vous gratuitement pour accéder aux
+                          fonctionnalités du dictionnaire
                         </p>
                       </div>
                     </div>
@@ -156,18 +167,24 @@ const Unauthorized = () => {
                     <div className="flex items-start gap-3">
                       <Home className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="font-medium text-foreground">Retournez à l'accueil</p>
+                        <p className="font-medium text-foreground">
+                          Retournez à l'accueil
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          Explorez le dictionnaire et les sections accessibles à tous
+                          Explorez le dictionnaire et les sections accessibles à
+                          tous
                         </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <ShieldAlert className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="font-medium text-foreground">Demandez des autorisations</p>
+                        <p className="font-medium text-foreground">
+                          Demandez des autorisations
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          Si vous pensez que vous devriez avoir accès, contactez un administrateur
+                          Si vous pensez que vous devriez avoir accès, contactez
+                          un administrateur
                         </p>
                       </div>
                     </div>
@@ -225,7 +242,7 @@ const Unauthorized = () => {
             transition={{
               duration: 4,
               repeat: Infinity,
-              ease: "easeInOut"
+              ease: "easeInOut",
             }}
           />
           <motion.div
@@ -238,7 +255,7 @@ const Unauthorized = () => {
               duration: 5,
               repeat: Infinity,
               ease: "easeInOut",
-              delay: 1
+              delay: 1,
             }}
           />
         </div>

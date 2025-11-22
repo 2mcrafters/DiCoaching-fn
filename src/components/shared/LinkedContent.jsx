@@ -6,15 +6,19 @@ import { Button } from '@/components/ui/button';
 
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const createLinkedContentRecursive = (text, publishedTerms) => {
+const createLinkedContentRecursive = (text, publishedTerms, usedSlugs) => {
   if (!text) return [text];
 
   for (const { term, slug } of publishedTerms) {
+    if (usedSlugs && usedSlugs.has(slug)) continue;
+
     const safe = escapeRegex(term);
     const regex = new RegExp(`\\b(${safe})\\b`, "gi");
     const match = regex.exec(text);
 
     if (match) {
+      if (usedSlugs) usedSlugs.add(slug);
+
       const before = text.slice(0, match.index);
       const matchedTerm = match[0];
       const after = text.slice(match.index + matchedTerm.length);
@@ -27,7 +31,8 @@ const createLinkedContentRecursive = (text, publishedTerms) => {
       if (overlappingTerms.length > 0) {
         const innerParts = createLinkedContentRecursive(
           matchedTerm,
-          overlappingTerms
+          overlappingTerms,
+          usedSlugs
         );
         linkContent = innerParts;
       } else {
@@ -78,9 +83,9 @@ const createLinkedContentRecursive = (text, publishedTerms) => {
       }
 
       return [
-        ...createLinkedContentRecursive(before, publishedTerms),
+        ...createLinkedContentRecursive(before, publishedTerms, usedSlugs),
         finalElement,
-        ...createLinkedContentRecursive(after, publishedTerms),
+        ...createLinkedContentRecursive(after, publishedTerms, usedSlugs),
       ];
     }
   }
@@ -89,28 +94,36 @@ const createLinkedContentRecursive = (text, publishedTerms) => {
 };
 
 const LinkedContent = ({ text }) => {
-    const { terms } = useData();
+  const { terms } = useData();
 
-    const publishedTerms = React.useMemo(() =>
-        terms
-            .filter(t => t.status === 'published')
-            .map(t => ({ term: t.term, slug: t.slug }))
-            .sort((a, b) => b.term.length - a.term.length),
-        [terms]
-    );
+  const publishedTerms = React.useMemo(
+    () =>
+      terms
+        .filter((t) => t.status === "published")
+        .map((t) => ({ term: t.term, slug: t.slug }))
+        .sort((a, b) => b.term.length - a.term.length),
+    [terms]
+  );
 
-    const contentParts = React.useMemo(() => {
-        if (!text || publishedTerms.length === 0) {
-            return text ? [text] : [];
-        }
-        return createLinkedContentRecursive(text, publishedTerms);
-    }, [text, publishedTerms]);
-
-    if (!text) {
-        return null;
+  const contentParts = React.useMemo(() => {
+    if (!text || publishedTerms.length === 0) {
+      return text ? [text] : [];
     }
+    const usedSlugs = new Set();
+    return createLinkedContentRecursive(text, publishedTerms, usedSlugs);
+  }, [text, publishedTerms]);
 
-    return <>{contentParts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>)}</>;
+  if (!text) {
+    return null;
+  }
+
+  return (
+    <>
+      {contentParts.map((part, index) => (
+        <React.Fragment key={index}>{part}</React.Fragment>
+      ))}
+    </>
+  );
 };
 
 export default LinkedContent;

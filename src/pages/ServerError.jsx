@@ -44,7 +44,7 @@ const ServerError = () => {
         />
       </Helmet>
 
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-background to-muted px-4 py-8">
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-background to-muted px-4 sm:px-6 lg:px-8 py-8">
         {/* Animated background blobs */}
         <motion.div
           variants={blobVariants}
@@ -85,7 +85,10 @@ const ServerError = () => {
               className="flex justify-center relative"
             >
               <div className="relative">
-                <ServerCrash className="h-32 w-32 text-red-500" strokeWidth={1.5} />
+                <ServerCrash
+                  className="h-32 w-32 text-red-500"
+                  strokeWidth={1.5}
+                />
                 <motion.div
                   animate={{
                     rotate: [0, 10, -10, 10, 0],
@@ -140,10 +143,11 @@ const ServerError = () => {
                   Erreur Serveur
                 </h2>
               </div>
-              
+
               <p className="text-lg text-muted-foreground max-w-md mx-auto">
-                Oups ! Quelque chose s'est mal passé sur nos serveurs. 
-                Nos équipes techniques sont déjà au courant et travaillent à résoudre le problème.
+                Oups ! Quelque chose s'est mal passé sur nos serveurs. Nos
+                équipes techniques sont déjà au courant et travaillent à
+                résoudre le problème.
               </p>
             </motion.div>
 
@@ -224,7 +228,9 @@ const ServerError = () => {
               transition={{ delay: 0.7 }}
               className="text-sm text-muted-foreground"
             >
-              Code d'erreur : <span className="font-mono font-semibold text-red-500">500</span> - Internal Server Error
+              Code d'erreur :{" "}
+              <span className="font-mono font-semibold text-red-500">500</span>{" "}
+              - Internal Server Error
             </motion.p>
           </motion.div>
         </div>

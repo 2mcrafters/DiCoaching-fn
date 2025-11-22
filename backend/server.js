@@ -38,14 +38,9 @@ const normalizeOrigin = (value, fallback) => {
 };
 const FRONTEND_URL = normalizeOrigin(
   process.env.FRONTEND_URL,
-  "http://localhost:3000"
+  "http://127.0.0.1:5000"
 );
-const corsOptions = {
-  origin: ['http://rachidbelhadj.com', 'http://www.rachidbelhadj.com'],
-};
 
-// Appliquer CORS
-app.use(cors(corsOptions));
 // Support both localhost and 127.0.0.1 to avoid CORS/CSP mismatches
 const FRONTEND_ALIAS = FRONTEND_URL?.includes("localhost")
   ? FRONTEND_URL.replace("localhost", "127.0.0.1")

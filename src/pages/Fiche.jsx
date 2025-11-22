@@ -20,6 +20,7 @@ import SharePopover from "@/components/SharePopover";
 import LinkedContent from "@/components/shared/LinkedContent";
 import LinkedContentWithUrls from "@/components/shared/LinkedContentWithUrls";
 import { getAuthorBadge, getAuthorBadgeByTermsCount } from "@/lib/badges";
+import { getProfilePictureUrl } from "@/lib/avatarUtils";
 import LoginRequiredPopup from "@/components/ui/LoginRequiredPopup";
 import useLoginRequired from "@/hooks/useLoginRequired";
 import {
@@ -618,7 +619,7 @@ const Fiche = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="max-w-7xl mx-auto py-16"
+          className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8"
         >
           <div className="mb-8">
             <Button
@@ -697,7 +698,7 @@ const Fiche = () => {
                   className="flex items-center gap-2 hover:text-foreground"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={author.profilePicture} />
+                    <AvatarImage src={getProfilePictureUrl(author)} />
                     <AvatarFallback>
                       {(computeDisplayName(author) || "A").charAt(0)}
                     </AvatarFallback>
@@ -726,7 +727,7 @@ const Fiche = () => {
         </motion.div>
       </div>
 
-      <div className="max-w-7xl mx-auto py-12">
+      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row lg:gap-12">
           <div className="flex-grow lg:w-2/3 space-y-8">
             <Card className="shadow-lg border-t-4 border-primary bg-card">
@@ -904,7 +905,7 @@ const Fiche = () => {
                     <Link to={`/author/${author.id}`}>
                       <Avatar className="h-16 w-16">
                         <AvatarImage
-                          src={author.profilePicture}
+                          src={getProfilePictureUrl(author)}
                           alt={
                             computeDisplayName(author) ||
                             "Mohamed Rachid Belhadj"

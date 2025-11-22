@@ -244,7 +244,7 @@ const Introduction = () => {
       {/* Hero */}
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10 opacity-30 blur-3xl bg-gradient-to-tr from-blue-300 via-cyan-200 to-indigo-300 dark:from-blue-900 dark:via-indigo-800 dark:to-sky-900" />
-        <div className="max-w-6xl mx-auto pt-14 pb-10 md:pb-14">
+        <div className="max-w-6xl mx-auto pt-14 pb-10 md:pb-14 px-4 sm:px-6 lg:px-8">
           <h1
             className="text-3xl md:text-5xl font-extrabold tracking-tight"
             style={{ color: "#884dee" }}
@@ -258,7 +258,7 @@ const Introduction = () => {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto pb-20 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10">
+      <main className="max-w-6xl mx-auto pb-20 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-10 px-4 sm:px-6 lg:px-8">
         {/* Sidebar: Sommaire + Features */}
         <aside className="lg:sticky lg:top-10 self-start bg-white/70 dark:bg-zinc-900/60 backdrop-blur rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm space-y-6">
           <div>

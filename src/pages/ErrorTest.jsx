@@ -71,10 +71,13 @@ const ErrorTest = () => {
     <>
       <Helmet>
         <title>Error Pages Test | DictCoaching</title>
-        <meta name="description" content="Test all error pages and error handling scenarios" />
+        <meta
+          name="description"
+          content="Test all error pages and error handling scenarios"
+        />
       </Helmet>
 
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-6xl">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4">Error Pages Testing</h1>
           <p className="text-lg text-muted-foreground">
@@ -92,7 +95,9 @@ const ErrorTest = () => {
                 onClick={() => handleNavigate(page)}
               >
                 <CardHeader>
-                  <div className={`w-16 h-16 rounded-full ${page.bgColor} flex items-center justify-center mb-4`}>
+                  <div
+                    className={`w-16 h-16 rounded-full ${page.bgColor} flex items-center justify-center mb-4`}
+                  >
                     <Icon className={`h-8 w-8 ${page.color}`} />
                   </div>
                   <CardTitle className="text-xl">{page.title}</CardTitle>
@@ -132,22 +137,48 @@ const ErrorTest = () => {
             <div>
               <h3 className="font-semibold mb-2">🎯 Expected Behavior:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                <li><strong>404:</strong> Shows search box and popular pages</li>
-                <li><strong>403:</strong> Context-aware message (authenticated vs not)</li>
-                <li><strong>Network:</strong> Real-time online/offline status</li>
-                <li><strong>500:</strong> Shows troubleshooting steps</li>
-                <li><strong>React Error:</strong> Shows error details with retry option</li>
+                <li>
+                  <strong>404:</strong> Shows search box and popular pages
+                </li>
+                <li>
+                  <strong>403:</strong> Context-aware message (authenticated vs
+                  not)
+                </li>
+                <li>
+                  <strong>Network:</strong> Real-time online/offline status
+                </li>
+                <li>
+                  <strong>500:</strong> Shows troubleshooting steps
+                </li>
+                <li>
+                  <strong>React Error:</strong> Shows error details with retry
+                  option
+                </li>
               </ul>
             </div>
 
             <div>
               <h3 className="font-semibold mb-2">🔧 Manual Testing:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                <li><strong>Test 404:</strong> Navigate to any non-existent URL</li>
-                <li><strong>Test 403:</strong> Try accessing /admin without admin role</li>
-                <li><strong>Test Network:</strong> Turn off WiFi/Ethernet and reload</li>
-                <li><strong>Test 500:</strong> Temporarily break a backend endpoint</li>
-                <li><strong>Test React Error:</strong> Click the React Error card above</li>
+                <li>
+                  <strong>Test 404:</strong> Navigate to any non-existent URL
+                </li>
+                <li>
+                  <strong>Test 403:</strong> Try accessing /admin without admin
+                  role
+                </li>
+                <li>
+                  <strong>Test Network:</strong> Turn off WiFi/Ethernet and
+                  reload
+                </li>
+                <li>
+                  <strong>Test 500:</strong> Temporarily break a backend
+                  endpoint
+                </li>
+                <li>
+                  <strong>Test React Error:</strong> Click the React Error card
+                  above
+                </li>
               </ul>
             </div>
 

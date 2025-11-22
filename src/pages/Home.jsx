@@ -297,7 +297,7 @@ const Home = () => {
       <div className="min-h-screen">
         <section className="relative overflow-visible creative-hero-bg text-white">
           <div className="absolute inset-0 hero-pattern opacity-20"></div>
-          <div className="relative max-w-7xl mx-auto py-24 lg:py-32">
+          <div className="relative max-w-7xl mx-auto py-24 lg:py-32 px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -429,7 +429,7 @@ const Home = () => {
         </section>
 
         <section className="py-20 bg-background transition-all duration-500 hover:bg-muted/20">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -472,7 +472,7 @@ const Home = () => {
 
         {/* Why We Created This Dictionary - Creative Section */}
         <section className="py-20 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:from-gray-900 dark:via-purple-900/5 dark:to-blue-900/5 transition-all duration-700 hover:from-purple-100 hover:via-blue-50 hover:to-purple-50 dark:hover:from-gray-800 dark:hover:via-purple-900/10 dark:hover:to-blue-900/10">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -615,7 +615,7 @@ const Home = () => {
             ></div>
           </div>
 
-          <div className="max-w-7xl mx-auto relative z-10 px-4">
+          <div className="max-w-7xl mx-auto relative z-10 px-4 sm:px-6 lg:px-8">
             {/* Section Header with decorative line */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -767,7 +767,7 @@ const Home = () => {
         </section>
 
         <section className="py-20 bg-background transition-all duration-500 hover:bg-muted/20">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -811,7 +811,7 @@ const Home = () => {
         </section>
 
         <section className="py-20 creative-hero-bg text-white transition-all duration-700 hover:scale-[1.01]">
-          <div className="max-w-4xl mx-auto text-center">
+          <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
